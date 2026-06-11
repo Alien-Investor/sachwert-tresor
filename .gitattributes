@@ -1,0 +1,7 @@
+# git-crypt: alles verschlüsseln außer explizit ausgenommene Dateien
+* filter=git-crypt diff=git-crypt
+
+# Klartext-Ausnahmen (git-crypt-Metadaten + diese Steuerdateien)
+.gitattributes !filter !diff
+.gitignore !filter !diff
+.git-crypt/** !filter !diff

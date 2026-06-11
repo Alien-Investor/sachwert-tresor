@@ -1,0 +1,11 @@
+# Exportierte Vault-Dateien gehören NICHT ins Repo (enthalten verschlüsselte Bestände)
+*.vault
+
+# lokale Secrets / Daten
+.env
+.env.*
+data/
+
+# OS-Müll
+.DS_Store
+Thumbs.db
