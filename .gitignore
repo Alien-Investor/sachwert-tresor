@@ -9,3 +9,7 @@ data/
 # OS-Müll
 .DS_Store
 Thumbs.db
+
+# lokale Test-Helfer (maschinenspezifischer playwright-core/Brave-Pfad)
+serve-test.mjs
+ui-roundtrip-test.mjs
