@@ -13,3 +13,17 @@ Thumbs.db
 # lokale Test-Helfer (maschinenspezifischer playwright-core/Brave-Pfad)
 serve-test.mjs
 ui-roundtrip-test.mjs
+csv-import-test.mjs
+
+# Capacitor / Android-Build (regenerierbar aus web-Assets + capacitor.config.json)
+node_modules/
+www/
+android/
+gradle-build.log
+release-build.log
+
+# SIGNATUR-GEHEIMNISSE — NIEMALS committen
+*.keystore
+*.jks
+keystore.properties
+release-signing.properties
