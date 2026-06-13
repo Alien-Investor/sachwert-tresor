@@ -6,6 +6,7 @@
 .gitignore !filter !diff
 .git-crypt/** !filter !diff
 
-# Öffentliche Nutzer-Doku (bewusst KLARTEXT, damit sie auf der Codeberg-Seite rendert —
-# enthält KEINE Geheimnisse, nur Install-Anleitung + Signatur-Fingerprint)
-INSTALL.md !filter !diff
+# Öffentliche Nutzer-Doku (bewusst KLARTEXT, damit sie auf der Codeberg-Startseite rendert —
+# enthält KEINE Geheimnisse, nur Install/Bedienung + Signatur-Fingerprint).
+# Build-/Keystore-/Deploy-Interna liegen verschlüsselt in BUILD.md (KEINE Ausnahme).
+README.md !filter !diff
