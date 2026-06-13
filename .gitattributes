@@ -10,3 +10,4 @@
 # enthält KEINE Geheimnisse, nur Install/Bedienung + Signatur-Fingerprint).
 # Build-/Keystore-/Deploy-Interna liegen verschlüsselt in BUILD.md (KEINE Ausnahme).
 README.md !filter !diff
+CHANGELOG.md !filter !diff
