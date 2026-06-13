@@ -5,3 +5,7 @@
 .gitattributes !filter !diff
 .gitignore !filter !diff
 .git-crypt/** !filter !diff
+
+# Öffentliche Nutzer-Doku (bewusst KLARTEXT, damit sie auf der Codeberg-Seite rendert —
+# enthält KEINE Geheimnisse, nur Install-Anleitung + Signatur-Fingerprint)
+INSTALL.md !filter !diff
