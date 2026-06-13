@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v1.7 — 2026-06-13
+
+- **Neu: Sprachumschalter Deutsch/Englisch.** Der „DE/EN"-Button oben links schaltet die
+  komplette Oberfläche (inkl. Handbuch) um — offline, ohne Netz. Standard nach Gerätesprache,
+  Auswahl wird gemerkt. Englischsprachige können den Tresor jetzt vollständig nutzen.
+
 ## v1.6 — 2026-06-13
 
 - **Fix (App):** CSV-Exporte (Steuertool/Verkäufe/Edelmetalle) und „QR als Bild speichern"

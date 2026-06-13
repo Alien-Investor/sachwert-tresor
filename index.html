@@ -118,6 +118,8 @@ tr:hover td{color:var(--neon);}
 .seg button.on{color:var(--neon);background:var(--neon-dim);border-color:var(--neon-mid);}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card-bg);border:1px solid var(--neon-mid);color:var(--neon);padding:10px 18px;border-radius:4px;z-index:50;font-size:.8rem;letter-spacing:1px;box-shadow:0 0 20px rgba(0,255,204,.3);}
 .help-btn{position:absolute;top:0;right:0;width:36px;height:36px;border:1px solid var(--neon-mid);border-radius:50%;background:var(--neon-dim);color:var(--neon);font-family:'Orbitron',sans-serif;font-weight:700;font-size:1.05rem;cursor:pointer;z-index:5;display:flex;align-items:center;justify-content:center;}
+.lang-btn{position:absolute;top:0;left:0;height:36px;padding:0 10px;border:1px solid var(--neon-mid);border-radius:18px;background:var(--neon-dim);color:var(--neon);font-family:'Orbitron',sans-serif;font-weight:700;font-size:.7rem;letter-spacing:1px;cursor:pointer;z-index:5;}
+.lang-btn:hover{box-shadow:0 0 12px rgba(0,255,204,.45);}
 .help-btn:hover{box-shadow:0 0 12px rgba(0,255,204,.45);}
 .help-overlay{position:fixed;inset:0;background:rgba(0,8,6,.975);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .help-inner{max-width:760px;margin:0 auto;padding:0 18px 60px;}
@@ -161,26 +163,27 @@ tr:hover td{color:var(--neon);}
   <div class="app-head">
     <div class="header-glow"></div>
     <button class="help-btn" onclick="App.openHelp()" title="Handbuch" aria-label="Hilfe / Handbuch">?</button>
+    <button class="lang-btn" id="lang-btn" onclick="App.toggleLang()" title="Sprache / Language">DE</button>
     <div class="logo">Sachwert-Tresor</div>
-    <div class="tagline">Bitcoin · Gold · Silber — lokal &amp; verschlüsselt</div>
+    <div class="tagline" data-i18n="tagline">Bitcoin · Gold · Silber — lokal &amp; verschlüsselt</div>
   </div>
 
   <!-- ===================== SETUP (Erstinbetriebnahme) ===================== -->
   <div id="screen-setup" class="gate hidden">
     <div class="card">
       <div class="lockicon"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="11" cy="12" r="4"/><path d="M11 8.4v1.4M11 14.2v1.4M7.4 12h1.4M13.2 12h1.4"/><circle cx="11" cy="12" r="1"/><path d="M19 9.5v5"/></svg></div>
-      <h2>Tresor einrichten</h2>
-      <p class="muted">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via PBKDF2). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
-      <label>Passphrase</label>
-      <input id="setup-pass1" type="password" autocomplete="new-password" placeholder="mind. 8 Zeichen, besser eine Wortfolge">
-      <label>Passphrase wiederholen</label>
+      <h2 data-i18n="setup.title">Tresor einrichten</h2>
+      <p class="muted" data-i18n-html="setup.intro">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via PBKDF2). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
+      <label data-i18n="lbl.passphrase">Passphrase</label>
+      <input id="setup-pass1" type="password" autocomplete="new-password" placeholder="mind. 8 Zeichen, besser eine Wortfolge" data-i18n-ph="setup.ph1">
+      <label data-i18n="setup.repeat">Passphrase wiederholen</label>
       <input id="setup-pass2" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')App.doSetup()">
       <label style="display:flex;gap:6px;align-items:center;margin-top:8px;cursor:pointer;text-transform:none;letter-spacing:0">
-        <input type="checkbox" style="width:auto" onclick="var t=this.checked?'text':'password';document.getElementById('setup-pass1').type=t;document.getElementById('setup-pass2').type=t;"> Passphrase anzeigen (zum Kontrollieren)
+        <input type="checkbox" style="width:auto" onclick="var t=this.checked?'text':'password';document.getElementById('setup-pass1').type=t;document.getElementById('setup-pass2').type=t;"> <span data-i18n="setup.showpass">Passphrase anzeigen (zum Kontrollieren)</span>
       </label>
       <div id="setup-err" class="warn hidden" style="margin-top:12px"></div>
-      <button id="setup-btn" class="btn" style="margin-top:16px;width:100%" onclick="App.doSetup()">Tresor erstellen</button>
-      <p class="muted" style="margin-top:14px">Aegis-2FA kannst du nach dem Einrichten in den Einstellungen aktivieren.</p>
+      <button id="setup-btn" class="btn" style="margin-top:16px;width:100%" onclick="App.doSetup()" data-i18n="setup.create">Tresor erstellen</button>
+      <p class="muted" style="margin-top:14px" data-i18n="setup.aegishint">Aegis-2FA kannst du nach dem Einrichten in den Einstellungen aktivieren.</p>
     </div>
   </div>
 
@@ -188,14 +191,14 @@ tr:hover td{color:var(--neon);}
   <div id="screen-lock" class="gate hidden">
     <div class="card">
       <div class="lockicon"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><circle cx="12" cy="14.5" r="1.3"/><path d="M12 15.8v1.6"/></svg></div>
-      <h2>Tresor entsperren</h2>
-      <label>Passphrase</label>
+      <h2 data-i18n="lock.title">Tresor entsperren</h2>
+      <label data-i18n="lbl.passphrase">Passphrase</label>
       <input id="lock-pass" type="password" autocomplete="off" onkeydown="if(event.key==='Enter')App.doUnlock()">
       <label style="display:flex;gap:6px;align-items:center;margin-top:6px;cursor:pointer;text-transform:none;letter-spacing:0">
-        <input type="checkbox" style="width:auto" onclick="document.getElementById('lock-pass').type=this.checked?'text':'password'"> Passphrase anzeigen
+        <input type="checkbox" style="width:auto" onclick="document.getElementById('lock-pass').type=this.checked?'text':'password'"> <span data-i18n="lock.showpass">Passphrase anzeigen</span>
       </label>
       <div id="lock-err" class="warn hidden" style="margin-top:12px"></div>
-      <button id="unlock-btn" class="btn" style="margin-top:16px;width:100%" onclick="App.doUnlock()">Entsperren</button>
+      <button id="unlock-btn" class="btn" style="margin-top:16px;width:100%" onclick="App.doUnlock()" data-i18n="lock.unlock">Entsperren</button>
     </div>
   </div>
 
@@ -203,39 +206,39 @@ tr:hover td{color:var(--neon);}
   <div id="screen-totp" class="gate hidden">
     <div class="card">
       <div class="lockicon"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l7 2.5v5.6c0 4.3-3 7.1-7 8.4-4-1.3-7-4.1-7-8.4V5.5L12 3z"/><path d="M9 12l2 2 4-4.2"/></svg></div>
-      <h2>Zweiter Faktor</h2>
-      <p class="muted">Gib den aktuellen 6-stelligen Code aus deinem <strong>Aegis 2FA Manager</strong> ein.</p>
+      <h2 data-i18n="totp.title">Zweiter Faktor</h2>
+      <p class="muted" data-i18n-html="totp.intro">Gib den aktuellen 6-stelligen Code aus deinem <strong>Aegis 2FA Manager</strong> ein.</p>
       <input id="totp-code" class="pin-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" onkeydown="if(event.key==='Enter')App.doTotp()">
       <div id="totp-err" class="warn hidden" style="margin-top:12px"></div>
-      <button class="btn" style="margin-top:16px;width:100%" onclick="App.doTotp()">Bestätigen</button>
-      <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="App.lock()">Abbrechen</button>
+      <button class="btn" style="margin-top:16px;width:100%" onclick="App.doTotp()" data-i18n="totp.confirm">Bestätigen</button>
+      <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="App.lock()" data-i18n="btn.cancel">Abbrechen</button>
     </div>
   </div>
 
   <!-- ===================== APP ===================== -->
   <div id="screen-app" class="hidden">
     <div class="tabs">
-      <button class="tab active" data-tab="dash" onclick="App.tab('dash')">Übersicht</button>
-      <button class="tab" data-tab="add" onclick="App.tab('add')">Erfassen</button>
-      <button class="tab" data-tab="list" onclick="App.tab('list')">Bestände</button>
-      <button class="tab" data-tab="verlauf" onclick="App.tab('verlauf')">Verlauf</button>
-      <button class="tab" data-tab="export" onclick="App.tab('export')">Export &amp; Sync</button>
-      <button class="tab" data-tab="settings" onclick="App.tab('settings')">Einstellungen</button>
+      <button class="tab active" data-tab="dash" onclick="App.tab('dash')" data-i18n="tab.dash">Übersicht</button>
+      <button class="tab" data-tab="add" onclick="App.tab('add')" data-i18n="tab.add">Erfassen</button>
+      <button class="tab" data-tab="list" onclick="App.tab('list')" data-i18n="tab.list">Bestände</button>
+      <button class="tab" data-tab="verlauf" onclick="App.tab('verlauf')" data-i18n="tab.verlauf">Verlauf</button>
+      <button class="tab" data-tab="export" onclick="App.tab('export')" data-i18n="tab.export">Export &amp; Sync</button>
+      <button class="tab" data-tab="settings" onclick="App.tab('settings')" data-i18n="tab.settings">Einstellungen</button>
     </div>
 
     <!-- DASH -->
     <div id="tab-dash" class="tabview">
       <div id="dash-stats" class="stat-grid"></div>
       <div class="card">
-        <h2>Aktueller Wert (manuell, offline)</h2>
-        <p class="muted">Keine Kursabfrage übers Netz (OpSec). Trage aktuelle Preise selbst ein — der Wert wird lokal berechnet.</p>
-        <label style="margin-top:4px">Edelmetall-Einheit</label>
+        <h2 data-i18n="dash.valTitle">Aktueller Wert (manuell, offline)</h2>
+        <p class="muted" data-i18n="dash.valIntro">Keine Kursabfrage übers Netz (OpSec). Trage aktuelle Preise selbst ein — der Wert wird lokal berechnet.</p>
+        <label style="margin-top:4px" data-i18n="dash.metalUnit">Edelmetall-Einheit</label>
         <div class="seg" id="metal-unit-seg" style="max-width:280px">
-          <button data-u="oz" class="on" onclick="App.setMetalUnit('oz')">Unze (oz)</button>
-          <button data-u="g" onclick="App.setMetalUnit('g')">Gramm (g)</button>
+          <button data-u="oz" class="on" onclick="App.setMetalUnit('oz')" data-i18n="dash.oz">Unze (oz)</button>
+          <button data-u="g" onclick="App.setMetalUnit('g')" data-i18n="dash.g">Gramm (g)</button>
         </div>
         <div class="row" style="margin-top:10px">
-          <div><label>BTC-Kurs €/BTC</label><input id="price-btc" type="number" step="any" oninput="App.savePrices()"></div>
+          <div><label data-i18n="dash.btcPrice">BTC-Kurs €/BTC</label><input id="price-btc" type="number" step="any" oninput="App.savePrices()"></div>
           <div><label id="price-gold-label">Gold €/oz</label><input id="price-gold" type="number" step="any" oninput="App.savePrices()"></div>
           <div><label id="price-silver-label">Silber €/oz</label><input id="price-silver" type="number" step="any" oninput="App.savePrices()"></div>
         </div>
@@ -248,31 +251,31 @@ tr:hover td{color:var(--neon);}
       <div class="card">
         <h2 id="add-title">Kauf erfassen</h2>
         <div class="seg" id="add-dir">
-          <button data-d="buy" class="on" onclick="App.setAddDir('buy')">＋ Kauf</button>
-          <button data-d="sell" onclick="App.setAddDir('sell')">－ Verkauf</button>
-          <button data-d="withdraw" onclick="App.setAddDir('withdraw')">↗ Entnahme</button>
+          <button data-d="buy" class="on" onclick="App.setAddDir('buy')" data-i18n="add.buy">＋ Kauf</button>
+          <button data-d="sell" onclick="App.setAddDir('sell')" data-i18n="add.sell">－ Verkauf</button>
+          <button data-d="withdraw" onclick="App.setAddDir('withdraw')" data-i18n="add.withdraw">↗ Entnahme</button>
         </div>
         <div class="seg" id="add-type">
-          <button data-t="btc" class="on" onclick="App.setAddType('btc')">₿ Bitcoin</button>
-          <button data-t="gold" onclick="App.setAddType('gold')">Au Gold</button>
-          <button data-t="silver" onclick="App.setAddType('silver')">Ag Silber</button>
+          <button data-t="btc" class="on" onclick="App.setAddType('btc')" data-i18n="add.tBtc">₿ Bitcoin</button>
+          <button data-t="gold" onclick="App.setAddType('gold')" data-i18n="add.tGold">Au Gold</button>
+          <button data-t="silver" onclick="App.setAddType('silver')" data-i18n="add.tSilver">Ag Silber</button>
         </div>
         <div class="row">
-          <div><label>Datum</label><input id="f-date" type="date"></div>
+          <div><label data-i18n="lbl.date">Datum</label><input id="f-date" type="date"></div>
           <div id="f-eur-wrap"><label id="f-eur-label">Bezahlt (EUR, gesamt inkl. Gebühr)</label><input id="f-eur" type="number" step="any" placeholder="z.B. 250.00"></div>
         </div>
 
         <!-- BTC fields -->
         <div id="fields-btc">
           <div class="row">
-            <div><label>Menge BTC</label><input id="f-btc" type="number" step="any" placeholder="0.00263717"></div>
+            <div><label data-i18n="add.btcAmount">Menge BTC</label><input id="f-btc" type="number" step="any" placeholder="0.00263717"></div>
             <div><label id="f-src-btc-label">Quelle / Broker</label><input id="f-src-btc" type="text" placeholder="21bitcoin, Bisq, Strike ..."></div>
           </div>
           <div id="f-kyc-wrap">
             <label id="f-kyc-label">KYC?</label>
             <select id="f-kyc">
-              <option value="">noKYC (privat / P2P / Bargeld)</option>
-              <option value="ja">KYC-Broker (taucht im Finanzamt-Report auf)</option>
+              <option value="" data-i18n="add.kycNo">noKYC (privat / P2P / Bargeld)</option>
+              <option value="ja" data-i18n="add.kycYes">KYC-Broker (taucht im Finanzamt-Report auf)</option>
             </select>
           </div>
         </div>
@@ -280,8 +283,8 @@ tr:hover td{color:var(--neon);}
         <!-- METAL fields -->
         <div id="fields-metal" class="hidden">
           <div class="row">
-            <div><label>Stückzahl</label><input id="f-count" type="number" step="1" min="1" value="1" placeholder="1" oninput="App.updateMetalPreview()"></div>
-            <div><label>Stückelung (Gewicht je Stück)</label>
+            <div><label data-i18n="add.count">Stückzahl</label><input id="f-count" type="number" step="1" min="1" value="1" placeholder="1" oninput="App.updateMetalPreview()"></div>
+            <div><label data-i18n="add.denom">Stückelung (Gewicht je Stück)</label>
               <select id="f-denom" onchange="App.onDenomChange()">
                 <option value="1|oz">1 oz (Unze)</option>
                 <option value="0.5|oz">½ oz</option>
@@ -297,102 +300,102 @@ tr:hover td{color:var(--neon);}
                 <option value="250|g">250 g</option>
                 <option value="500|g">500 g</option>
                 <option value="1|kg">1 kg</option>
-                <option value="custom">Andere…</option>
+                <option value="custom" data-i18n="add.denomOther">Andere…</option>
               </select>
             </div>
-            <div><label>Form</label>
-              <select id="f-form"><option value="Münze">Münze</option><option value="Barren">Barren</option><option value="Sonstiges">Sonstiges</option></select>
+            <div><label data-i18n="add.form">Form</label>
+              <select id="f-form"><option value="Münze" data-i18n="add.formCoin">Münze</option><option value="Barren" data-i18n="add.formBar">Barren</option><option value="Sonstiges" data-i18n="add.formOther">Sonstiges</option></select>
             </div>
           </div>
           <div class="row hidden" id="f-custom-wrap">
-            <div><label>Gewicht je Stück</label><input id="f-qty" type="number" step="any" placeholder="z.B. 2.5" oninput="App.updateMetalPreview()"></div>
-            <div><label>Einheit</label>
-              <select id="f-unit"><option value="g">Gramm</option><option value="oz">Unze (31,1035 g)</option><option value="kg">Kilogramm</option></select>
+            <div><label data-i18n="add.weightPer">Gewicht je Stück</label><input id="f-qty" type="number" step="any" placeholder="z.B. 2.5" oninput="App.updateMetalPreview()"></div>
+            <div><label data-i18n="lbl.unit">Einheit</label>
+              <select id="f-unit"><option value="g" data-i18n="add.unitG">Gramm</option><option value="oz" data-i18n="add.unitOz">Unze (31,1035 g)</option><option value="kg" data-i18n="add.unitKg">Kilogramm</option></select>
             </div>
           </div>
           <div class="row">
-            <div><label>Feinheit (‰)</label><input id="f-fine" type="number" step="any" placeholder="999.9"></div>
-            <div><label>Händler</label><input id="f-src-metal" type="text" placeholder="Münzhändler, Pro Aurum ..."></div>
+            <div><label data-i18n="add.fineness">Feinheit (‰)</label><input id="f-fine" type="number" step="any" placeholder="999.9"></div>
+            <div><label data-i18n="add.dealer">Händler</label><input id="f-src-metal" type="text" placeholder="Münzhändler, Pro Aurum ..." data-i18n-ph="add.dealerPh"></div>
           </div>
           <p class="muted" id="metal-preview" style="margin-top:4px"></p>
         </div>
 
-        <label>Notiz (optional)</label>
-        <input id="f-note" type="text" placeholder="Freitext, z.B. Prägung / Trade-ID">
+        <label data-i18n="add.noteLabel">Notiz (optional)</label>
+        <input id="f-note" type="text" placeholder="Freitext, z.B. Prägung / Trade-ID" data-i18n-ph="add.notePh">
         <div id="add-err" class="warn hidden" style="margin-top:12px"></div>
         <button id="add-btn" class="btn" style="margin-top:16px" onclick="App.addEntry()">＋ Eintragen</button>
-        <button id="add-cancel" class="btn ghost hidden" style="margin-top:16px;margin-left:8px" onclick="App.cancelEdit()">Abbrechen</button>
+        <button id="add-cancel" class="btn ghost hidden" style="margin-top:16px;margin-left:8px" onclick="App.cancelEdit()" data-i18n="btn.cancel">Abbrechen</button>
       </div>
     </div>
 
     <!-- LIST -->
     <div id="tab-list" class="tabview hidden">
       <div class="card">
-        <h2>Bestände</h2>
+        <h2 data-i18n="list.title">Bestände</h2>
         <div class="seg" id="list-filter">
-          <button data-f="all" class="on" onclick="App.setFilter('all')">Alle</button>
-          <button data-f="btc" onclick="App.setFilter('btc')">Bitcoin</button>
-          <button data-f="gold" onclick="App.setFilter('gold')">Gold</button>
-          <button data-f="silver" onclick="App.setFilter('silver')">Silber</button>
+          <button data-f="all" class="on" onclick="App.setFilter('all')" data-i18n="list.fAll">Alle</button>
+          <button data-f="btc" onclick="App.setFilter('btc')" data-i18n="list.fBtc">Bitcoin</button>
+          <button data-f="gold" onclick="App.setFilter('gold')" data-i18n="list.fGold">Gold</button>
+          <button data-f="silver" onclick="App.setFilter('silver')" data-i18n="list.fSilver">Silber</button>
         </div>
         <div class="tbl-wrap"><table id="list-tbl"><thead></thead><tbody></tbody></table></div>
-        <p id="list-empty" class="muted center hidden" style="padding:20px">Noch keine Einträge. Leg los im Tab „Erfassen".</p>
+        <p id="list-empty" class="muted center hidden" style="padding:20px" data-i18n="list.empty">Noch keine Einträge. Leg los im Tab „Erfassen".</p>
       </div>
     </div>
 
     <!-- VERLAUF -->
     <div id="tab-verlauf" class="tabview hidden">
       <div class="card">
-        <h2>Vermögensentwicklung</h2>
-        <p class="muted">Aus deinen Buchungen berechnet — <strong>keine Marktpreise, keine Netzabfrage</strong>. Zeigt, wie dein eingesetztes Kapital bzw. dein Bestand über die Zeit gewachsen ist.</p>
+        <h2 data-i18n="verlauf.title">Vermögensentwicklung</h2>
+        <p class="muted" data-i18n-html="verlauf.intro">Aus deinen Buchungen berechnet — <strong>keine Marktpreise, keine Netzabfrage</strong>. Zeigt, wie dein eingesetztes Kapital bzw. dein Bestand über die Zeit gewachsen ist.</p>
         <div class="seg" id="chart-series">
-          <button data-s="invested" class="on" onclick="App.setChartSeries('invested')">Netto investiert</button>
-          <button data-s="btc" onclick="App.setChartSeries('btc')">Bitcoin</button>
-          <button data-s="gold" onclick="App.setChartSeries('gold')">Gold</button>
-          <button data-s="silver" onclick="App.setChartSeries('silver')">Silber</button>
+          <button data-s="invested" class="on" onclick="App.setChartSeries('invested')" data-i18n="verlauf.sInvested">Netto investiert</button>
+          <button data-s="btc" onclick="App.setChartSeries('btc')" data-i18n="verlauf.sBtc">Bitcoin</button>
+          <button data-s="gold" onclick="App.setChartSeries('gold')" data-i18n="verlauf.sGold">Gold</button>
+          <button data-s="silver" onclick="App.setChartSeries('silver')" data-i18n="verlauf.sSilver">Silber</button>
         </div>
         <div id="chart-head" class="stat-grid" style="margin:6px 0 14px"></div>
         <div class="chart-wrap" id="chart-wrap"></div>
-        <p id="chart-empty" class="muted center hidden" style="padding:24px">Mindestens zwei Buchungen nötig, um einen Verlauf zu zeigen.</p>
+        <p id="chart-empty" class="muted center hidden" style="padding:24px" data-i18n="verlauf.empty">Mindestens zwei Buchungen nötig, um einen Verlauf zu zeigen.</p>
       </div>
     </div>
 
     <!-- EXPORT -->
     <div id="tab-export" class="tabview hidden">
       <div class="card">
-        <h2>Steuertool-Export (BTC)</h2>
-        <p class="muted">Erzeugt CSVs im Format deines BTC-Steuertools — du ziehst sie dort nur rein. <code>manual_buys.csv</code> = alle BTC-Käufe (KYC-Flag), <code>manual_sales.csv</code> = alle BTC-Verkäufe (noKYC-Flag). Entnahmen sind keine Verkäufe und bleiben tresor-intern.</p>
+        <h2 data-i18n="exp.taxTitle">Steuertool-Export (BTC)</h2>
+        <p class="muted" data-i18n-html="exp.taxIntro">Erzeugt CSVs im Format deines BTC-Steuertools — du ziehst sie dort nur rein. <code>manual_buys.csv</code> = alle BTC-Käufe (KYC-Flag), <code>manual_sales.csv</code> = alle BTC-Verkäufe (noKYC-Flag). Entnahmen sind keine Verkäufe und bleiben tresor-intern.</p>
         <div class="row" style="margin-top:12px">
           <button class="btn" onclick="App.exportSteuertool()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> manual_buys.csv</button>
           <button class="btn" onclick="App.exportSales()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> manual_sales.csv</button>
         </div>
       </div>
       <div class="card">
-        <h2>Edelmetall-Inventar (CSV)</h2>
-        <p class="muted">Gold- &amp; Silberbestände als Tabelle (Datum, Form, Feinheit, Gewicht, Preis, Händler).</p>
+        <h2 data-i18n="exp.metalTitle">Edelmetall-Inventar (CSV)</h2>
+        <p class="muted" data-i18n="exp.metalIntro">Gold- &amp; Silberbestände als Tabelle (Datum, Form, Feinheit, Gewicht, Preis, Händler).</p>
         <button class="btn" style="margin-top:12px" onclick="App.exportMetals()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> edelmetalle.csv</button>
       </div>
       <div class="card">
-        <h2>CSV-Import (BTC-Käufe / -Verkäufe)</h2>
-        <p class="muted">Lädt viele Buchungen auf einmal im Tresor-Format: <code>manual_buys.csv</code> (Käufe) oder <code>manual_sales.csv</code> (Verkäufe) — Kopfzeile <code>date,btc_amount,eur_amount,note,kyc</code> bzw. <code>…,no_kyc</code>. Börsen-CSVs vorher mit dem Konverter in dieses EUR-Format bringen. Dubletten werden automatisch übersprungen.</p>
-        <button class="btn" style="margin-top:12px" onclick="document.getElementById('csv-file').click()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> CSV importieren</button>
+        <h2 data-i18n="exp.importTitle">CSV-Import (BTC-Käufe / -Verkäufe)</h2>
+        <p class="muted" data-i18n-html="exp.importIntro">Lädt viele Buchungen auf einmal im Tresor-Format: <code>manual_buys.csv</code> (Käufe) oder <code>manual_sales.csv</code> (Verkäufe) — Kopfzeile <code>date,btc_amount,eur_amount,note,kyc</code> bzw. <code>…,no_kyc</code>. Börsen-CSVs vorher mit dem Konverter in dieses EUR-Format bringen. Dubletten werden automatisch übersprungen.</p>
+        <button class="btn" style="margin-top:12px" onclick="document.getElementById('csv-file').click()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> <span data-i18n="exp.importBtn">CSV importieren</span></button>
         <input id="csv-file" type="file" accept=".csv" class="hidden" onchange="App.importCsv(event)">
       </div>
       <div class="card">
-        <h2>Backup &amp; Sync (verschlüsselte Vault-Datei)</h2>
-        <p class="muted">Die <code>.vault</code>-Datei ist vollständig verschlüsselt. Leg sie in deinen <strong>Syncthing</strong>-Ordner — sie wird P2P zwischen Desktop und GrapheneOS gesynct, ohne Cloud. Auf dem anderen Gerät über „Wiederherstellen" laden. <strong>Importieren führt zusammen</strong> (neue Einträge werden ergänzt, nichts wird überschrieben), und jedes Gerät behält seine eigene Passphrase.</p>
-        <p style="margin-top:8px;color:#ffcc66;font-size:0.85em">⚠ Ohne Backup ist dein Tresor verloren, wenn du die App neu installierst oder das Gerät wechselst. Exportiere regelmäßig — am besten direkt in den Syncthing-Ordner.</p>
+        <h2 data-i18n="exp.backupTitle">Backup &amp; Sync (verschlüsselte Vault-Datei)</h2>
+        <p class="muted" data-i18n-html="exp.backupIntro">Die <code>.vault</code>-Datei ist vollständig verschlüsselt. Leg sie in deinen <strong>Syncthing</strong>-Ordner — sie wird P2P zwischen Desktop und GrapheneOS gesynct, ohne Cloud. Auf dem anderen Gerät über „Wiederherstellen" laden. <strong>Importieren führt zusammen</strong> (neue Einträge werden ergänzt, nichts wird überschrieben), und jedes Gerät behält seine eigene Passphrase.</p>
+        <p style="margin-top:8px;color:#ffcc66;font-size:0.85em" data-i18n="exp.backupWarn">⚠ Ohne Backup ist dein Tresor verloren, wenn du die App neu installierst oder das Gerät wechselst. Exportiere regelmäßig — am besten direkt in den Syncthing-Ordner.</p>
         <div class="row" style="margin-top:12px">
-          <button class="btn" onclick="App.exportVault()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> Backup erstellen</button>
-          <button class="btn ghost" onclick="document.getElementById('vault-file').click()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> Backup wiederherstellen</button>
+          <button class="btn" onclick="App.exportVault()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> <span data-i18n="exp.backupCreate">Backup erstellen</span></button>
+          <button class="btn ghost" onclick="document.getElementById('vault-file').click()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> <span data-i18n="exp.backupRestore">Backup wiederherstellen</span></button>
         </div>
         <input id="vault-file" type="file" class="hidden" onchange="App.importVault(event)">
         <div id="import-pass-box" class="hidden" style="margin-top:14px;border:1px solid var(--neon-mid);border-radius:4px;padding:12px">
-          <p class="muted" style="margin-bottom:8px">Passphrase der gewählten Backup-Datei eingeben:</p>
-          <input id="import-pass" type="password" placeholder="Passphrase der Backup-Datei" autocomplete="off">
-          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:.8rem;cursor:pointer"><input type="checkbox" style="width:auto" onclick="document.getElementById('import-pass').type=this.checked?'text':'password'"> Passphrase anzeigen</label>
-          <button class="btn" style="margin-top:12px;width:100%" onclick="App.doImportVault()">Importieren</button>
-          <button class="btn ghost sm" style="margin-top:8px;width:100%" onclick="App.cancelImport()">Abbrechen</button>
+          <p class="muted" style="margin-bottom:8px" data-i18n="exp.importPassPrompt">Passphrase der gewählten Backup-Datei eingeben:</p>
+          <input id="import-pass" type="password" placeholder="Passphrase der Backup-Datei" autocomplete="off" data-i18n-ph="exp.importPassPh">
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:.8rem;cursor:pointer"><input type="checkbox" style="width:auto" onclick="document.getElementById('import-pass').type=this.checked?'text':'password'"> <span data-i18n="lock.showpass">Passphrase anzeigen</span></label>
+          <button class="btn" style="margin-top:12px;width:100%" onclick="App.doImportVault()" data-i18n="exp.importVaultBtn">Importieren</button>
+          <button class="btn ghost sm" style="margin-top:8px;width:100%" onclick="App.cancelImport()" data-i18n="btn.cancel">Abbrechen</button>
         </div>
         <div id="export-msg" class="muted" style="margin-top:12px"></div>
       </div>
@@ -401,97 +404,97 @@ tr:hover td{color:var(--neon);}
     <!-- SETTINGS -->
     <div id="tab-settings" class="tabview hidden">
       <div class="card">
-        <h2>Aegis 2FA (TOTP)</h2>
+        <h2 data-i18n="set.totpTitle">Aegis 2FA (TOTP)</h2>
         <div id="totp-off">
-          <p class="muted">Aktiviere einen zweiten Faktor. Den Schlüssel trägst du <strong>einmalig in Aegis</strong> ein (manuell oder per QR-Reader). Der Schlüssel liegt verschlüsselt im Tresor und schützt zusätzlich beim Entsperren.</p>
-          <button class="btn" style="margin-top:12px" onclick="App.totpStart()">2FA aktivieren</button>
+          <p class="muted" data-i18n-html="set.totpOffIntro">Aktiviere einen zweiten Faktor. Den Schlüssel trägst du <strong>einmalig in Aegis</strong> ein (manuell oder per QR-Reader). Der Schlüssel liegt verschlüsselt im Tresor und schützt zusätzlich beim Entsperren.</p>
+          <button class="btn" style="margin-top:12px" onclick="App.totpStart()" data-i18n="set.totpEnable">2FA aktivieren</button>
         </div>
         <div id="totp-setup" class="hidden">
-          <p class="muted">In <strong>Aegis</strong> hinzufügen — drei Wege, ganz ohne Kamera möglich:</p>
-          <p class="muted">• <strong>Mit Kamera</strong> (z.B. Desktop-Bildschirm): QR scannen.<br>• <strong>Ohne Kamera, QR:</strong> „QR als Bild" speichern → in Aegis „+“ → QR-Scan → aus Galerie/Bild importieren.<br>• <strong>Ohne Kamera, manuell:</strong> „Schlüssel kopieren“ → in Aegis „Eintrag manuell hinzufügen“ → Typ <em>TOTP</em> → einfügen.</p>
+          <p class="muted" data-i18n-html="set.totpSetup1">In <strong>Aegis</strong> hinzufügen — drei Wege, ganz ohne Kamera möglich:</p>
+          <p class="muted" data-i18n-html="set.totpSetup2">• <strong>Mit Kamera</strong> (z.B. Desktop-Bildschirm): QR scannen.<br>• <strong>Ohne Kamera, QR:</strong> „QR als Bild" speichern → in Aegis „+“ → QR-Scan → aus Galerie/Bild importieren.<br>• <strong>Ohne Kamera, manuell:</strong> „Schlüssel kopieren“ → in Aegis „Eintrag manuell hinzufügen“ → Typ <em>TOTP</em> → einfügen.</p>
           <div class="center" style="margin:8px 0"><canvas id="totp-qr" style="background:#fff;border-radius:6px;padding:8px;max-width:240px;width:100%;image-rendering:pixelated"></canvas></div>
           <div class="secret-box" id="totp-secret"></div>
           <div class="row" style="margin-top:8px">
-            <button class="btn ghost sm" onclick="App.copy(document.getElementById('totp-secret').textContent,'Schlüssel kopiert')">Schlüssel kopieren</button>
-            <button class="btn ghost sm" onclick="App.saveQR()">QR als Bild speichern</button>
-            <button class="btn ghost sm" onclick="App.copyQR()">QR kopieren</button>
-            <button class="btn ghost sm" onclick="App.copy(App._otpauth,'otpauth-Link kopiert')">otpauth-Link</button>
+            <button class="btn ghost sm" onclick="App.copy(document.getElementById('totp-secret').textContent,tr('msg.keyCopied'))" data-i18n="set.copyKey">Schlüssel kopieren</button>
+            <button class="btn ghost sm" onclick="App.saveQR()" data-i18n="set.saveQR">QR als Bild speichern</button>
+            <button class="btn ghost sm" onclick="App.copyQR()" data-i18n="set.copyQR">QR kopieren</button>
+            <button class="btn ghost sm" onclick="App.copy(App._otpauth,tr('msg.otpauthCopied'))" data-i18n="set.otpauth">otpauth-Link</button>
           </div>
-          <p class="muted" style="margin-top:14px">2) Aegis zeigt jetzt einen 6-stelligen Code. Gib ihn zur Bestätigung ein:</p>
+          <p class="muted" style="margin-top:14px" data-i18n="set.totpSetup3">2) Aegis zeigt jetzt einen 6-stelligen Code. Gib ihn zur Bestätigung ein:</p>
           <input id="totp-verify" class="pin-input" inputmode="numeric" maxlength="6" placeholder="000000">
           <div id="totp-setup-err" class="warn hidden" style="margin-top:10px"></div>
           <div class="row" style="margin-top:12px">
-            <button class="btn" onclick="App.totpConfirm()">Aktivieren</button>
-            <button class="btn ghost" onclick="App.totpCancel()">Abbrechen</button>
+            <button class="btn" onclick="App.totpConfirm()" data-i18n="set.activate">Aktivieren</button>
+            <button class="btn ghost" onclick="App.totpCancel()" data-i18n="btn.cancel">Abbrechen</button>
           </div>
         </div>
         <div id="totp-on" class="hidden">
-          <p class="muted"><svg class="ic" viewBox="0 0 24 24" style="color:var(--neon)"><path d="M5 12.5l4 4 10-10"/></svg> 2FA ist aktiv. Beim Entsperren wird zusätzlich ein Aegis-Code verlangt.</p>
-          <button class="btn danger sm" style="margin-top:10px" onclick="App.totpDisable()">2FA deaktivieren</button>
+          <p class="muted"><svg class="ic" viewBox="0 0 24 24" style="color:var(--neon)"><path d="M5 12.5l4 4 10-10"/></svg> <span data-i18n="set.totpOnText">2FA ist aktiv. Beim Entsperren wird zusätzlich ein Aegis-Code verlangt.</span></p>
+          <button class="btn danger sm" style="margin-top:10px" onclick="App.totpDisable()" data-i18n="set.totpDisable">2FA deaktivieren</button>
         </div>
       </div>
       <div class="card">
-        <h2>Passphrase ändern</h2>
-        <label>Aktuelle Passphrase</label><input id="cp-cur" type="password" autocomplete="current-password">
-        <label>Neue Passphrase</label><input id="cp1" type="password" autocomplete="new-password">
-        <label>Wiederholen</label><input id="cp2" type="password" autocomplete="new-password">
+        <h2 data-i18n="set.cpTitle">Passphrase ändern</h2>
+        <label data-i18n="set.cpCur">Aktuelle Passphrase</label><input id="cp-cur" type="password" autocomplete="current-password">
+        <label data-i18n="set.cpNew">Neue Passphrase</label><input id="cp1" type="password" autocomplete="new-password">
+        <label data-i18n="set.cpRepeat">Wiederholen</label><input id="cp2" type="password" autocomplete="new-password">
         <label style="display:flex;gap:6px;align-items:center;margin-top:8px;cursor:pointer;text-transform:none;letter-spacing:0">
-          <input type="checkbox" style="width:auto" onclick="var t=this.checked?'text':'password';['cp-cur','cp1','cp2'].forEach(function(i){document.getElementById(i).type=t;});"> Passphrasen anzeigen
+          <input type="checkbox" style="width:auto" onclick="var t=this.checked?'text':'password';['cp-cur','cp1','cp2'].forEach(function(i){document.getElementById(i).type=t;});"> <span data-i18n="set.cpShow">Passphrasen anzeigen</span>
         </label>
         <div id="cp-err" class="warn hidden" style="margin-top:10px"></div>
-        <button id="cp-btn" class="btn" style="margin-top:12px" onclick="App.changePass()">Ändern</button>
+        <button id="cp-btn" class="btn" style="margin-top:12px" onclick="App.changePass()" data-i18n="set.cpBtn">Ändern</button>
       </div>
       <div class="card">
-        <h2>Darstellung</h2>
+        <h2 data-i18n="set.themeTitle">Darstellung</h2>
         <div class="seg">
-          <button id="th-dark" class="on" onclick="App.theme('dark')">Schwarz (Neon)</button>
-          <button id="th-soft" onclick="App.theme('soft')">Soft (Marine)</button>
+          <button id="th-dark" class="on" onclick="App.theme('dark')" data-i18n="set.themeDark">Schwarz (Neon)</button>
+          <button id="th-soft" onclick="App.theme('soft')" data-i18n="set.themeSoft">Soft (Marine)</button>
         </div>
       </div>
       <div class="card">
-        <h2>Sicherheit</h2>
-        <label>Automatisch sperren nach Inaktivität</label>
+        <h2 data-i18n="set.secTitle">Sicherheit</h2>
+        <label data-i18n="set.autolock">Automatisch sperren nach Inaktivität</label>
         <select id="set-autolock" onchange="App.setAutolock(this.value)" style="max-width:240px;margin-bottom:14px">
-          <option value="0">Aus</option>
-          <option value="1">1 Minute</option>
-          <option value="5">5 Minuten</option>
-          <option value="15">15 Minuten</option>
-          <option value="30">30 Minuten</option>
+          <option value="0" data-i18n="set.al0">Aus</option>
+          <option value="1" data-i18n="set.al1">1 Minute</option>
+          <option value="5" data-i18n="set.al5">5 Minuten</option>
+          <option value="15" data-i18n="set.al15">15 Minuten</option>
+          <option value="30" data-i18n="set.al30">30 Minuten</option>
         </select>
         <br>
-        <button class="btn ghost" onclick="App.lock()"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> Jetzt sperren</button>
-        <button class="btn danger" style="margin-left:8px" onclick="App.wipeLocal()">Lokale Daten löschen</button>
-        <p class="muted" style="margin-top:10px">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
+        <button class="btn ghost" onclick="App.lock()"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> <span data-i18n="set.lockNow">Jetzt sperren</span></button>
+        <button class="btn danger" style="margin-left:8px" onclick="App.wipeLocal()" data-i18n="set.wipe">Lokale Daten löschen</button>
+        <p class="muted" style="margin-top:10px" data-i18n-html="set.wipeNote">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
       </div>
     </div>
   </div>
 
   <div class="foot">
-    Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie<br>
-    Verschlüsselung: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238<br>
-    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;">⚡ Energie aufladen · Spenden</a>
+    <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
+    <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238</span><br>
+    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;" data-i18n="foot.donate">⚡ Energie aufladen · Spenden</a>
   </div>
 </div>
 <div id="help-overlay" class="help-overlay hidden">
   <div class="help-inner">
     <div class="help-head">
-      <div class="logo">Handbuch</div>
-      <button class="btn ghost sm" onclick="App.closeHelp()">Schließen ✕</button>
+      <div class="logo" data-i18n="help.title">Handbuch</div>
+      <button class="btn ghost sm" onclick="App.closeHelp()" data-i18n="help.closeX">Schließen ✕</button>
     </div>
 
-    <h2>Was ist der Sachwert-Tresor?</h2>
-    <p>Ein <strong>lokaler, verschlüsselter Tresor</strong> für deine Bitcoin-, Gold- und Silberbestände. Läuft komplett <strong>offline</strong> — keine Cloud, kein Server, keine Telemetrie, keine Kursabfragen übers Netz. Deine Daten verlassen das Gerät nie im Klartext.</p>
-    <p class="warn">⚠ Es gibt keinen Reset und kein Backdoor. Vergisst du deine Passphrase, sind die Daten unwiederbringlich weg. Lege regelmäßig ein Backup an.</p>
+    <h2 data-i18n="help.h1">Was ist der Sachwert-Tresor?</h2>
+    <p data-i18n-html="help.p1">Ein <strong>lokaler, verschlüsselter Tresor</strong> für deine Bitcoin-, Gold- und Silberbestände. Läuft komplett <strong>offline</strong> — keine Cloud, kein Server, keine Telemetrie, keine Kursabfragen übers Netz. Deine Daten verlassen das Gerät nie im Klartext.</p>
+    <p class="warn" data-i18n="help.warn">⚠ Es gibt keinen Reset und kein Backdoor. Vergisst du deine Passphrase, sind die Daten unwiederbringlich weg. Lege regelmäßig ein Backup an.</p>
 
-    <h2>Erste Schritte</h2>
-    <ul>
+    <h2 data-i18n="help.h2">Erste Schritte</h2>
+    <ul data-i18n-html="help.l2">
       <li><strong>Passphrase</strong> vergeben — sie verschlüsselt den gesamten Tresor. Gut merken, sicher notieren.</li>
       <li>Optional <strong>2FA</strong> (Aegis/TOTP) als zweite Hürde: Einstellungen → 2FA aktivieren.</li>
       <li><strong>Auto-Sperre</strong> bei Inaktivität ist in den Einstellungen einstellbar.</li>
     </ul>
 
-    <h2>Erfassen</h2>
-    <ul>
+    <h2 data-i18n="help.h3">Erfassen</h2>
+    <ul data-i18n-html="help.l3">
       <li><strong>Bitcoin:</strong> Kauf / Verkauf / Entnahme — Menge, EUR, Quelle/Ziel, KYC-Flag.</li>
       <li><strong>Gold/Silber:</strong> Stückzahl × Stückelung (z.B. 5 × 1 oz), Form (Münze/Barren), Feinheit, Händler.</li>
       <li><strong>KYC-Flag:</strong> markiert Käufe über einen KYC-Broker — wichtig für die saubere Trennung zum Steuertool.</li>
@@ -499,35 +502,35 @@ tr:hover td{color:var(--neon);}
       <li>Dubletten (gleicher Typ + Datum + Menge) werden gewarnt und mit ⚠ markiert.</li>
     </ul>
 
-    <h2>Übersicht & Werte</h2>
-    <p>Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
+    <h2 data-i18n="help.h4">Übersicht & Werte</h2>
+    <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
 
-    <h2>Backup & Sync (wichtig!)</h2>
-    <p>Dein Bestand liegt nur auf <em>diesem</em> Gerät. Nach einer Neuinstallation ist er <strong>ohne Backup unwiederbringlich weg</strong>.</p>
-    <ul>
+    <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
+    <p data-i18n-html="help.p5">Dein Bestand liegt nur auf <em>diesem</em> Gerät. Nach einer Neuinstallation ist er <strong>ohne Backup unwiederbringlich weg</strong>.</p>
+    <ul data-i18n-html="help.l5">
       <li><strong>Backup erstellen</strong> (Export & Sync) → verschlüsselte <code>.vault</code>-Datei. Leg sie in deinen Syncthing-Ordner.</li>
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>
       <li><strong>Backup wiederherstellen</strong> auf dem anderen Gerät → Datei wählen → <strong>Passphrase der Datei</strong> eingeben (die des Quell-Geräts, nicht zwingend die lokale).</li>
       <li><strong>Merge:</strong> Der Import <strong>führt zusammen</strong> (neue Einträge kommen dazu, deine lokale Passphrase bleibt). Nachträgliche Änderungen und Löschungen syncen <em>nicht</em> — korrigiere Einträge sonst auf beiden Geräten gleich.</li>
     </ul>
 
-    <h2>CSV-Import</h2>
-    <p>Export & Sync → CSV importieren lädt <code>manual_buys.csv</code> (Käufe) / <code>manual_sales.csv</code> (Verkäufe) im Tresor-Format. Dubletten werden übersprungen — gefahrlos mehrfach importierbar.</p>
+    <h2 data-i18n="help.h6">CSV-Import</h2>
+    <p data-i18n-html="help.p6">Export & Sync → CSV importieren lädt <code>manual_buys.csv</code> (Käufe) / <code>manual_sales.csv</code> (Verkäufe) im Tresor-Format. Dubletten werden übersprungen — gefahrlos mehrfach importierbar.</p>
 
-    <h2>Steuertool-Export</h2>
-    <p>Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle.</p>
+    <h2 data-i18n="help.h7">Steuertool-Export</h2>
+    <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle.</p>
 
-    <h2>2FA über mehrere Geräte</h2>
-    <p>Das 2FA-Secret liegt im verschlüsselten Tresor, pro Installation. Web und App sind getrennte Speicher → 2FA ist nicht automatisch gleich. Für denselben Aegis-Eintrag auf beiden: 2FA nur auf <em>einem</em> Gerät aktivieren, dann Backup auf dem anderen wiederherstellen (dort vorher kein 2FA aktivieren — ein bestehendes wird nie überschrieben).</p>
+    <h2 data-i18n="help.h8">2FA über mehrere Geräte</h2>
+    <p data-i18n-html="help.p8">Das 2FA-Secret liegt im verschlüsselten Tresor, pro Installation. Web und App sind getrennte Speicher → 2FA ist nicht automatisch gleich. Für denselben Aegis-Eintrag auf beiden: 2FA nur auf <em>einem</em> Gerät aktivieren, dann Backup auf dem anderen wiederherstellen (dort vorher kein 2FA aktivieren — ein bestehendes wird nie überschrieben).</p>
 
-    <h2>Sicherheit</h2>
-    <ul>
+    <h2 data-i18n="help.h9">Sicherheit</h2>
+    <ul data-i18n-html="help.l9">
       <li>AES-256-GCM, Schlüssel via PBKDF2-SHA256 (600.000 Iterationen), native WebCrypto — kein Fremd-Krypto.</li>
       <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline.</li>
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>
 
-    <div style="text-align:center;margin-top:32px"><button class="btn ghost" onclick="App.closeHelp()">Schließen</button></div>
+    <div style="text-align:center;margin-top:32px"><button class="btn ghost" onclick="App.closeHelp()" data-i18n="help.close">Schließen</button></div>
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
@@ -540,6 +543,219 @@ tr:hover td{color:var(--neon);}
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
 const enc = new TextEncoder(), dec = new TextDecoder();
+
+/* ============================ i18n ============================
+   Deutsch = Original im HTML (data-i18n / -html / -ph). Englisch aus I18N.
+   Dynamische JS-Strings (Toasts, Labels) aus T (beide Sprachen) via t(). */
+const I18N = {
+  "tagline":"Bitcoin · Gold · Silver — local & encrypted",
+  "lbl.passphrase":"Passphrase","lbl.date":"Date","lbl.unit":"Unit",
+  "setup.title":"Set up your vault",
+  "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via PBKDF2). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
+  "setup.repeat":"Repeat passphrase","setup.ph1":"min. 8 characters, better a word sequence",
+  "setup.showpass":"Show passphrase (to verify)","setup.create":"Create vault",
+  "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
+  "lock.title":"Unlock vault","lock.showpass":"Show passphrase","lock.unlock":"Unlock",
+  "totp.title":"Second factor","totp.intro":"Enter the current 6-digit code from your <strong>Aegis 2FA manager</strong>.","totp.confirm":"Confirm",
+  "btn.cancel":"Cancel",
+  "tab.dash":"Overview","tab.add":"Add","tab.list":"Holdings","tab.verlauf":"History","tab.export":"Export & Sync","tab.settings":"Settings",
+  "dash.valTitle":"Current value (manual, offline)",
+  "dash.valIntro":"No price lookup over the network (OpSec). Enter current prices yourself — the value is computed locally.",
+  "dash.metalUnit":"Precious-metal unit","dash.oz":"Ounce (oz)","dash.g":"Gram (g)","dash.btcPrice":"BTC price €/BTC",
+  "add.buy":"＋ Buy","add.sell":"－ Sell","add.withdraw":"↗ Withdrawal",
+  "add.tBtc":"₿ Bitcoin","add.tGold":"Au Gold","add.tSilver":"Ag Silver",
+  "add.btcAmount":"BTC amount","add.kycNo":"noKYC (private / P2P / cash)","add.kycYes":"KYC broker (appears in tax report)",
+  "add.count":"Count","add.denom":"Denomination (weight per piece)","add.denomOther":"Other…",
+  "add.form":"Form","add.formCoin":"Coin","add.formBar":"Bar","add.formOther":"Other",
+  "add.weightPer":"Weight per piece","add.unitG":"Gram","add.unitOz":"Ounce (31.1035 g)","add.unitKg":"Kilogram",
+  "add.fineness":"Fineness (‰)","add.dealer":"Dealer","add.dealerPh":"Coin dealer, Pro Aurum ...",
+  "add.noteLabel":"Note (optional)","add.notePh":"Free text, e.g. mintage / trade ID",
+  "list.title":"Holdings","list.fAll":"All","list.fBtc":"Bitcoin","list.fGold":"Gold","list.fSilver":"Silver",
+  "list.empty":"No entries yet. Get started in the “Add” tab.",
+  "verlauf.title":"Wealth development",
+  "verlauf.intro":"Calculated from your entries — <strong>no market prices, no network lookup</strong>. Shows how your invested capital or holdings have grown over time.",
+  "verlauf.sInvested":"Net invested","verlauf.sBtc":"Bitcoin","verlauf.sGold":"Gold","verlauf.sSilver":"Silver",
+  "verlauf.empty":"At least two entries are needed to show a history.",
+  "exp.taxTitle":"Tax-tool export (BTC)",
+  "exp.taxIntro":"Generates CSVs in the format of your BTC tax tool — you just import them there. <code>manual_buys.csv</code> = all BTC buys (KYC flag), <code>manual_sales.csv</code> = all BTC sells (noKYC flag). Withdrawals are not sales and stay vault-internal.",
+  "exp.metalTitle":"Precious-metal inventory (CSV)",
+  "exp.metalIntro":"Gold & silver holdings as a table (date, form, fineness, weight, price, dealer).",
+  "exp.importTitle":"CSV import (BTC buys / sells)",
+  "exp.importIntro":"Loads many entries at once in vault format: <code>manual_buys.csv</code> (buys) or <code>manual_sales.csv</code> (sells) — header <code>date,btc_amount,eur_amount,note,kyc</code> or <code>…,no_kyc</code>. Convert exchange CSVs into this EUR format with the converter first. Duplicates are skipped automatically.",
+  "exp.importBtn":"Import CSV",
+  "exp.backupTitle":"Backup & Sync (encrypted vault file)",
+  "exp.backupIntro":"The <code>.vault</code> file is fully encrypted. Put it in your <strong>Syncthing</strong> folder — it syncs P2P between desktop and GrapheneOS, without cloud. On the other device, load it via “Restore”. <strong>Importing merges</strong> (new entries are added, nothing is overwritten), and each device keeps its own passphrase.",
+  "exp.backupWarn":"⚠ Without a backup your vault is lost if you reinstall the app or switch devices. Export regularly — ideally straight into the Syncthing folder.",
+  "exp.backupCreate":"Create backup","exp.backupRestore":"Restore backup",
+  "exp.importPassPrompt":"Enter the passphrase of the selected backup file:","exp.importPassPh":"Passphrase of the backup file","exp.importVaultBtn":"Import",
+  "set.totpTitle":"Aegis 2FA (TOTP)",
+  "set.totpOffIntro":"Enable a second factor. You enter the key <strong>once into Aegis</strong> (manually or via QR reader). The key is stored encrypted in the vault and adds protection on unlock.",
+  "set.totpEnable":"Enable 2FA",
+  "set.totpSetup1":"Add in <strong>Aegis</strong> — three ways, all possible without a camera:",
+  "set.totpSetup2":"• <strong>With camera</strong> (e.g. desktop screen): scan the QR.<br>• <strong>Without camera, QR:</strong> save “QR as image” → in Aegis “+” → QR scan → import from gallery/image.<br>• <strong>Without camera, manual:</strong> “Copy key” → in Aegis “Add entry manually” → type <em>TOTP</em> → paste.",
+  "set.copyKey":"Copy key","set.saveQR":"Save QR as image","set.copyQR":"Copy QR","set.otpauth":"otpauth link",
+  "set.totpSetup3":"2) Aegis now shows a 6-digit code. Enter it to confirm:","set.activate":"Activate",
+  "set.totpOnText":"2FA is active. On unlock, an Aegis code is additionally required.","set.totpDisable":"Disable 2FA",
+  "set.cpTitle":"Change passphrase","set.cpCur":"Current passphrase","set.cpNew":"New passphrase","set.cpRepeat":"Repeat","set.cpShow":"Show passphrases","set.cpBtn":"Change",
+  "set.themeTitle":"Appearance","set.themeDark":"Black (Neon)","set.themeSoft":"Soft (Navy)",
+  "set.secTitle":"Security","set.autolock":"Auto-lock after inactivity",
+  "set.al0":"Off","set.al1":"1 minute","set.al5":"5 minutes","set.al15":"15 minutes","set.al30":"30 minutes",
+  "set.lockNow":"Lock now","set.wipe":"Delete local data",
+  "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
+  "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
+  "foot.line2":"Encryption: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238",
+  "foot.donate":"⚡ Charge energy · Donate",
+  "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
+  "help.h1":"What is the Sachwert-Tresor?",
+  "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
+  "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
+  "help.h2":"First steps",
+  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings.</li>",
+  "help.h3":"Adding entries",
+  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, EUR, source/destination, KYC flag.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
+  "help.h4":"Overview & values",
+  "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
+  "help.h5":"Backup & Sync (important!)",
+  "help.p5":"Your holdings live only on <em>this</em> device. After a reinstall they are <strong>irretrievably gone without a backup</strong>.",
+  "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li>",
+  "help.h6":"CSV import",
+  "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times.",
+  "help.h7":"Tax-tool export",
+  "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals.",
+  "help.h8":"2FA across multiple devices",
+  "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
+  "help.h9":"Security",
+  "help.l9":"<li>AES-256-GCM, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto — no third-party crypto.</li><li>No network requests, no trackers, no external CDNs. Everything offline.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>"
+};
+// Dynamische JS-Strings (beide Sprachen)
+const T = {
+  "msg.keyCopied":{de:"Schlüssel kopiert",en:"Key copied"},
+  "msg.otpauthCopied":{de:"otpauth-Link kopiert",en:"otpauth link copied"},
+  "add.titleBuy":{de:"Kauf erfassen",en:"Add buy"},
+  "add.titleSell":{de:"Verkauf erfassen",en:"Add sell"},
+  "add.titleWd":{de:"Entnahme erfassen",en:"Add withdrawal"},
+  "add.titleEdit":{de:"Eintrag bearbeiten",en:"Edit entry"},
+  "add.btnAdd":{de:"＋ Eintragen",en:"＋ Add"},
+  "add.eurBuy":{de:"Bezahlt (EUR, gesamt inkl. Gebühr)",en:"Paid (EUR, total incl. fee)"},
+  "add.eurSell":{de:"Erhalten (EUR, netto)",en:"Received (EUR, net)"},
+  "add.srcBuy":{de:"Quelle / Broker",en:"Source / broker"},
+  "add.srcSell":{de:"Ziel / Käufer (optional)",en:"Destination / buyer (optional)"},
+  "add.kycQ":{de:"KYC?",en:"KYC?"},
+  "add.sellFrom":{de:"Verkauf aus welchem Bestand?",en:"Sell from which holdings?"},
+  "price.gold":{de:"Gold €/",en:"Gold €/"},
+  "price.silver":{de:"Silber €/",en:"Silver €/"},
+  "stat.btc":{de:"Bitcoin (Bestand)",en:"Bitcoin (holdings)"},
+  "stat.gold":{de:"Gold fein (Bestand)",en:"Gold fine (holdings)"},
+  "stat.silver":{de:"Silber fein (Bestand)",en:"Silver fine (holdings)"},
+  "stat.invested":{de:"Netto investiert",en:"Net invested"},
+  "stat.investedSub":{de:"Buchungen",en:"entries"},
+  "stat.realized":{de:"realisiert",en:"realized"},
+  "stat.invShort":{de:"Investiert",en:"Invested"},
+  "val.btcNow":{de:"Bitcoin aktuell",en:"Bitcoin now"},
+  "val.goldNow":{de:"Gold aktuell",en:"Gold now"},
+  "val.silverNow":{de:"Silber aktuell",en:"Silver now"},
+  "val.totalNow":{de:"Gesamt aktuell",en:"Total now"},
+  "val.vsInvested":{de:"ggü. netto investiert",en:"vs. net invested"},
+  "col.date":{de:"Datum",en:"Date"},
+  "col.type":{de:"Typ",en:"Type"},
+  "col.dir":{de:"Vorgang",en:"Action"},
+  "col.amount":{de:"Menge",en:"Amount"},
+  "col.eur":{de:"EUR",en:"EUR"},
+  "col.src":{de:"Quelle/Ziel",en:"Source/dest."},
+  "col.actions":{de:"",en:""},
+  "dir.buy":{de:"Kauf",en:"Buy"},
+  "dir.sell":{de:"Verkauf",en:"Sell"},
+  "dir.withdraw":{de:"Entnahme",en:"Withdrawal"},
+  "toast.buyAdded":{de:"Kauf eingetragen",en:"Buy added"},
+  "toast.sellAdded":{de:"Verkauf eingetragen",en:"Sell added"},
+  "toast.wdAdded":{de:"Entnahme eingetragen",en:"Withdrawal added"},
+  "toast.updated":{de:"Eintrag aktualisiert",en:"Entry updated"},
+  "toast.deleted":{de:"Eintrag gelöscht",en:"Entry deleted"},
+  "toast.saved":{de:"Gespeichert",en:"Saved"},
+  "toast.exported":{de:"Exportiert",en:"Exported"},
+  "toast.failed":{de:"Fehlgeschlagen",en:"Failed"},
+  "err.dateMissing":{de:"Datum fehlt.",en:"Date is missing."},
+  "err.eurInvalid":{de:"Gültigen EUR-Betrag eingeben.",en:"Enter a valid EUR amount."},
+  "err.btcMissing":{de:"BTC-Menge fehlt.",en:"BTC amount is missing."},
+  "err.countMissing":{de:"Stückzahl fehlt (mind. 1).",en:"Count is missing (min. 1)."},
+  "err.weightMissing":{de:"Gewicht je Stück fehlt.",en:"Weight per piece is missing."},
+  "confirm.delete":{de:"Diesen Eintrag wirklich löschen?",en:"Really delete this entry?"},
+  "confirm.wipe":{de:"Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.",en:"Delete the local vault on THIS device? Exported .vault files remain."},
+  "msg.merged":{de:"Zusammengeführt",en:"Merged"},
+  "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
+  "msg.total":{de:"gesamt",en:"total"},
+  "msg.passKept":{de:"Deine lokale Passphrase bleibt unverändert.",en:"Your local passphrase stays unchanged."},
+  "msg.importBad":{de:"Import fehlgeschlagen (falsche Passphrase oder Datei?).",en:"Import failed (wrong passphrase or file?)."},
+  "msg.notValidVault":{de:"Keine gültige .vault-Datei.",en:"Not a valid .vault file."},
+  "msg.enterPass":{de:"Bitte Passphrase eingeben.",en:"Please enter a passphrase."},
+  "msg.upToDate":{de:"Bereits aktuell",en:"Already up to date"},
+  "add.kycBuyNo":{de:"noKYC (privat / P2P / Bargeld)",en:"noKYC (private / P2P / cash)"},
+  "add.kycBuyYes":{de:"KYC-Broker (taucht im Finanzamt-Report auf)",en:"KYC broker (appears in tax report)"},
+  "add.kycSellNo":{de:"noKYC-Bestand (nur interner Report)",en:"noKYC holdings (internal report only)"},
+  "add.kycSellYes":{de:"KYC-Bestand (Finanzamt-Report)",en:"KYC holdings (tax report)"},
+  "col.detail":{de:"Detail",en:"Detail"},
+  "pill.nokycHold":{de:"noKYC-Bestand",en:"noKYC holdings"},
+  "pill.kycHold":{de:"KYC-Bestand",en:"KYC holdings"},
+  "pill.gold":{de:"Gold",en:"Gold"},"pill.silver":{de:"Silber",en:"Silver"},
+  "pill.dupQ":{de:"Dublette?",en:"Duplicate?"},
+  "pill.dupTitle":{de:"Gleicher Vorgang, Datum und Menge existiert mehrfach",en:"Same action, date and amount exists more than once"},
+  "series.invested":{de:"Netto investiert",en:"Net invested"},
+  "series.btc":{de:"Bitcoin-Bestand",en:"Bitcoin holdings"},
+  "series.gold":{de:"Gold-Bestand",en:"Gold holdings"},
+  "series.silver":{de:"Silber-Bestand",en:"Silver holdings"},
+  "preview.totalPrefix":{de:"→ Gesamt: ",en:"→ Total: "},"preview.gross":{de:"brutto",en:"gross"},
+  "dash.pricesHint":{de:"Trage oben Preise ein, um den aktuellen Wert zu sehen.",en:"Enter prices above to see the current value."},
+  "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
+  "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
+  "copy.manual":{de:"Manuell kopieren",en:"Copy manually"},
+  "tip.edit":{de:"Bearbeiten",en:"Edit"},"tip.del":{de:"Löschen",en:"Delete"},
+  "stat.investedLbl":{de:"Investiert",en:"Invested"},"stat.realizedLbl":{de:"Realisiert",en:"Realized"},
+  "toast.autolocked":{de:"Automatisch gesperrt",en:"Automatically locked"},
+  "toast.deletedShort":{de:"Gelöscht",en:"Deleted"},
+  "confirm.del2":{de:"Eintrag löschen?",en:"Delete entry?"},
+  "exp.noBuys":{de:"Keine BTC-Käufe vorhanden.",en:"No BTC buys."},
+  "exp.noSales":{de:"Keine BTC-Verkäufe vorhanden.",en:"No BTC sells."},
+  "exp.noMetals":{de:"Keine Edelmetall-Buchungen vorhanden.",en:"No precious-metal entries."},
+  "exp.savedShareSfx":{de:' gespeichert — über „Teilen" ablegen.',en:" saved — share it via the Share dialog."},
+  "exp.vaultSavedNative":{de:' — über „Teilen" in deinen Syncthing-Ordner legen.',en:" — share it into your Syncthing folder."},
+  "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
+  "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
+  "csv.resultPre":{de:"CSV-Import",en:"CSV import"},"csv.new":{de:"neu",en:"new"},"csv.dupsSkipped":{de:"Dubletten übersprungen",en:"duplicates skipped"},"csv.badRows":{de:"fehlerhafte Zeilen",en:"invalid rows"},
+  "lbl.buys":{de:"Käufe",en:"Buys"},"lbl.sells":{de:"Verkäufe",en:"Sells"},
+  "err.cpShort":{de:"Neue Passphrase: mind. 8 Zeichen.",en:"New passphrase: min. 8 characters."},
+  "err.cpMismatch":{de:"Neue Passphrasen stimmen nicht überein.",en:"New passphrases do not match."},
+  "err.cpWrong":{de:"Aktuelle Passphrase falsch.",en:"Current passphrase is wrong."},
+  "toast.qrSaved":{de:"QR als Bild gespeichert",en:"QR saved as image"},"toast.qrSaveFail":{de:"QR-Speichern fehlgeschlagen",en:"Saving QR failed"},
+  "toast.qrCopied":{de:"QR ins Clipboard kopiert",en:"QR copied to clipboard"},"toast.copyFail":{de:"Kopieren fehlgeschlagen",en:"Copy failed"},
+  "toast.noQr":{de:"Kein QR vorhanden",en:"No QR available"},"toast.clipUnavail":{de:"Clipboard nicht verfügbar — nutze „QR als Bild“",en:"Clipboard unavailable — use “Save QR as image”"},
+  "err.setupShort":{de:"Passphrase zu kurz (mind. 8 Zeichen).",en:"Passphrase too short (min. 8 characters)."},
+  "err.setupMismatch":{de:"Passphrasen stimmen nicht überein.",en:"Passphrases do not match."},
+  "err.vaultCorrupt":{de:"Tresor-Daten beschädigt.",en:"Vault data corrupted."},
+  "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
+  "err.totp6":{de:"6-stelligen Code eingeben.",en:"Enter the 6-digit code."},
+  "err.totpBad":{de:"Code falsch oder abgelaufen.",en:"Code wrong or expired."},
+  "err.totpSetupBad":{de:"Code stimmt nicht. In Aegis prüfen.",en:"Code doesn't match. Check in Aegis."},
+  "toast.vaultCreated":{de:"Tresor erstellt",en:"Vault created"},
+  "toast.totpOn":{de:"2FA aktiviert",en:"2FA enabled"},"toast.totpOff":{de:"2FA deaktiviert",en:"2FA disabled"},
+  "confirm.totpDisable":{de:"2FA wirklich deaktivieren?",en:"Really disable 2FA?"}
+};
+let LANG = localStorage.getItem('ai-tresor-lang') || ((navigator.language||'de').toLowerCase().indexOf('de')===0?'de':'en');
+const _i18nCache = new WeakMap();
+function tr(key){ const e=T[key]; return e?(e[LANG]!==undefined?e[LANG]:e.de):key; }
+function applyI18n(){
+  document.querySelectorAll('[data-i18n],[data-i18n-html],[data-i18n-ph]').forEach(el=>{
+    let c=_i18nCache.get(el); if(!c){ c={}; _i18nCache.set(el,c); }
+    [['data-i18n','textContent'],['data-i18n-html','innerHTML'],['data-i18n-ph','placeholder']].forEach(([attr,prop])=>{
+      const key=el.getAttribute(attr); if(!key) return;
+      if(c[prop]===undefined) c[prop]=el[prop];           // Original (DE) merken
+      const en=I18N[key];
+      el[prop]=(LANG==='en'&&en!==undefined)?en:c[prop];
+    });
+  });
+  document.documentElement.setAttribute('lang',LANG);
+  const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
+}
+function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(window.App&&App.relabel) App.relabel(); }
 
 /* ---------- base64 / bytes ---------- */
 function bufToB64(buf){let b='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i++)b+=String.fromCharCode(u[i]);return btoa(b);}
@@ -624,15 +840,15 @@ const App = (function(){
   async function doSetup(){
     err('setup-err');
     const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
-    if(p1.length<8) return err('setup-err','Passphrase zu kurz (mind. 8 Zeichen).');
-    if(p1!==p2) return err('setup-err','Passphrasen stimmen nicht überein.');
+    if(p1.length<8) return err('setup-err',tr('err.setupShort'));
+    if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
     SALT = crypto.getRandomValues(new Uint8Array(16));
     KEY = await deriveKey(p1, SALT);
     VAULT = emptyVault();
     await persist();
     $('setup-pass1').value=$('setup-pass2').value='';
     enterApp();
-    toast('Tresor erstellt');
+    toast(tr('toast.vaultCreated'));
   }
 
   /* ---------- unlock ---------- */
@@ -641,7 +857,7 @@ const App = (function(){
     err('lock-err');
     const raw = localStorage.getItem(LS_KEY);
     if(!raw) return boot();
-    let blob; try{blob=JSON.parse(raw);}catch(e){return err('lock-err','Tresor-Daten beschädigt.');}
+    let blob; try{blob=JSON.parse(raw);}catch(e){return err('lock-err',tr('err.vaultCorrupt'));}
     SALT = new Uint8Array(b64ToBuf(blob.salt));
     const btn=$('unlock-btn'), orig=btn.textContent;
     doUnlock._busy=true; btn.disabled=true; btn.textContent='Entschlüssele…';
@@ -649,7 +865,7 @@ const App = (function(){
       const k = await deriveKey($('lock-pass').value, SALT);
       VAULT = await decryptBlob(blob, k);
       KEY = k;
-    }catch(e){ return err('lock-err','Falsche Passphrase.'); }
+    }catch(e){ return err('lock-err',tr('err.wrongPass')); }
     finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
     $('lock-pass').value='';
     if(VAULT.totp && VAULT.totp.enabled){ screen('totp'); setTimeout(()=>$('totp-code').focus(),100); }
@@ -658,8 +874,8 @@ const App = (function(){
   async function doTotp(){
     err('totp-err');
     const code = $('totp-code').value.trim();
-    if(!/^\d{6}$/.test(code)) return err('totp-err','6-stelligen Code eingeben.');
-    if(!await totpValid(VAULT.totp.secret, code)) return err('totp-err','Code falsch oder abgelaufen.');
+    if(!/^\d{6}$/.test(code)) return err('totp-err',tr('err.totp6'));
+    if(!await totpValid(VAULT.totp.secret, code)) return err('totp-err',tr('err.totpBad'));
     $('totp-code').value='';
     enterApp();
   }
@@ -672,7 +888,7 @@ const App = (function(){
     if(!KEY||!VAULT) return;                         // nur im entsperrten Zustand
     const mins = VAULT.autolock==null?5:VAULT.autolock;
     if(!mins) return;                                // 0 = Auto-Lock aus
-    idleTimer=setTimeout(()=>{ clearIdle(); toast('Automatisch gesperrt'); lock(); }, mins*60000);
+    idleTimer=setTimeout(()=>{ clearIdle(); toast(tr('toast.autolocked')); lock(); }, mins*60000);
   }
   function activity(){ if(!KEY) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
@@ -703,17 +919,17 @@ const App = (function(){
   function setAddDir(d){addDir=d;document.querySelectorAll('#add-dir button').forEach(b=>b.classList.toggle('on',b.dataset.d===d));refreshAddLabels();}
   function refreshAddLabels(){
     const isSell=addDir==='sell', isWd=addDir==='withdraw';
-    $('add-title').textContent = isSell?'Verkauf erfassen':isWd?'Entnahme erfassen':'Kauf erfassen';
+    $('add-title').textContent = editId?tr('add.titleEdit'):(isSell?tr('add.titleSell'):isWd?tr('add.titleWd'):tr('add.titleBuy'));
     $('f-eur-wrap').classList.toggle('hidden', isWd);
-    $('f-eur-label').textContent = isSell?'Erhalten (EUR, netto)':'Bezahlt (EUR, gesamt inkl. Gebühr)';
-    $('f-src-btc-label').textContent = (isSell||isWd)?'Ziel / Käufer (optional)':'Quelle / Broker';
+    $('f-eur-label').textContent = isSell?tr('add.eurSell'):tr('add.eurBuy');
+    $('f-src-btc-label').textContent = (isSell||isWd)?tr('add.srcSell'):tr('add.srcBuy');
     // KYC-Auswahl je nach Richtung beschriften (Steuertool: Kauf=kyc, Verkauf=no_kyc)
     $('f-kyc-wrap').classList.toggle('hidden', isWd);
     if(!isWd){
-      $('f-kyc-label').textContent = isSell?'Verkauf aus welchem Bestand?':'KYC?';
+      $('f-kyc-label').textContent = isSell?tr('add.sellFrom'):tr('add.kycQ');
       const sel=$('f-kyc');
-      sel.options[0].text = isSell?'noKYC-Bestand (nur interner Report)':'noKYC (privat / P2P / Bargeld)';
-      sel.options[1].text = isSell?'KYC-Bestand (Finanzamt-Report)':'KYC-Broker (taucht im Finanzamt-Report auf)';
+      sel.options[0].text = isSell?tr('add.kycSellNo'):tr('add.kycBuyNo');
+      sel.options[1].text = isSell?tr('add.kycSellYes'):tr('add.kycBuyYes');
     }
   }
   function toGrams(qty,unit){qty=parseFloat(qty)||0;if(unit==='oz')return qty*31.1034768;if(unit==='kg')return qty*1000;return qty;}
@@ -731,7 +947,7 @@ const App = (function(){
     if(!(qty>0)||!(count>0)){ el.textContent=''; return; }
     const u=VAULT&&VAULT.unit||'oz', g=toGrams(qty,unit)*count;
     const tot=u==='oz'?g/OZ_G:g;
-    el.textContent=`→ Gesamt: ${count} × ${fmtNum(qty,unit==='g'?0:4)} ${unit} = ${fmtNum(tot,u==='oz'?4:2)} ${u} (brutto)`;
+    el.textContent=`${tr('preview.totalPrefix')}${count} × ${fmtNum(qty,unit==='g'?0:4)} ${unit} = ${fmtNum(tot,u==='oz'?4:2)} ${u} (${tr('preview.gross')})`;
   }
   function resetAddForm(){
     ['f-eur','f-btc','f-qty','f-fine','f-note'].forEach(i=>$(i).value='');
@@ -743,20 +959,20 @@ const App = (function(){
     const date=$('f-date').value;
     const isWd=addDir==='withdraw';
     const eur=isWd?0:parseFloat($('f-eur').value);
-    if(!date) return err('add-err','Datum fehlt.');
-    if(!isWd && !(eur>=0)) return err('add-err','Gültigen EUR-Betrag eingeben.');
+    if(!date) return err('add-err',tr('err.dateMissing'));
+    if(!isWd && !(eur>=0)) return err('add-err',tr('err.eurInvalid'));
     const e={id: editId||cryptoId(), type:addType, dir:addDir, date, eur, note:$('f-note').value.trim()};
     if(addType==='btc'){
       const amt=parseFloat($('f-btc').value);
-      if(!(amt>0)) return err('add-err','BTC-Menge fehlt.');
+      if(!(amt>0)) return err('add-err',tr('err.btcMissing'));
       e.btc=amt; e.source=$('f-src-btc').value.trim();
       if(addDir==='buy') e.kyc=$('f-kyc').selectedIndex===1;
       if(addDir==='sell') e.noKyc=$('f-kyc').selectedIndex===0;
     }else{
       const {qty, unit}=readDenom();
       const count=parseInt($('f-count').value);
-      if(!(count>0)) return err('add-err','Stückzahl fehlt (mind. 1).');
-      if(!(qty>0)) return err('add-err','Gewicht je Stück fehlt.');
+      if(!(count>0)) return err('add-err',tr('err.countMissing'));
+      if(!(qty>0)) return err('add-err',tr('err.weightMissing'));
       e.count=count; e.qty=qty; e.unit=unit;
       e.grams=toGrams(qty,unit)*count;               // Gesamt-Bruttogewicht = Stückzahl × Gewicht je Stück
       e.form=$('f-form').value; e.fineness=parseFloat($('f-fine').value)||null;
@@ -766,20 +982,23 @@ const App = (function(){
     const dup=findDuplicate(e, editId);
     if(dup){
       const what=e.type==='btc'?fmtNum(e.btc,8)+' ₿':e.count+'× '+fmtNum(e.qty,4)+' '+e.unit;
-      const dirDe={buy:'Kauf',sell:'Verkauf',withdraw:'Entnahme'}[entryDir(e)];
+      const dirL=tr('dir.'+entryDir(e));
       const prev=dup.eur?' ('+fmtEur(dup.eur)+(dup.source?', '+dup.source:'')+')':(dup.source?' ('+dup.source+')':'');
-      if(!confirm(`Mögliches Duplikat\n\nAm ${e.date} ist bereits ein ${dirDe} über ${what}${prev} erfasst.\n\nWirklich ein zweites Mal eintragen?`)) return;
+      const msg = LANG==='en'
+        ? `Possible duplicate\n\nOn ${e.date} a ${dirL} of ${what}${prev} already exists.\n\nReally add it a second time?`
+        : `Mögliches Duplikat\n\nAm ${e.date} ist bereits ein ${dirL} über ${what}${prev} erfasst.\n\nWirklich ein zweites Mal eintragen?`;
+      if(!confirm(msg)) return;
     }
     const wasEdit=!!editId;
     if(wasEdit){ const i=VAULT.entries.findIndex(x=>x.id===editId); if(i>=0) VAULT.entries[i]=e; }
     else VAULT.entries.push(e);
     persist().then(()=>{
       resetAddForm();
-      if(wasEdit){ exitEditMode(); toast('Eintrag aktualisiert'); tab('list'); }
-      else { toast(addDir==='sell'?'Verkauf eingetragen':addDir==='withdraw'?'Entnahme eingetragen':'Kauf eingetragen'); renderDash(); }
+      if(wasEdit){ exitEditMode(); toast(tr('toast.updated')); tab('list'); }
+      else { toast(addDir==='sell'?tr('toast.sellAdded'):addDir==='withdraw'?tr('toast.wdAdded'):tr('toast.buyAdded')); renderDash(); }
     });
   }
-  function exitEditMode(){ editId=null; $('add-btn').textContent='＋ Eintragen'; hide('add-cancel'); refreshAddLabels(); }
+  function exitEditMode(){ editId=null; $('add-btn').textContent=tr('add.btnAdd'); hide('add-cancel'); refreshAddLabels(); }
   function cancelEdit(){ resetAddForm(); exitEditMode(); tab('list'); }
   function editEntry(id){
     const e=VAULT.entries.find(x=>x.id===id); if(!e) return;
@@ -803,7 +1022,7 @@ const App = (function(){
       $('f-src-metal').value=e.source||'';
       updateMetalPreview();
     }
-    $('add-title').textContent='Eintrag bearbeiten';
+    $('add-title').textContent=tr('add.titleEdit');
     $('add-btn').textContent='Speichern';
     show('add-cancel');
     err('add-err');
@@ -815,7 +1034,7 @@ const App = (function(){
   function dupKey(e){return e.type+'|'+entryDir(e)+'|'+e.date+'|'+amtKey(e);}
   function findDuplicate(e,excludeId){const k=dupKey(e);return VAULT.entries.find(x=>x.id!==excludeId&&dupKey(x)===k);}
   function cryptoId(){const a=crypto.getRandomValues(new Uint8Array(8));return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');}
-  function delEntry(id){ if(!confirm('Eintrag löschen?'))return; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast('Gelöscht');}); }
+  function delEntry(id){ if(!confirm(tr('confirm.del2')))return; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}); }
 
   /* ---------- aggregates ---------- */
   function totals(){
@@ -846,30 +1065,30 @@ const App = (function(){
     const u=VAULT.unit||'oz';                 // Anzeige-Einheit für Edelmetall
     const inU=g=>u==='oz'?g/OZ_G:g;           // Feingramm -> Anzeige-Einheit
     const uL=u==='oz'?'oz':'g', uDec=u==='oz'?3:2;
-    const subInv=(inv,rel)=>`Investiert ${fmtEur(inv)}`+(rel>0?` · Realisiert ${fmtEur(rel)}`:'');
+    const subInv=(inv,rel)=>`${tr('stat.investedLbl')} ${fmtEur(inv)}`+(rel>0?` · ${tr('stat.realizedLbl')} ${fmtEur(rel)}`:'');
     $('dash-stats').innerHTML=`
-      <div class="stat btc"><div class="k">Bitcoin (Bestand)</div><div class="v">${fmtNum(t.btc,8)} ₿</div><div class="sub">${subInv(t.eurBtc,t.relBtc)}</div></div>
-      <div class="stat gold"><div class="k">Gold fein (Bestand)</div><div class="v">${fmtNum(inU(t.gold),uDec)} ${uL}</div><div class="sub">${subInv(t.eurGold,t.relGold)}</div></div>
-      <div class="stat silver"><div class="k">Silber fein (Bestand)</div><div class="v">${fmtNum(inU(t.silver),uDec)} ${uL}</div><div class="sub">${subInv(t.eurSilver,t.relSilver)}</div></div>
-      <div class="stat total"><div class="k">Netto investiert</div><div class="v">${fmtEur(t.eurTotal-t.relTotal)}</div><div class="sub">${VAULT.entries.length} Buchungen${t.relTotal>0?' · realisiert '+fmtEur(t.relTotal):''}</div></div>`;
+      <div class="stat btc"><div class="k">${tr('stat.btc')}</div><div class="v">${fmtNum(t.btc,8)} ₿</div><div class="sub">${subInv(t.eurBtc,t.relBtc)}</div></div>
+      <div class="stat gold"><div class="k">${tr('stat.gold')}</div><div class="v">${fmtNum(inU(t.gold),uDec)} ${uL}</div><div class="sub">${subInv(t.eurGold,t.relGold)}</div></div>
+      <div class="stat silver"><div class="k">${tr('stat.silver')}</div><div class="v">${fmtNum(inU(t.silver),uDec)} ${uL}</div><div class="sub">${subInv(t.eurSilver,t.relSilver)}</div></div>
+      <div class="stat total"><div class="k">${tr('stat.invested')}</div><div class="v">${fmtEur(t.eurTotal-t.relTotal)}</div><div class="sub">${VAULT.entries.length} ${tr('stat.investedSub')}${t.relTotal>0?' · '+tr('stat.realized')+' '+fmtEur(t.relTotal):''}</div></div>`;
     // Einheiten-Toggle + Preis-Labels
     document.querySelectorAll('#metal-unit-seg button').forEach(b=>b.classList.toggle('on',b.dataset.u===u));
-    $('price-gold-label').textContent='Gold €/'+uL; $('price-silver-label').textContent='Silber €/'+uL;
+    $('price-gold-label').textContent=tr('price.gold')+uL; $('price-silver-label').textContent=tr('price.silver')+uL;
     // Preise: intern €/g gespeichert, Anzeige in gewählter Einheit
     const dispG=v=>{const n=parseFloat(v);return isNaN(n)?'':String(u==='oz'?+(n*OZ_G).toFixed(2):+n.toFixed(4));};
     $('price-btc').value=VAULT.prices.btc||''; $('price-gold').value=dispG(VAULT.prices.gold); $('price-silver').value=dispG(VAULT.prices.silver);
     const pb=parseFloat(VAULT.prices.btc), pg=parseFloat(VAULT.prices.gold), ps=parseFloat(VAULT.prices.silver); // pg/ps = €/g (intern)
     // Vergleichsbasis: netto investierter Einstand der Klasse (Käufe − Verkäufe)
     function valCard(label,cls,cur,netInv){if(!(cur>0))return '';const pl=cur-netInv;const sign=pl>=0?'+':'';const col=pl>=0?'var(--neon)':'var(--red)';
-      return `<div class="stat ${cls}"><div class="k">${label} aktuell</div><div class="v">${fmtEur(cur)}</div><div class="sub" style="color:${col}">${sign}${fmtEur(pl)} (${netInv>0?sign+fmtNum(pl/netInv*100,1)+'%':'–'})</div></div>`;}
+      return `<div class="stat ${cls}"><div class="k">${label}</div><div class="v">${fmtEur(cur)}</div><div class="sub" style="color:${col}">${sign}${fmtEur(pl)} (${netInv>0?sign+fmtNum(pl/netInv*100,1)+'%':'–'})</div></div>`;}
     let html='';
-    if(pb>0) html+=valCard('Bitcoin','btc',t.btc*pb,t.eurBtc-t.relBtc);
-    if(pg>0) html+=valCard('Gold','gold',t.gold*pg,t.eurGold-t.relGold);
-    if(ps>0) html+=valCard('Silber','silver',t.silver*ps,t.eurSilver-t.relSilver);
+    if(pb>0) html+=valCard(tr('val.btcNow'),'btc',t.btc*pb,t.eurBtc-t.relBtc);
+    if(pg>0) html+=valCard(tr('val.goldNow'),'gold',t.gold*pg,t.eurGold-t.relGold);
+    if(ps>0) html+=valCard(tr('val.silverNow'),'silver',t.silver*ps,t.eurSilver-t.relSilver);
     const totCur=(pb>0?t.btc*pb:0)+(pg>0?t.gold*pg:0)+(ps>0?t.silver*ps:0);
     if(pb>0||pg>0||ps>0){const base=t.eurTotal-t.relTotal;const pl=totCur-base;const s=pl>=0?'+':'';const c=pl>=0?'var(--neon)':'var(--red)';
-      html+=`<div class="stat total"><div class="k">Gesamt aktuell</div><div class="v">${fmtEur(totCur)}</div><div class="sub" style="color:${c}">${s}${fmtEur(pl)} ggü. netto investiert</div></div>`;}
-    $('dash-value').innerHTML=html||'<p class="muted">Trage oben Preise ein, um den aktuellen Wert zu sehen.</p>';
+      html+=`<div class="stat total"><div class="k">${tr('val.totalNow')}</div><div class="v">${fmtEur(totCur)}</div><div class="sub" style="color:${c}">${s}${fmtEur(pl)} ${tr('val.vsInvested')}</div></div>`;}
+    $('dash-value').innerHTML=html||('<p class="muted">'+tr('dash.pricesHint')+'</p>');
   }
   function savePrices(){
     const u=VAULT.unit||'oz';
@@ -878,7 +1097,7 @@ const App = (function(){
     persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(renderDash,400);
   }
   function setMetalUnit(u){VAULT.unit=u;persist();renderDash();}
-  function setAutolock(v){VAULT.autolock=parseInt(v)||0;persist();resetIdle();toast(VAULT.autolock?'Auto-Lock: '+VAULT.autolock+' Min':'Auto-Lock aus');}
+  function setAutolock(v){VAULT.autolock=parseInt(v)||0;persist();resetIdle();toast(VAULT.autolock?tr('toast.autolockPrefix')+VAULT.autolock+' '+tr('unit.min'):tr('toast.autolockOff'));}
 
   /* ---------- render list ---------- */
   function setFilter(f){listFilter=f;document.querySelectorAll('#list-filter button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderList();}
@@ -889,24 +1108,24 @@ const App = (function(){
     $('list-tbl').classList.remove('hidden');hide('list-empty');
     // Dubletten zählen (über alle Einträge, nicht nur die gefilterten)
     const dupCount={};VAULT.entries.forEach(e=>{const k=dupKey(e);dupCount[k]=(dupCount[k]||0)+1;});
-    th.innerHTML='<tr><th>Datum</th><th>Vorgang</th><th>Typ</th><th>Menge</th><th>Detail</th><th>EUR</th><th>Quelle/Ziel</th><th></th></tr>';
+    th.innerHTML=`<tr><th>${tr('col.date')}</th><th>${tr('col.dir')}</th><th>${tr('col.type')}</th><th>${tr('col.amount')}</th><th>${tr('col.detail')}</th><th>${tr('col.eur')}</th><th>${tr('col.src')}</th><th></th></tr>`;
     tb.innerHTML=rows.map(e=>{
       const d=entryDir(e);
       const isDup=dupCount[dupKey(e)]>1;
-      const dirPill = d==='buy'?'<span class="pill dir-buy">＋ Kauf</span>'
-        : d==='sell'?'<span class="pill dir-sell">－ Verkauf</span>'
-        : '<span class="pill dir-wd">↗ Entnahme</span>';
+      const dirPill = d==='buy'?'<span class="pill dir-buy">＋ '+tr('dir.buy')+'</span>'
+        : d==='sell'?'<span class="pill dir-sell">－ '+tr('dir.sell')+'</span>'
+        : '<span class="pill dir-wd">↗ '+tr('dir.withdraw')+'</span>';
       const sgn = d==='buy'?'':'−';
       let menge,detail,pill;
       if(e.type==='btc'){menge=sgn+fmtNum(e.btc,8)+' ₿';
         detail = d==='buy'?(e.kyc?'<span class="pill kyc">KYC</span>':'<span class="pill nokyc">noKYC</span>')
-               : d==='sell'?(e.noKyc?'<span class="pill nokyc">noKYC-Bestand</span>':'<span class="pill kyc">KYC-Bestand</span>')
+               : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
                : '';
         pill='<span class="pill btc">BTC</span>';}
-      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+e.unit;detail=(e.count?e.count+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+e.unit+(e.form?' '+e.form:'')+(e.fineness?' · '+e.fineness+'‰':'');pill=`<span class="pill ${e.type}">${e.type==='gold'?'Gold':'Silber'}</span>`;}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+e.unit;detail=(e.count?e.count+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+e.unit+(e.form?' '+e.form:'')+(e.fineness?' · '+e.fineness+'‰':'');pill=`<span class="pill ${e.type}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
       const eurCell = d==='withdraw'?'<span class="muted">–</span>':fmtEur(e.eur);
-      const dupBadge = isDup?' <span class="pill dup" title="Gleicher Vorgang, Datum und Menge existiert mehrfach"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> Dublette?</span>':'';
-      return `<tr${isDup?' class="dup-row"':''}><td>${e.date}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+escapeHtml(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${escapeHtml(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="Bearbeiten" onclick="App.editEntry('${e.id}')">✎</button> <button class="del-x" title="Löschen" onclick="App.delEntry('${e.id}')">✕</button></td></tr>`;
+      const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
+      return `<tr${isDup?' class="dup-row"':''}><td>${e.date}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+escapeHtml(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${escapeHtml(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" onclick="App.editEntry('${e.id}')">✎</button> <button class="del-x" title="${tr('tip.del')}" onclick="App.delEntry('${e.id}')">✕</button></td></tr>`;
     }).join('');
   }
   function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -916,10 +1135,10 @@ const App = (function(){
   function seriesMeta(){
     const u=VAULT.unit||'oz', uL=u==='oz'?'oz':'g';
     return {
-      invested:{label:'Netto investiert',color:'var(--neon)',fmt:v=>fmtEur(v)},
-      btc:{label:'Bitcoin-Bestand',color:'var(--btc)',fmt:v=>fmtNum(v,8)+' ₿'},
-      gold:{label:'Gold-Bestand',color:'var(--gold)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
-      silver:{label:'Silber-Bestand',color:'var(--silver)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
+      invested:{label:tr('series.invested'),color:'var(--neon)',fmt:v=>fmtEur(v)},
+      btc:{label:tr('series.btc'),color:'var(--btc)',fmt:v=>fmtNum(v,8)+' ₿'},
+      gold:{label:tr('series.gold'),color:'var(--gold)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
+      silver:{label:tr('series.silver'),color:'var(--silver)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
     }[chartSeries];
   }
   function cumSeries(){
@@ -1001,7 +1220,7 @@ const App = (function(){
   }
   function exportSteuertool(){
     const buys=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='buy');
-    if(!buys.length)return toast('Keine BTC-Käufe vorhanden.');
+    if(!buys.length)return toast(tr('exp.noBuys'));
     let csv='date,btc_amount,eur_amount,note,kyc\n';
     for(const e of buys.sort((a,b)=>a.date.localeCompare(b.date))){
       const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
@@ -1011,7 +1230,7 @@ const App = (function(){
   }
   function exportSales(){
     const sales=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='sell');
-    if(!sales.length)return toast('Keine BTC-Verkäufe vorhanden.');
+    if(!sales.length)return toast(tr('exp.noSales'));
     let csv='date,btc_amount,eur_amount,note,no_kyc\n';
     for(const e of sales.sort((a,b)=>a.date.localeCompare(b.date))){
       const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
@@ -1021,7 +1240,7 @@ const App = (function(){
   }
   function exportMetals(){
     const m=VAULT.entries.filter(e=>e.type==='gold'||e.type==='silver');
-    if(!m.length)return toast('Keine Edelmetall-Buchungen vorhanden.');
+    if(!m.length)return toast(tr('exp.noMetals'));
     let csv='date,vorgang,metall,form,feinheit,stueckzahl,gewicht_je_stueck,einheit,gewicht_g_gesamt,fein_g_gesamt,fein_oz_gesamt,eur,quelle_ziel,notiz\n';
     const dirDe={buy:'Kauf',sell:'Verkauf',withdraw:'Entnahme'};
     for(const e of m.sort((a,b)=>a.date.localeCompare(b.date))){
@@ -1049,21 +1268,21 @@ const App = (function(){
     const m=$('export-msg');
     if(isNative){
       try{ const uri=await nativeSaveAndShare(name, '﻿'+csv);
-        if(m) m.textContent=name+' gespeichert ('+uri+') — über „Teilen" ablegen.'; toast('Exportiert');
-      }catch(e){ if(m) m.textContent='Export fehlgeschlagen: '+((e&&e.message)||e); toast('Fehlgeschlagen'); }
-    } else { downloadFile(name, csv); toast(name+' exportiert'); }
+        if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported'));
+      }catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
+    } else { downloadFile(name, csv); toast(tr('toast.exported')); }
   }
   async function exportVault(){
     const raw=localStorage.getItem(LS_KEY);if(!raw)return;
     const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
     if(isNative){
       try{ const uri=await nativeSaveAndShare(name, raw);
-        $('export-msg').textContent='Backup gespeichert ('+uri+') — über „Teilen" in deinen Syncthing-Ordner legen.';
-        toast('Backup erstellt');
-      }catch(e){ $('export-msg').textContent='Backup fehlgeschlagen: '+((e&&e.message)||e); }
+        $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative');
+        toast(tr('toast.saved'));
+      }catch(e){ $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
     } else {
       downloadFile(name, raw, 'application/octet-stream', false);
-      $('export-msg').textContent='Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.';
+      $('export-msg').textContent=tr('exp.vaultSavedWeb');
     }
   }
   // Minimal-CSV-Parser (RFC-4180-nah: Anführungszeichen, "" als Escape, BOM/CRLF tolerant).
@@ -1108,8 +1327,8 @@ const App = (function(){
           VAULT.entries.push(e); added++;
         }
         persist().then(()=>{ renderAll();
-          $('export-msg').textContent=`CSV-Import (${dir==='buy'?'Käufe':'Verkäufe'}): ${added} neu, ${dups} Dubletten übersprungen${bad?`, ${bad} fehlerhafte Zeilen`:''}.`;
-          toast(added?`${added} importiert`:'Keine neuen Einträge');
+          $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
+          toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
         });
       }catch(e){ $('export-msg').textContent='CSV-Import fehlgeschlagen: '+((e&&e.message)||'Format?'); }
       ev.target.value='';
@@ -1138,7 +1357,7 @@ const App = (function(){
         show('import-pass-box');
         $('export-msg').textContent='';
         $('import-pass').focus();
-      }catch(e){$('export-msg').textContent='Keine gültige .vault-Datei.';}
+      }catch(e){$('export-msg').textContent=tr('msg.notValidVault');}
     };
     r.readAsText(f);
   }
@@ -1147,7 +1366,7 @@ const App = (function(){
     if(!pendingImportBlob)return;
     const btn=event&&event.target; const orig=btn&&btn.textContent;
     const pass=$('import-pass').value;
-    if(!pass){$('export-msg').textContent='Bitte Passphrase eingeben.';return;}
+    if(!pass){$('export-msg').textContent=tr('msg.enterPass');return;}
     if(btn){btn.disabled=true;btn.textContent='Entschlüssele…';}
     try{
       const blob=pendingImportBlob;
@@ -1160,9 +1379,9 @@ const App = (function(){
       if((!VAULT.totp||!VAULT.totp.enabled) && v.totp) VAULT.totp=v.totp;   // 2FA übernehmen, falls lokal keins
       await persist();
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
-      $('export-msg').textContent=`Zusammengeführt: ${added} neue Einträge (gesamt ${VAULT.entries.length}). Deine lokale Passphrase bleibt unverändert.`;
-      renderAll();renderDash();toast(added?`${added} neue Einträge`:'Bereits aktuell');
-    }catch(e){$('export-msg').textContent='Import fehlgeschlagen (falsche Passphrase oder Datei?).';}
+      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`;
+      renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
+    }catch(e){$('export-msg').textContent=tr('msg.importBad');}
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
   }
 
@@ -1190,7 +1409,7 @@ const App = (function(){
   }
   function saveQR(){
     const c=$('totp-qr');
-    if(!c||c.style.display==='none'||!c.width)return toast('Kein QR vorhanden');
+    if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
     // Als Datei speichern (zuverlässig auch auf GrapheneOS) -> in Aegis aus Galerie/Bild importieren
     c.toBlob(async blob=>{
       const fname='sachwert-tresor-2fa-qr.png';
@@ -1199,32 +1418,32 @@ const App = (function(){
           const FS=CAP.Plugins&&CAP.Plugins.Filesystem;
           const w=await FS.writeFile({path:fname,data:b64,directory:'DOCUMENTS',recursive:true});
           const SH=CAP.Plugins&&CAP.Plugins.Share; if(SH) await SH.share({title:fname,url:w.uri});
-          toast('QR als Bild gespeichert');
-        }catch(e){ toast('QR-Speichern fehlgeschlagen'); }
+          toast(tr('toast.qrSaved'));
+        }catch(e){ toast(tr('toast.qrSaveFail')); }
       } else {
         const url=URL.createObjectURL(blob);const a=document.createElement('a');
         a.href=url;a.download=fname;a.click();
         setTimeout(()=>URL.revokeObjectURL(url),1000);
-        toast('QR als Bild gespeichert');
+        toast(tr('toast.qrSaved'));
       }
     },'image/png');
   }
   function copyQR(){
     const c=$('totp-qr');
-    if(!c||c.style.display==='none'||!c.width)return toast('Kein QR vorhanden');
-    if(!(navigator.clipboard && window.ClipboardItem))return toast('Clipboard nicht verfügbar — nutze „QR als Bild“');
+    if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
+    if(!(navigator.clipboard && window.ClipboardItem))return toast(tr('toast.clipUnavail'));
     c.toBlob(blob=>navigator.clipboard.write([new ClipboardItem({'image/png':blob})])
-      .then(()=>toast('QR ins Clipboard kopiert')).catch(()=>toast('Kopieren fehlgeschlagen')),'image/png');
+      .then(()=>toast(tr('toast.qrCopied'))).catch(()=>toast(tr('toast.copyFail'))),'image/png');
   }
   async function totpConfirm(){
     err('totp-setup-err');
     const code=$('totp-verify').value.trim();
-    if(!await totpValid(pendingSecret,code))return err('totp-setup-err','Code stimmt nicht. In Aegis prüfen.');
+    if(!await totpValid(pendingSecret,code))return err('totp-setup-err',tr('err.totpSetupBad'));
     VAULT.totp={enabled:true,secret:pendingSecret};
-    await persist();pendingSecret=null;renderSettings();toast('2FA aktiviert');
+    await persist();pendingSecret=null;renderSettings();toast(tr('toast.totpOn'));
   }
   function totpCancel(){pendingSecret=null;renderSettings();}
-  async function totpDisable(){if(!confirm('2FA wirklich deaktivieren?'))return;VAULT.totp=null;await persist();renderSettings();toast('2FA deaktiviert');}
+  async function totpDisable(){if(!confirm(tr('confirm.totpDisable')))return;VAULT.totp=null;await persist();renderSettings();toast(tr('toast.totpOff'));}
   function renderSettings(){
     const on=VAULT.totp&&VAULT.totp.enabled;
     $('totp-off').classList.toggle('hidden',on);$('totp-on').classList.toggle('hidden',!on);hide('totp-setup');
@@ -1238,39 +1457,42 @@ const App = (function(){
     if(changePass._busy) return;
     err('cp-err');
     const cur=$('cp-cur').value, p1=$('cp1').value, p2=$('cp2').value;
-    if(p1.length<8)return err('cp-err','Neue Passphrase: mind. 8 Zeichen.');
-    if(p1!==p2)return err('cp-err','Neue Passphrasen stimmen nicht überein.');
+    if(p1.length<8)return err('cp-err',tr('err.cpShort'));
+    if(p1!==p2)return err('cp-err',tr('err.cpMismatch'));
     const btn=$('cp-btn'), orig=btn.textContent;
     changePass._busy=true; btn.disabled=true; btn.textContent='Ändere…';
     try{
       // 1) aktuelle Passphrase gegen den gespeicherten Tresor prüfen
       const raw=localStorage.getItem(LS_KEY);
       try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt))); await decryptBlob(blob,ck); }
-      catch(e){ return err('cp-err','Aktuelle Passphrase ist falsch.'); }
+      catch(e){ return err('cp-err',tr('err.cpWrong')); }
       // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt)
       SALT=crypto.getRandomValues(new Uint8Array(16));
       KEY=await deriveKey(p1,SALT);
       await persist();
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
-      toast('Passphrase geändert');
+      toast(tr('toast.passChanged'));
     }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
   }
 
   /* ---------- misc ---------- */
   function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
-  function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast('Manuell kopieren');}
-  function wipeLocal(){if(!confirm('Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.'))return;localStorage.removeItem(LS_KEY);lock();}
+  function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
+  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;localStorage.removeItem(LS_KEY);lock();}
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
   function closeHelp(){hide('help-overlay');}
+  function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
+  function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,updateMetalPreview,
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setAutolock,setChartSeries,
-    totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,_otpauth:''};
+    totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,_otpauth:''};
 })();
 
 window.addEventListener('DOMContentLoaded',()=>{
   if(!window.crypto||!crypto.subtle){document.body.innerHTML='<div class="container"><div class="card warn">Dieser Browser unterstützt kein WebCrypto (oder läuft nicht im sicheren Kontext). Öffne die Datei über https:// oder file:// in Vanadium/Brave/Firefox.</div></div>';return;}
+  applyI18n();
   App.boot();
   // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar
   if('serviceWorker' in navigator && location.protocol!=='file:'){
