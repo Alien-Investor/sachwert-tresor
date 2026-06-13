@@ -1,6 +1,10 @@
 # Exportierte Vault-Dateien gehören NICHT ins Repo (enthalten verschlüsselte Bestände)
 *.vault
 
+# Echte Bestands-/Export-Daten — NIE ins (öffentliche!) Repo.
+# Die App versendet keine CSV als Repo-Asset; alle .csv sind Nutzerdaten.
+*.csv
+
 # lokale Secrets / Daten
 .env
 .env.*
