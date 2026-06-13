@@ -11,3 +11,19 @@
 # Build-/Keystore-/Deploy-Interna liegen verschlüsselt in BUILD.md (KEINE Ausnahme).
 README.md !filter !diff
 CHANGELOG.md !filter !diff
+LICENSE !filter !diff
+
+# Auditierbarer Client-Quellcode — bewusst KLARTEXT (Open Source, offline-Prüfbarkeit).
+# Enthält KEINE Geheimnisse. Build-/Keystore-/Deploy-Skripte bleiben verschlüsselt.
+index.html !filter !diff
+qr.js !filter !diff
+sw.js !filter !diff
+manifest.webmanifest !filter !diff
+icon.svg !filter !diff
+capacitor.config.json !filter !diff
+package.json !filter !diff
+package-lock.json !filter !diff
+VERSION !filter !diff
+roundtrip-test.mjs !filter !diff
+vendor/** !filter !diff
+assets/** !filter !diff

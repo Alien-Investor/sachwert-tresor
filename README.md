@@ -64,7 +64,24 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 - Der QR-Encoder ist eigenständig (kein Fremdcode) und bit-genau gegen eine Referenz-Lib
   verifiziert. Keine externen CDNs, keine Tracker, keine Netz-Abfragen.
 
+## Open Source & selbst prüfen
+
+Der komplette **Client-Code ist offen** ([MIT](LICENSE)) — du musst niemandem vertrauen, du kannst
+nachsehen: `index.html` (App + Krypto), `qr.js`, `sw.js`. Schnell-Audit:
+
+- **Kein Nach-Hause-Telefonieren:** keine `fetch`/`XMLHttpRequest`/WebSocket-Aufrufe, keine externen
+  Skripte, keine CDNs, kein Analytics. Die einzige externe URL ist der Spenden-Link.
+- **Krypto:** ausschließlich native `crypto.subtle` (WebCrypto) — AES-256-GCM + PBKDF2-SHA256 (600k).
+- **Schriften** liegen lokal unter `vendor/` (kein Google-Fonts-Abruf).
+- `roundtrip-test.mjs` belegt: Export → `.vault` → Import auf einem Zweitgerät ist verlustfrei.
+
+> Build-/Signatur-/Deploy-Interna (Keystore, Server) liegen bewusst **nicht** im öffentlichen Teil —
+> sie enthalten keine Geheimnisse, aber auch keinen Mehrwert für die Prüfung des Clients.
+
 ## Bedienung
+
+> 💡 Die komplette Bedienung steckt auch **als Handbuch in der App** — der „?"-Button
+> oben rechts öffnet es (offline, ohne Netz).
 
 ### Aegis 2FA einrichten
 
