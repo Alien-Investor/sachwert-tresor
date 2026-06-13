@@ -3,6 +3,13 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v1.6 — 2026-06-13
+
+- **Fix (App):** CSV-Exporte (Steuertool/Verkäufe/Edelmetalle) und „QR als Bild speichern"
+  liefen über den Browser-Download, der in der nativen App-WebView nicht funktioniert —
+  am Handy passierte nichts. Laufen jetzt über den nativen Speichern-/Teilen-Weg (wie das
+  Vault-Backup). Auf dem Desktop unverändert als Download.
+
 ## v1.5 — 2026-06-13
 
 - **Neu: In-App-Handbuch.** Der „?"-Button oben rechts öffnet ein Vollbild-Handbuch
