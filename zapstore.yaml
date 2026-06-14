@@ -3,10 +3,10 @@
 #   set -a; source .env; set +a        # .env enthält SIGN_WITH="bunker://…"
 #   zsp publish zapstore.yaml
 # Trockenlauf ohne Amber (unsignierte Events):
-#   SIGN_WITH=npub1cywgjesfkrtzymyu5gqf3clzakqrlzagjdas0gj62jws0ja2fujsdzvg35 zsp publish zapstore.yaml --offline
+#   SIGN_WITH=npub1cnlymdm5jz8eayycwynhze4s2zh9n0y04atce8ahxl5qfkptplls0s40hp zsp publish zapstore.yaml --offline
 
 repository: https://codeberg.org/Alien-Investor/sachwert-tresor
-pubkey: npub1cywgjesfkrtzymyu5gqf3clzakqrlzagjdas0gj62jws0ja2fujsdzvg35
+pubkey: npub1cnlymdm5jz8eayycwynhze4s2zh9n0y04atce8ahxl5qfkptplls0s40hp
 
 name: Sachwert-Tresor
 summary: Local, encrypted vault for your Bitcoin, gold and silver — fully offline.
