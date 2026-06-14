@@ -1,0 +1,45 @@
+# Zapstore publishing config — Sachwert-Tresor
+# Veröffentlichen (Signing über Amber/NIP-46-Bunker, kein nsec im Klartext):
+#   set -a; source .env; set +a        # .env enthält SIGN_WITH="bunker://…"
+#   zsp publish zapstore.yaml
+# Trockenlauf ohne Amber (unsignierte Events):
+#   SIGN_WITH=npub1cywgjesfkrtzymyu5gqf3clzakqrlzagjdas0gj62jws0ja2fujsdzvg35 zsp publish zapstore.yaml --offline
+
+repository: https://codeberg.org/Alien-Investor/sachwert-tresor
+pubkey: npub1cywgjesfkrtzymyu5gqf3clzakqrlzagjdas0gj62jws0ja2fujsdzvg35
+
+name: Sachwert-Tresor
+summary: Local, encrypted vault for your Bitcoin, gold and silver — fully offline.
+
+description: |
+  Sachwert-Tresor is a local, encrypted vault for tracking your Bitcoin, gold and
+  silver holdings. It runs fully offline — no cloud, no server, no telemetry, no
+  price lookups over the network. Your data never leaves the device in plaintext.
+
+  Features:
+  - AES-256-GCM encryption, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto
+  - Optional 2FA (Aegis / TOTP, RFC 6238) with a self-contained QR encoder
+  - Bitcoin: buys, sells and withdrawals; gold and silver by count × denomination
+  - Manual current-value calculation — you enter prices yourself, nothing is fetched
+  - Encrypted .vault backup, peer-to-peer sync via Syncthing (no cloud)
+  - CSV export compatible with the BTC tax tool (KYC / noKYC kept separate)
+  - Fully bilingual (German / English), offline in-app manual included
+  - Open source (MIT) — no third-party crypto, no external CDNs, no trackers
+
+tags:
+  - bitcoin
+  - finance
+  - privacy
+  - tools
+
+license: MIT
+website: https://alien-investor.org/sachwert-tresor.html
+
+icon: ./assets/icon-only.png
+
+images:
+  - ./screenshots/1-overview.png
+  - ./screenshots/2-holdings.png
+  - ./screenshots/3-history.png
+
+release_notes: ./CHANGELOG.md

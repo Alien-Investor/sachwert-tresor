@@ -27,3 +27,8 @@ VERSION !filter !diff
 roundtrip-test.mjs !filter !diff
 vendor/** !filter !diff
 assets/** !filter !diff
+
+# Zapstore-Publishing: Listing-Config (enthält nur npub + öffentliche Metadaten,
+# der Indexer liest sie auf Codeberg als Ownership-Nachweis) + Demo-Screenshots.
+zapstore.yaml !filter !diff
+screenshots/** !filter !diff
