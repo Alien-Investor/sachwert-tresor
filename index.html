@@ -759,7 +759,7 @@ function applyI18n(){
   document.documentElement.setAttribute('lang',LANG);
   const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
 }
-function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(window.App&&App.relabel) App.relabel(); }
+function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(typeof App!=='undefined'&&App.relabel) App.relabel(); }
 
 /* ---------- base64 / bytes ---------- */
 function bufToB64(buf){let b='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i++)b+=String.fromCharCode(u[i]);return btoa(b);}

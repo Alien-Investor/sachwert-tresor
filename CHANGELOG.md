@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v1.9 — 2026-06-14
+
+- **Fix (i18n, Wurzelursache):** Beim Sprachwechsel aktualisierten sich JS-gerenderte
+  Inhalte nicht, solange man auf dem Tab blieb — am sichtbarsten die vier Übersichts-
+  Kacheln („Bitcoin (Bestand)", „Gold fein", „Silber fein", „Netto investiert"), die
+  im Englisch-Modus deutsch blieben. Ursache: ein falscher `window.App`-Check verhinderte
+  das Neu-Rendern. Jetzt schalten Übersicht, Verlauf, Liste und Einstellungen sofort um.
+
 ## v1.8 — 2026-06-14
 
 - **Fix (i18n):** Im Verlauf-Tab blieben „Höchststand", „… jetzt" und „X Datenpunkte"
