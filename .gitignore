@@ -18,6 +18,8 @@ Thumbs.db
 serve-test.mjs
 ui-roundtrip-test.mjs
 csv-import-test.mjs
+verify-*.mjs
+verify-*.png
 
 # Capacitor / Android-Build (regenerierbar aus web-Assets + capacitor.config.json)
 node_modules/

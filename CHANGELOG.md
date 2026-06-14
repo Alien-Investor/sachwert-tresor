@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v1.8 — 2026-06-14
+
+- **Fix (i18n):** Im Verlauf-Tab blieben „Höchststand", „… jetzt" und „X Datenpunkte"
+  auch im Englisch-Modus deutsch; ebenso der Speichern-Button im Bearbeiten-Modus.
+  Jetzt vollständig übersetzt.
+- **Fix:** Der Spenden-Blitz im Footer war ein Emoji (gelb in der App, winzig im Web).
+  Ersetzt durch ein grünes Blitz-SVG (neon, passend zum Design, größer und überall gleich).
+- **Klarstellung:** Der CSV-Import-Hinweis verwies auf einen „Konverter", den es nicht gibt.
+  Text korrigiert; Handbuch erklärt jetzt die Aufgabenteilung — Broker-/Börsen-CSVs gehören
+  direkt ins BTC-Steuertool, der Tresor-CSV-Import ist nur für eigene Listen im Tresor-Format.
+- **Handbuch:** Abschnitt „Backup & Sync" erklärt jetzt genau, wo die Daten liegen
+  (localStorage: App-Sandbox vs. Browser-Profil) und warum die App persistenter ist.
+- **UI:** Mehr Abstand zwischen „Jetzt sperren" und „Lokale Daten löschen" in den
+  Einstellungen (lagen am Handy beim Umbruch zu eng beieinander).
+
 ## v1.7 — 2026-06-13
 
 - **Neu: Sprachumschalter Deutsch/Englisch.** Der „DE/EN"-Button oben links schaltet die

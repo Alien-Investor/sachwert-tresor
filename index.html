@@ -377,7 +377,7 @@ tr:hover td{color:var(--neon);}
       </div>
       <div class="card">
         <h2 data-i18n="exp.importTitle">CSV-Import (BTC-Käufe / -Verkäufe)</h2>
-        <p class="muted" data-i18n-html="exp.importIntro">Lädt viele Buchungen auf einmal im Tresor-Format: <code>manual_buys.csv</code> (Käufe) oder <code>manual_sales.csv</code> (Verkäufe) — Kopfzeile <code>date,btc_amount,eur_amount,note,kyc</code> bzw. <code>…,no_kyc</code>. Börsen-CSVs vorher mit dem Konverter in dieses EUR-Format bringen. Dubletten werden automatisch übersprungen.</p>
+        <p class="muted" data-i18n-html="exp.importIntro">Lädt viele Buchungen auf einmal im Tresor-Format: <code>manual_buys.csv</code> (Käufe) oder <code>manual_sales.csv</code> (Verkäufe) — Kopfzeile <code>date,btc_amount,eur_amount,note,kyc</code> bzw. <code>…,no_kyc</code>. Für eigene Listen einfach dieses Format verwenden (Datum, BTC-Menge, EUR). Dubletten werden automatisch übersprungen.</p>
         <button class="btn" style="margin-top:12px" onclick="document.getElementById('csv-file').click()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> <span data-i18n="exp.importBtn">CSV importieren</span></button>
         <input id="csv-file" type="file" accept=".csv" class="hidden" onchange="App.importCsv(event)">
       </div>
@@ -463,7 +463,7 @@ tr:hover td{color:var(--neon);}
         </select>
         <br>
         <button class="btn ghost" onclick="App.lock()"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> <span data-i18n="set.lockNow">Jetzt sperren</span></button>
-        <button class="btn danger" style="margin-left:8px" onclick="App.wipeLocal()" data-i18n="set.wipe">Lokale Daten löschen</button>
+        <button class="btn danger" style="margin-left:8px;margin-top:10px" onclick="App.wipeLocal()" data-i18n="set.wipe">Lokale Daten löschen</button>
         <p class="muted" style="margin-top:10px" data-i18n-html="set.wipeNote">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
       </div>
     </div>
@@ -472,7 +472,7 @@ tr:hover td{color:var(--neon);}
   <div class="foot">
     <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
     <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238</span><br>
-    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;" data-i18n="foot.donate">⚡ Energie aufladen · Spenden</a>
+    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
   </div>
 </div>
 <div id="help-overlay" class="help-overlay hidden">
@@ -506,7 +506,7 @@ tr:hover td{color:var(--neon);}
     <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
 
     <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
-    <p data-i18n-html="help.p5">Dein Bestand liegt nur auf <em>diesem</em> Gerät. Nach einer Neuinstallation ist er <strong>ohne Backup unwiederbringlich weg</strong>.</p>
+    <p data-i18n-html="help.p5">Dein Bestand liegt verschlüsselt im lokalen Speicher (localStorage) <em>dieses</em> Geräts — in der <strong>App</strong> im geschützten App-Speicher (übersteht Neustarts und Updates, geht nur bei „App-Daten löschen" oder Deinstallation verloren), im <strong>Browser</strong> im Browser-Profil (wird beim Löschen der „Cookies und Websitedaten" mit entfernt — nicht beim reinen Cache-Leeren). In beiden Fällen gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>. Die App ist deutlich persistenter — für den Dauerbetrieb empfohlen.</p>
     <ul data-i18n-html="help.l5">
       <li><strong>Backup erstellen</strong> (Export & Sync) → verschlüsselte <code>.vault</code>-Datei. Leg sie in deinen Syncthing-Ordner.</li>
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>
@@ -515,7 +515,7 @@ tr:hover td{color:var(--neon);}
     </ul>
 
     <h2 data-i18n="help.h6">CSV-Import</h2>
-    <p data-i18n-html="help.p6">Export & Sync → CSV importieren lädt <code>manual_buys.csv</code> (Käufe) / <code>manual_sales.csv</code> (Verkäufe) im Tresor-Format. Dubletten werden übersprungen — gefahrlos mehrfach importierbar.</p>
+    <p data-i18n-html="help.p6">Export & Sync → CSV importieren lädt <code>manual_buys.csv</code> (Käufe) / <code>manual_sales.csv</code> (Verkäufe) im Tresor-Format. Dubletten werden übersprungen — gefahrlos mehrfach importierbar. <strong>Broker-/Börsen-CSVs gehören dagegen direkt ins BTC-Steuertool</strong> (es hat eigene Broker-Parser) — nicht hierher.</p>
 
     <h2 data-i18n="help.h7">Steuertool-Export</h2>
     <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle.</p>
@@ -581,7 +581,7 @@ const I18N = {
   "exp.metalTitle":"Precious-metal inventory (CSV)",
   "exp.metalIntro":"Gold & silver holdings as a table (date, form, fineness, weight, price, dealer).",
   "exp.importTitle":"CSV import (BTC buys / sells)",
-  "exp.importIntro":"Loads many entries at once in vault format: <code>manual_buys.csv</code> (buys) or <code>manual_sales.csv</code> (sells) — header <code>date,btc_amount,eur_amount,note,kyc</code> or <code>…,no_kyc</code>. Convert exchange CSVs into this EUR format with the converter first. Duplicates are skipped automatically.",
+  "exp.importIntro":"Loads many entries at once in vault format: <code>manual_buys.csv</code> (buys) or <code>manual_sales.csv</code> (sells) — header <code>date,btc_amount,eur_amount,note,kyc</code> or <code>…,no_kyc</code>. For your own lists just use this format (date, BTC amount, EUR). Duplicates are skipped automatically.",
   "exp.importBtn":"Import CSV",
   "exp.backupTitle":"Backup & Sync (encrypted vault file)",
   "exp.backupIntro":"The <code>.vault</code> file is fully encrypted. Put it in your <strong>Syncthing</strong> folder — it syncs P2P between desktop and GrapheneOS, without cloud. On the other device, load it via “Restore”. <strong>Importing merges</strong> (new entries are added, nothing is overwritten), and each device keeps its own passphrase.",
@@ -604,7 +604,7 @@ const I18N = {
   "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
   "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
   "foot.line2":"Encryption: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238",
-  "foot.donate":"⚡ Charge energy · Donate",
+  "foot.donate":"Charge energy · Donate",
   "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
   "help.h1":"What is the Sachwert-Tresor?",
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
@@ -616,10 +616,10 @@ const I18N = {
   "help.h4":"Overview & values",
   "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
   "help.h5":"Backup & Sync (important!)",
-  "help.p5":"Your holdings live only on <em>this</em> device. After a reinstall they are <strong>irretrievably gone without a backup</strong>.",
+  "help.p5":"Your holdings live encrypted in this device's local storage (localStorage) — in the <strong>app</strong> in protected app storage (survives restarts and updates, lost only on “Clear app data” or uninstall), in the <strong>browser</strong> in the browser profile (removed when you clear “cookies and site data” — not by clearing the cache alone). Either way: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>. The app is significantly more persistent — recommended for long-term use.",
   "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li>",
   "help.h6":"CSV import",
-  "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times.",
+  "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
   "help.h7":"Tax-tool export",
   "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals.",
   "help.h8":"2FA across multiple devices",
@@ -636,6 +636,10 @@ const T = {
   "add.titleWd":{de:"Entnahme erfassen",en:"Add withdrawal"},
   "add.titleEdit":{de:"Eintrag bearbeiten",en:"Edit entry"},
   "add.btnAdd":{de:"＋ Eintragen",en:"＋ Add"},
+  "add.btnSave":{de:"Speichern",en:"Save"},
+  "ov.now":{de:"jetzt",en:"now"},
+  "ov.peak":{de:"Höchststand",en:"Peak"},
+  "ov.datapoints":{de:"Datenpunkte",en:"data points"},
   "add.eurBuy":{de:"Bezahlt (EUR, gesamt inkl. Gebühr)",en:"Paid (EUR, total incl. fee)"},
   "add.eurSell":{de:"Erhalten (EUR, netto)",en:"Received (EUR, net)"},
   "add.srcBuy":{de:"Quelle / Broker",en:"Source / broker"},
@@ -1023,7 +1027,7 @@ const App = (function(){
       updateMetalPreview();
     }
     $('add-title').textContent=tr('add.titleEdit');
-    $('add-btn').textContent='Speichern';
+    $('add-btn').textContent=tr('add.btnSave');
     show('add-cancel');
     err('add-err');
   }
@@ -1164,8 +1168,8 @@ const App = (function(){
     const cur = pts.length? pts[pts.length-1].val : 0;
     const peak = pts.length? Math.max(...pts.map(p=>p.val)) : 0;
     head.innerHTML=`
-      <div class="stat"><div class="k">${m.label} jetzt</div><div class="v" style="color:${m.color}">${m.fmt(cur)}</div></div>
-      <div class="stat"><div class="k">Höchststand</div><div class="v">${m.fmt(peak)}</div><div class="sub">${pts.length} Datenpunkte</div></div>`;
+      <div class="stat"><div class="k">${m.label} ${tr('ov.now')}</div><div class="v" style="color:${m.color}">${m.fmt(cur)}</div></div>
+      <div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${pts.length} ${tr('ov.datapoints')}</div></div>`;
     if(pts.length<2){ wrap.innerHTML=''; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
     wrap.innerHTML = buildChartSVG(pts, m);
@@ -1301,7 +1305,7 @@ const App = (function(){
     return rows.filter(r=>r.length && r.some(x=>x.trim()!==''));
   }
   // CSV-Bulk-Import im Tresor-Eigenformat (manual_buys.csv = Käufe, manual_sales.csv = Verkäufe).
-  // Börsen-CSVs vorher mit dem Offline-Konverter in dieses EUR-Format bringen (FX passiert dort, nie in der App).
+  // CSV nur im Tresor-Format (date,btc_amount,eur_amount,…). Broker-CSVs gehoeren ins Steuertool, nicht hierher.
   function importCsv(ev){
     const f=ev.target.files[0]; if(!f) return;
     const r=new FileReader();
