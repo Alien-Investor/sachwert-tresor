@@ -21,10 +21,17 @@ hier auf Codeberg verteilt. Empfohlen über **[Obtainium](https://github.com/Imr
 [**Neuestes Release**](https://codeberg.org/Alien-Investor/sachwert-tresor/releases/latest)
 → die `.apk` herunterladen und installieren.
 
-**Signatur-Fingerprint** (zum Prüfen der Echtheit, über alle Versionen gleich):
+**Signatur-Fingerprint** (zum Prüfen der Echtheit, über alle Versionen gleich).
+Derselbe Wert, zwei Schreibweisen — beides ist der SHA-256 des Signatur-Zertifikats:
 ```
-SHA-256: 660f210c7a289f388bb4812c23825a77f1fc84e6a7ee58d64281b6bf5cd87988
+AppVerifier (mit Doppelpunkten, so zeigt die App es dir an):
+66:0F:21:0C:7A:28:9F:38:8B:B4:81:2C:23:82:5A:77:F1:FC:84:E6:A7:EE:58:D6:42:81:B6:BF:5C:D8:79:88
+
+Plain SHA-256 (apksigner / ohne Trennzeichen):
+660f210c7a289f388bb4812c23825a77f1fc84e6a7ee58d64281b6bf5cd87988
 ```
+Mit [AppVerifier](https://github.com/soupslurpr/AppVerifier) die installierte App öffnen
+und mit dem Doppelpunkt-Wert oben vergleichen.
 > Android/GrapheneOS prüft die Signatur ohnehin automatisch und lehnt fremd signierte
 > Updates ab.
 
