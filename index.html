@@ -8,6 +8,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#000000">
+<!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none') und fremde Quellen — Exfiltration selbst bei einem XSS-Fund unmöglich. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <script>(function(){var t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');})();</script>
 <link href="vendor/fonts/fonts.css" rel="stylesheet">
 <style>
@@ -522,6 +524,7 @@ tr:hover td{color:var(--neon);}
 
     <h2 data-i18n="help.h8">2FA über mehrere Geräte</h2>
     <p data-i18n-html="help.p8">Das 2FA-Secret liegt im verschlüsselten Tresor, pro Installation. Web und App sind getrennte Speicher → 2FA ist nicht automatisch gleich. Für denselben Aegis-Eintrag auf beiden: 2FA nur auf <em>einem</em> Gerät aktivieren, dann Backup auf dem anderen wiederherstellen (dort vorher kein 2FA aktivieren — ein bestehendes wird nie überschrieben).</p>
+    <p data-i18n-html="help.p8b"><strong>Einordnung:</strong> Der Aegis-Code ist eine zusätzliche Hürde beim Entsperren auf diesem Gerät — <em>kein</em> zweiter Verschlüsselungsfaktor. Die Verschlüsselung selbst schützt allein die Passphrase: Wer an die Tresor-Daten oder eine <code>.vault</code>-Datei kommt, braucht die Passphrase (nicht den Code). Wähle sie entsprechend stark.</p>
 
     <h2 data-i18n="help.h9">Sicherheit</h2>
     <ul data-i18n-html="help.l9">
@@ -624,6 +627,7 @@ const I18N = {
   "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals.",
   "help.h8":"2FA across multiple devices",
   "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
+  "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto — no third-party crypto.</li><li>No network requests, no trackers, no external CDNs. Everything offline.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>"
 };
@@ -741,7 +745,13 @@ const T = {
   "err.totpSetupBad":{de:"Code stimmt nicht. In Aegis prüfen.",en:"Code doesn't match. Check in Aegis."},
   "toast.vaultCreated":{de:"Tresor erstellt",en:"Vault created"},
   "toast.totpOn":{de:"2FA aktiviert",en:"2FA enabled"},"toast.totpOff":{de:"2FA deaktiviert",en:"2FA disabled"},
-  "confirm.totpDisable":{de:"2FA wirklich deaktivieren?",en:"Really disable 2FA?"}
+  "confirm.totpDisable":{de:"2FA wirklich deaktivieren?",en:"Really disable 2FA?"},
+  "busy.decrypting":{de:"Entschlüssele…",en:"Decrypting…"},
+  "busy.changing":{de:"Ändere…",en:"Changing…"},
+  "csv.failPre":{de:"CSV-Import fehlgeschlagen: ",en:"CSV import failed: "},
+  "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
+  "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
+  "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"}
 };
 let LANG = localStorage.getItem('ai-tresor-lang') || ((navigator.language||'de').toLowerCase().indexOf('de')===0?'de':'en');
 const _i18nCache = new WeakMap();
@@ -827,7 +837,8 @@ const App = (function(){
   async function persist(){
     const blob = await encryptObj(VAULT, KEY);
     blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=ITER; blob.salt=bufToB64(SALT);
-    localStorage.setItem(LS_KEY, JSON.stringify(blob));
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
+    catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
   }
 
   /* ---------- boot ---------- */
@@ -864,7 +875,7 @@ const App = (function(){
     let blob; try{blob=JSON.parse(raw);}catch(e){return err('lock-err',tr('err.vaultCorrupt'));}
     SALT = new Uint8Array(b64ToBuf(blob.salt));
     const btn=$('unlock-btn'), orig=btn.textContent;
-    doUnlock._busy=true; btn.disabled=true; btn.textContent='Entschlüssele…';
+    doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
     try{
       const k = await deriveKey($('lock-pass').value, SALT);
       VAULT = await decryptBlob(blob, k);
@@ -897,9 +908,30 @@ const App = (function(){
   function activity(){ if(!KEY) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
   function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); }
-  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; boot(); }
+  // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
+  function clearRendered(){
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
+    const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML='';
+    resetAddForm();
+    ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2'].forEach(i=>{const el=$(i);if(el)el.value='';});
+    $('totp-secret').textContent=''; App._otpauth='';
+    const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
+    pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
+  }
+  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; clearRendered(); boot(); }
   ['click','keydown','touchstart','scroll','mousemove'].forEach(ev=>
     document.addEventListener(ev, activity, {passive:true}));
+  // Backgrounding: setTimeout pausiert in eingefrorenen WebViews — beim Zurückkehren
+  // die tatsächlich verstrichene Zeit prüfen und ggf. sofort sperren.
+  let hiddenAt=0;
+  document.addEventListener('visibilitychange',()=>{
+    if(!KEY||!VAULT) return;
+    const mins = VAULT.autolock==null?5:VAULT.autolock;
+    if(document.hidden){ hiddenAt=Date.now(); return; }
+    const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0;
+    if(mins && away>mins*60000){ toast(tr('toast.autolocked')); lock(); }
+    else resetIdle();
+  });
 
   /* ---------- tabs ---------- */
   function tab(name){
@@ -1080,7 +1112,9 @@ const App = (function(){
     $('price-gold-label').textContent=tr('price.gold')+uL; $('price-silver-label').textContent=tr('price.silver')+uL;
     // Preise: intern €/g gespeichert, Anzeige in gewählter Einheit
     const dispG=v=>{const n=parseFloat(v);return isNaN(n)?'':String(u==='oz'?+(n*OZ_G).toFixed(2):+n.toFixed(4));};
-    $('price-btc').value=VAULT.prices.btc||''; $('price-gold').value=dispG(VAULT.prices.gold); $('price-silver').value=dispG(VAULT.prices.silver);
+    // fokussiertes Feld nicht überschreiben — der Nutzer tippt dort gerade (Debounce-Rerender)
+    const setIf=(id,v)=>{const el=$(id);if(document.activeElement!==el)el.value=v;};
+    setIf('price-btc',VAULT.prices.btc||''); setIf('price-gold',dispG(VAULT.prices.gold)); setIf('price-silver',dispG(VAULT.prices.silver));
     const pb=parseFloat(VAULT.prices.btc), pg=parseFloat(VAULT.prices.gold), ps=parseFloat(VAULT.prices.silver); // pg/ps = €/g (intern)
     // Vergleichsbasis: netto investierter Einstand der Klasse (Käufe − Verkäufe)
     function valCard(label,cls,cur,netInv){if(!(cur>0))return '';const pl=cur-netInv;const sign=pl>=0?'+':'';const col=pl>=0?'var(--neon)':'var(--red)';
@@ -1120,16 +1154,18 @@ const App = (function(){
         : d==='sell'?'<span class="pill dir-sell">－ '+tr('dir.sell')+'</span>'
         : '<span class="pill dir-wd">↗ '+tr('dir.withdraw')+'</span>';
       const sgn = d==='buy'?'':'−';
+      // Alle Eintragsfelder escapen — Einträge können aus importierten .vault-Dateien stammen
+      const esc=escapeHtml, idSafe=String(e.id||'').replace(/[^0-9a-zA-Z_-]/g,'');
       let menge,detail,pill;
       if(e.type==='btc'){menge=sgn+fmtNum(e.btc,8)+' ₿';
         detail = d==='buy'?(e.kyc?'<span class="pill kyc">KYC</span>':'<span class="pill nokyc">noKYC</span>')
                : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
                : '';
         pill='<span class="pill btc">BTC</span>';}
-      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+e.unit;detail=(e.count?e.count+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+e.unit+(e.form?' '+e.form:'')+(e.fineness?' · '+e.fineness+'‰':'');pill=`<span class="pill ${e.type}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(e.form):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
       const eurCell = d==='withdraw'?'<span class="muted">–</span>':fmtEur(e.eur);
       const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
-      return `<tr${isDup?' class="dup-row"':''}><td>${e.date}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+escapeHtml(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${escapeHtml(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" onclick="App.editEntry('${e.id}')">✎</button> <button class="del-x" title="${tr('tip.del')}" onclick="App.delEntry('${e.id}')">✕</button></td></tr>`;
+      return `<tr${isDup?' class="dup-row"':''}><td>${esc(e.date)}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+esc(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${esc(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" onclick="App.editEntry('${idSafe}')">✎</button> <button class="del-x" title="${tr('tip.del')}" onclick="App.delEntry('${idSafe}')">✕</button></td></tr>`;
     }).join('');
   }
   function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -1253,7 +1289,8 @@ const App = (function(){
     }
     saveCsv('edelmetalle.csv',csv);
   }
-  function csvCell(s){s=(s||'').replace(/"/g,'""');return /[",\n;]/.test(s)?'"'+s+'"':s;}
+  // Formel-Injection neutralisieren (=,+,@ am Zellanfang würde in Excel/Calc als Formel laufen)
+  function csvCell(s){s=(s||'').replace(/"/g,'""');if(/^[=+@]/.test(s))s="'"+s;return /[",\n;]/.test(s)?'"'+s+'"':s;}
 
   /* ---------- vault file export/import (Syncthing) ---------- */
   // Capacitor (native App) erkennen — dann Dateien übers OS speichern/teilen statt Browser-Download.
@@ -1312,11 +1349,11 @@ const App = (function(){
     r.onload=()=>{
       try{
         const rows=parseCsv(r.result);
-        if(rows.length<2) throw new Error('Datei leer oder ohne Datenzeilen.');
+        if(rows.length<2) throw new Error(tr('csv.errEmpty'));
         const head=rows[0].map(h=>h.trim().toLowerCase());
         const isBuy=head.includes('kyc'), isSale=head.includes('no_kyc');
         if(head[0]!=='date'||head[1]!=='btc_amount'||head[2]!=='eur_amount'||(!isBuy&&!isSale))
-          throw new Error('Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).');
+          throw new Error(tr('csv.errFormat'));
         const dir=isSale?'sell':'buy';
         let added=0,dups=0,bad=0;
         for(let n=1;n<rows.length;n++){
@@ -1334,16 +1371,42 @@ const App = (function(){
           $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
           toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
         });
-      }catch(e){ $('export-msg').textContent='CSV-Import fehlgeschlagen: '+((e&&e.message)||'Format?'); }
+      }catch(e){ $('export-msg').textContent=tr('csv.failPre')+((e&&e.message)||'Format?'); }
       ev.target.value='';
     };
     r.readAsText(f);
+  }
+  // Import-Härtung: Einträge aus fremden .vault-Dateien nur mit bekannten Feldern,
+  // geprüften Typen und begrenzten Stringlängen übernehmen (kein HTML/JS-Schmuggel).
+  function sanitizeEntry(e){
+    if(!e || typeof e!=='object') return null;
+    if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
+    if(['btc','gold','silver'].indexOf(e.type)<0) return null;
+    const dir = e.dir==null ? 'buy' : e.dir;                       // Altdaten ohne dir = Kauf
+    if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
+    if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+    const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
+    const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
+    const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)), note:str(e.note,500), source:str(e.source,200)};
+    if(e.type==='btc'){
+      out.btc=num(e.btc); if(!(out.btc>0)) return null;
+      if(dir==='buy') out.kyc=!!e.kyc;
+      if(dir==='sell') out.noKyc=!!e.noKyc;
+    }else{
+      out.grams=num(e.grams); if(!(out.grams>0)) return null;
+      out.qty=num(e.qty)||out.grams;
+      out.unit=['g','oz','kg'].indexOf(e.unit)>=0?e.unit:'g';
+      if(e.count!=null && num(e.count)>=1) out.count=Math.floor(num(e.count));
+      out.form=str(e.form,50);
+      out.fineness=(e.fineness!=null && num(e.fineness)>0 && num(e.fineness)<=1000)?num(e.fineness):null;
+    }
+    return out;
   }
   // Einträge zusammenführen: Vereinigung über die eindeutige id (keine Daten gehen verloren)
   function mergeEntries(local, incoming){
     const byId=new Map(local.map(e=>[e.id,e]));
     let added=0;
-    for(const e of (incoming||[])){ if(e&&e.id&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
+    for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
     return {entries:Array.from(byId.values()), added};
   }
   let pendingImportBlob=null;   // gewählte .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
@@ -1371,7 +1434,7 @@ const App = (function(){
     const btn=event&&event.target; const orig=btn&&btn.textContent;
     const pass=$('import-pass').value;
     if(!pass){$('export-msg').textContent=tr('msg.enterPass');return;}
-    if(btn){btn.disabled=true;btn.textContent='Entschlüssele…';}
+    if(btn){btn.disabled=true;btn.textContent=tr('busy.decrypting');}
     try{
       const blob=pendingImportBlob;
       const salt=new Uint8Array(b64ToBuf(blob.salt));
@@ -1380,7 +1443,9 @@ const App = (function(){
       // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
-      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp) VAULT.totp=v.totp;   // 2FA übernehmen, falls lokal keins
+      // 2FA übernehmen, falls lokal keins — Secret dabei streng validieren (Base32)
+      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp && typeof v.totp.secret==='string' && /^[A-Z2-7]{16,64}$/i.test(v.totp.secret))
+        VAULT.totp={enabled:!!v.totp.enabled, secret:v.totp.secret.toUpperCase()};
       await persist();
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`;
@@ -1464,7 +1529,7 @@ const App = (function(){
     if(p1.length<8)return err('cp-err',tr('err.cpShort'));
     if(p1!==p2)return err('cp-err',tr('err.cpMismatch'));
     const btn=$('cp-btn'), orig=btn.textContent;
-    changePass._busy=true; btn.disabled=true; btn.textContent='Ändere…';
+    changePass._busy=true; btn.disabled=true; btn.textContent=tr('busy.changing');
     try{
       // 1) aktuelle Passphrase gegen den gespeicherten Tresor prüfen
       const raw=localStorage.getItem(LS_KEY);

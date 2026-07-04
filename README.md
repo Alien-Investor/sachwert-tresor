@@ -64,10 +64,21 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 
 - Verschlüsselung: **AES-256-GCM**, Schlüssel via **PBKDF2-SHA256 (600.000 Iterationen)**
   aus deiner Passphrase — alles native **WebCrypto**, kein Fremd-Krypto-Code.
-- **2FA (Aegis)**: optionaler TOTP-Zweitfaktor (RFC 6238). Die Passphrase verschlüsselt die
-  Daten; der Aegis-Code ist die zweite Hürde beim Entsperren.
+- **Keine INTERNET-Permission** (ab v2.0): Die Android-App fordert **keine einzige
+  Berechtigung** an. Dass sie nicht nach Hause funken *kann*, erzwingt das Betriebssystem —
+  im Manifest der APK selbst nachprüfbar, kein Vertrauensvorschuss nötig.
+- **FLAG_SECURE** (ab v2.0): keine Screenshots, kein Screen-Recording, keine
+  Bestands-Vorschau im App-Switcher. **allowBackup=false**: Tresor-Daten landen in
+  keinem ADB-/Cloud-Backup — Backups machst nur du selbst (`.vault`).
+- **Content-Security-Policy** mit `connect-src 'none'`: Auch die Web-Version kann
+  keinerlei Netz-Verbindung aufbauen.
+- **2FA (Aegis)**: optionaler TOTP-Zweitfaktor (RFC 6238) als zweite Hürde beim
+  Entsperren auf dem Gerät. Die Verschlüsselung selbst schützt allein die Passphrase —
+  wähle sie entsprechend stark.
 - Daten liegen nur **verschlüsselt** auf dem Gerät und in der `.vault`-Backup-Datei.
   Im Klartext verlässt nichts das Gerät. **Kein Reset, kein Backdoor.**
+- Importierte `.vault`-Dateien werden **schema-validiert** (nur bekannte Felder und
+  geprüfte Typen), alle Inhalte werden beim Anzeigen HTML-escaped.
 - Der QR-Encoder ist eigenständig (kein Fremdcode) und bit-genau gegen eine Referenz-Lib
   verifiziert. Keine externen CDNs, keine Tracker, keine Netz-Abfragen.
 

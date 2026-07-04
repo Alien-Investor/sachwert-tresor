@@ -14,6 +14,9 @@ data/
 .DS_Store
 Thumbs.db
 
+# Claude-Code-Sessiondaten (lokale Permissions)
+.claude/
+
 # lokale Test-Helfer (maschinenspezifischer playwright-core/Brave-Pfad)
 serve-test.mjs
 ui-roundtrip-test.mjs

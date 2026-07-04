@@ -3,6 +3,40 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.0 — 2026-07-04
+
+Sicherheits-Release: Härtung nach internem Code-Audit. Keine neuen Pflichtschritte
+für Nutzer — bestehende Tresore, Backups und 2FA funktionieren unverändert.
+
+- **Android — keine INTERNET-Permission mehr:** Die App kann auf Betriebssystem-Ebene
+  nachweisbar keine Verbindung aufbauen. „Keine Telemetrie" ist jetzt im Manifest
+  verifizierbar, nicht nur ein Versprechen.
+- **Android — FLAG_SECURE:** Keine Screenshots, kein Screen-Recording, keine
+  Bestands-Vorschau im App-Switcher (Recents).
+- **Android — allowBackup=false:** Tresor-Daten landen in keinem ADB-/Cloud-Backup.
+  Backups macht ausschließlich der Nutzer selbst (verschlüsselte `.vault`-Datei).
+- **Content-Security-Policy:** `connect-src 'none'` — selbst ein hypothetischer
+  Script-Einschleusungs-Fund könnte keine Daten übers Netz exfiltrieren.
+- **Vault-Import gehärtet:** Einträge aus `.vault`-Dateien werden beim Zusammenführen
+  schema-validiert (nur bekannte Felder, geprüfte Typen, begrenzte Textlängen);
+  alle Felder werden beim Rendern HTML-escaped. Ein präpariertes Backup kann keinen
+  Code mehr in die App schmuggeln. 2FA-Secrets werden beim Import Base32-validiert.
+- **Sperren räumt auf:** Beim manuellen wie automatischen Sperren werden alle
+  gerenderten Bestände, Formulareingaben und der 2FA-QR aus dem DOM entfernt —
+  nichts Entschlüsseltes bleibt im Hintergrund lesbar.
+- **Auto-Lock nach Backgrounding:** Kehrt man nach längerer Zeit zur App zurück
+  (eingefrorene WebView), wird die verstrichene Zeit geprüft und sofort gesperrt —
+  vorher konnte der Timer im Hintergrund pausieren.
+- **Speicherfehler sichtbar:** Schlägt das Persistieren fehl (Speicher voll), erscheint
+  eine deutliche Warnung statt eines stillen Datenverlusts.
+- **CSV-Export:** Formel-Injection neutralisiert (`=`, `+`, `@` am Zellanfang).
+- **Offline-Fallback:** Service Worker liefert bei Navigationen ohne Netz die App-Shell.
+- **Handbuch:** Ehrliche Einordnung, dass der Aegis-Code eine Entsperr-Hürde ist,
+  kein zweiter Verschlüsselungsfaktor.
+- **Fixes:** Restliche deutsche Texte im Englisch-Modus übersetzt („Entschlüssele…",
+  „Ändere…", CSV-Fehlermeldungen); Preis-Eingabefelder werden nicht mehr während
+  des Tippens vom Neu-Rendern überschrieben.
+
 ## v1.9 — 2026-06-14
 
 - **Fix (i18n, Wurzelursache):** Beim Sprachwechsel aktualisierten sich JS-gerenderte

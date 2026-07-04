@@ -1,5 +1,7 @@
 // Roundtrip-Test: bildet die exakte App-Krypto + Merge-Logik nach (Node WebCrypto).
-// Beweist: Export -> .vault-Datei -> Import auf anderem Gerät ist verlustfrei.
+// Beweist: Export -> .vault-Datei -> Import auf anderem Gerät ist verlustfrei,
+// und der Import-Sanitizer weist präparierte Einträge ab.
+// Sample-Einträge nutzen das ECHTE App-Schema (btc/source/fineness/grams …).
 const subtle = globalThis.crypto.subtle;
 const enc = new TextEncoder(), dec = new TextDecoder();
 const ITER = 600000;
@@ -26,23 +28,48 @@ async function persistBlob(vault, key, salt){
   blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=ITER; blob.salt=bufToB64(salt);
   return JSON.stringify(blob); // == Inhalt der .vault-Datei
 }
+// sanitizeEntry + mergeEntries: 1:1 wie in index.html (Import-Härtung)
+function sanitizeEntry(e){
+  if(!e || typeof e!=='object') return null;
+  if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
+  if(['btc','gold','silver'].indexOf(e.type)<0) return null;
+  const dir = e.dir==null ? 'buy' : e.dir;
+  if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
+  if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+  const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
+  const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
+  const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)), note:str(e.note,500), source:str(e.source,200)};
+  if(e.type==='btc'){
+    out.btc=num(e.btc); if(!(out.btc>0)) return null;
+    if(dir==='buy') out.kyc=!!e.kyc;
+    if(dir==='sell') out.noKyc=!!e.noKyc;
+  }else{
+    out.grams=num(e.grams); if(!(out.grams>0)) return null;
+    out.qty=num(e.qty)||out.grams;
+    out.unit=['g','oz','kg'].indexOf(e.unit)>=0?e.unit:'g';
+    if(e.count!=null && num(e.count)>=1) out.count=Math.floor(num(e.count));
+    out.form=str(e.form,50);
+    out.fineness=(e.fineness!=null && num(e.fineness)>0 && num(e.fineness)<=1000)?num(e.fineness):null;
+  }
+  return out;
+}
 function mergeEntries(local, incoming){
   const byId=new Map(local.map(e=>[e.id,e]));
   let added=0;
-  for(const e of (incoming||[])){ if(e&&e.id&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
+  for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
   return {entries:Array.from(byId.values()), added};
 }
 
 let pass=0, fail=0;
 const ok=(c,m)=>{ if(c){pass++;console.log('  ✓',m);} else {fail++;console.log('  ✗ FEHLER:',m);} };
 
-// Realistische Beispiel-Einträge: BTC kauf/verkauf/entnahme + Metall
+// Realistische Beispiel-Einträge im ECHTEN App-Schema (wie App.addEntry sie erzeugt)
 const sampleEntries = [
-  {id:'a1', type:'btc',   dir:'buy',      date:'2025-01-15', amount:0.04210000, eur:2500, src:'Bisq', kyc:false},
-  {id:'a2', type:'btc',   dir:'sell',     date:'2025-06-01', amount:0.01000000, eur:900,  dst:'Kraken', kyc:true},
-  {id:'a3', type:'btc',   dir:'withdraw', date:'2025-07-02', amount:0.00500000, dst:'Cold Wallet'},
-  {id:'a4', type:'gold',  dir:'buy',      date:'2025-02-10', amount:1, unit:'oz', form:'coin', fine:999.9, count:2, dealer:'Degussa', eur:3800},
-  {id:'a5', type:'silver',dir:'buy',      date:'2025-03-05', amount:1, unit:'kg', form:'bar',  fine:999,  count:1, dealer:'ESG', eur:950},
+  {id:'a1', type:'btc',    dir:'buy',      date:'2025-01-15', eur:2500, note:'', btc:0.04210000, source:'Bisq',        kyc:false},
+  {id:'a2', type:'btc',    dir:'sell',     date:'2025-06-01', eur:900,  note:'', btc:0.01000000, source:'Kraken',      noKyc:false},
+  {id:'a3', type:'btc',    dir:'withdraw', date:'2025-07-02', eur:0,    note:'', btc:0.00500000, source:'Cold Wallet'},
+  {id:'a4', type:'gold',   dir:'buy',      date:'2025-02-10', eur:3800, note:'', count:2, qty:1, unit:'oz', grams:62.206954, form:'Münze', fineness:999.9, source:'Degussa'},
+  {id:'a5', type:'silver', dir:'buy',      date:'2025-03-05', eur:950,  note:'', count:1, qty:1, unit:'kg', grams:1000,      form:'Barren', fineness:999,   source:'ESG'},
 ];
 
 async function main(){
@@ -57,8 +84,8 @@ async function main(){
   const keyImport=await deriveKey(passA, new Uint8Array(b64ToBuf(blob.salt)));
   const decrypted=await decryptBlob(blob, keyImport);
   ok(JSON.stringify(decrypted.entries)===JSON.stringify(sampleEntries), 'alle 5 Einträge bit-genau wiederhergestellt');
-  ok(decrypted.entries[0].amount===0.0421, 'BTC-Nachkommastellen erhalten (0.0421)');
-  ok(decrypted.entries[3].fine===999.9 && decrypted.entries[3].count===2, 'Metall-Feinheit & Stückzahl erhalten');
+  ok(decrypted.entries[0].btc===0.0421, 'BTC-Nachkommastellen erhalten (0.0421)');
+  ok(decrypted.entries[3].fineness===999.9 && decrypted.entries[3].count===2 && decrypted.entries[3].grams===62.206954, 'Metall-Feinheit, Stückzahl & Gramm erhalten');
   ok(decrypted.totp.secret==='JBSWY3DPEHPK3PXP', 'TOTP-Secret erhalten');
   ok(blob.magic==='AISV1'&&blob.iter===ITER, 'Datei-Header korrekt (magic/iter)');
 
@@ -66,24 +93,45 @@ async function main(){
   try{ const kBad=await deriveKey('falsch', new Uint8Array(b64ToBuf(blob.salt))); await decryptBlob(blob,kBad); ok(false,'falsche Passphrase hätte fehlschlagen müssen'); }
   catch(e){ ok(true,'falsche Passphrase -> Entschlüsselung schlägt fehl (GCM-Auth)'); }
 
-  console.log('\n=== Test 3: Merge auf Zweitgerät (additiv per id) ===');
+  console.log('\n=== Test 3: Merge auf Zweitgerät (additiv per id, sanitisiert) ===');
   // Gerät B hat eigene, abweichende Passphrase + teils eigene Einträge
-  const local=[ sampleEntries[0], {id:'b9', type:'btc', dir:'buy', date:'2025-08-01', amount:0.01, eur:700, src:'Geschenk', kyc:false} ];
+  const local=[ sampleEntries[0], {id:'b9', type:'btc', dir:'buy', date:'2025-08-01', eur:700, note:'', btc:0.01, source:'Geschenk', kyc:false} ];
   const {entries, added}=mergeEntries(local, decrypted.entries);
   ok(added===4, `4 neue Einträge übernommen (a2..a5), a1 als Dublette übersprungen — added=${added}`);
   ok(entries.length===6, `Gesamt 6 Einträge (b9 lokal bleibt) — len=${entries.length}`);
   ok(entries.some(e=>e.id==='b9'), 'lokaler Eintrag b9 bleibt erhalten');
+  const a4m=entries.find(e=>e.id==='a4');
+  ok(a4m && a4m.grams===62.206954 && a4m.form==='Münze' && a4m.unit==='oz', 'Metall-Eintrag übersteht den Sanitizer unverändert');
 
   console.log('\n=== Test 4: Bekannte Grenze — Edit synct NICHT (additiver Merge) ===');
-  const edited=sampleEntries.map(e=>e.id==='a1'?{...e, amount:0.99999999, eur:99999}:e);
+  const edited=sampleEntries.map(e=>e.id==='a1'?{...e, btc:0.99999999, eur:99999}:e);
   const localWithA1=[ sampleEntries[0] ]; // hat a1 mit Originalbetrag
   const m=mergeEntries(localWithA1, edited);
   const a1after=m.entries.find(e=>e.id==='a1');
-  ok(a1after.amount===0.0421, 'a1 behält Originalbetrag — Edit wurde NICHT übernommen (dokumentierte Grenze)');
+  ok(a1after.btc===0.0421, 'a1 behält Originalbetrag — Edit wurde NICHT übernommen (dokumentierte Grenze)');
 
   console.log('\n=== Test 5: Idempotenz — zweiter Import derselben Datei ändert nichts ===');
   const again=mergeEntries(entries, decrypted.entries);
   ok(again.added===0 && again.entries.length===6, 'erneuter Import: 0 neu, Bestand stabil');
+
+  console.log('\n=== Test 6: Import-Härtung — präparierte .vault-Einträge werden abgewiesen ===');
+  const evil=[
+    {id:"x') || App.wipeLocal() || ('", type:'btc', dir:'buy', date:'2025-01-01', eur:1, btc:0.1},   // id-Injection in onclick
+    {id:'ee01', type:'btc', dir:'buy', date:'<img src=x onerror=alert(1)>', eur:1, btc:0.1},          // HTML im Datum
+    {id:'ee02', type:'<script>', dir:'buy', date:'2025-01-01', eur:1, btc:0.1},                       // Typ außerhalb Whitelist
+    {id:'ee03', type:'btc', dir:'exfil', date:'2025-01-01', eur:1, btc:0.1},                          // Richtung außerhalb Whitelist
+    {id:'ee04', type:'btc', dir:'buy', date:'2025-01-01', eur:1, btc:-5},                             // negative Menge
+    {id:'ee05', type:'gold', dir:'buy', date:'2025-01-01', eur:1, qty:1, unit:'oz'},                  // Metall ohne grams
+  ];
+  const rEvil=mergeEntries([], evil);
+  ok(rEvil.added===0, `alle 6 präparierten Einträge abgewiesen — added=${rEvil.added}`);
+  const long={id:'ee10', type:'btc', dir:'buy', date:'2025-01-01', eur:1, btc:0.1, note:'N'.repeat(9999), source:'S'.repeat(9999), extra:'wird verworfen'};
+  const rLong=mergeEntries([], [long]);
+  ok(rLong.added===1 && rLong.entries[0].note.length===500 && rLong.entries[0].source.length===200, 'Überlange Strings werden gekappt (note 500, source 200)');
+  ok(!('extra' in rLong.entries[0]), 'unbekannte Felder werden verworfen (Whitelist)');
+  const legacy={id:'ee11', type:'btc', date:'2024-05-05', eur:100, btc:0.002, source:'Altbestand'};   // Altdaten ohne dir
+  const rLeg=mergeEntries([], [legacy]);
+  ok(rLeg.added===1 && rLeg.entries[0].dir==='buy', 'Altdaten ohne dir werden als Kauf übernommen');
 
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);
