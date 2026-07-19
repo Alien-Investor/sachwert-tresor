@@ -264,7 +264,12 @@ tr:hover td{color:var(--neon);}
         </div>
         <div class="row">
           <div><label data-i18n="lbl.date">Datum</label><input id="f-date" type="date"></div>
+          <div id="f-cur-wrap"><label data-i18n="add.curLabel">Währung</label>
+            <select id="f-cur" onchange="App.onCurChange()"><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option><option value="CHF">CHF (Fr.)</option></select></div>
           <div id="f-eur-wrap"><label id="f-eur-label">Bezahlt (EUR, gesamt inkl. Gebühr)</label><input id="f-eur" type="number" step="any" placeholder="z.B. 250.00"></div>
+        </div>
+        <div class="row hidden" id="f-eurref-wrap">
+          <div><label data-i18n="add.eurRef">EUR-Gegenwert am Buchungstag (optional, laut Abrechnung — für den Steuertool-Export)</label><input id="f-eurref" type="number" step="any" placeholder="z.B. 230.00"></div>
         </div>
 
         <!-- BTC fields -->
@@ -366,7 +371,7 @@ tr:hover td{color:var(--neon);}
     <div id="tab-export" class="tabview hidden">
       <div class="card">
         <h2 data-i18n="exp.taxTitle">Steuertool-Export (BTC)</h2>
-        <p class="muted" data-i18n-html="exp.taxIntro">Erzeugt CSVs im Format deines BTC-Steuertools — du ziehst sie dort nur rein. <code>manual_buys.csv</code> = alle BTC-Käufe (KYC-Flag), <code>manual_sales.csv</code> = alle BTC-Verkäufe (noKYC-Flag). Entnahmen sind keine Verkäufe und bleiben tresor-intern.</p>
+        <p class="muted" data-i18n-html="exp.taxIntro">Erzeugt CSVs im Format deines BTC-Steuertools — du ziehst sie dort nur rein. <code>manual_buys.csv</code> = alle BTC-Käufe (KYC-Flag), <code>manual_sales.csv</code> = alle BTC-Verkäufe (noKYC-Flag). Entnahmen sind keine Verkäufe und bleiben tresor-intern. Buchungen in USD/CHF sind nur enthalten, wenn im Eintrag ein EUR-Gegenwert erfasst ist (Eintrag bearbeiten) — das Steuertool rechnet in EUR.</p>
         <div class="row" style="margin-top:12px">
           <button class="btn" onclick="App.exportSteuertool()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> manual_buys.csv</button>
           <button class="btn" onclick="App.exportSales()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> manual_sales.csv</button>
@@ -497,7 +502,7 @@ tr:hover td{color:var(--neon);}
 
     <h2 data-i18n="help.h3">Erfassen</h2>
     <ul data-i18n-html="help.l3">
-      <li><strong>Bitcoin:</strong> Kauf / Verkauf / Entnahme — Menge, EUR, Quelle/Ziel, KYC-Flag.</li>
+      <li><strong>Bitcoin:</strong> Kauf / Verkauf / Entnahme — Menge, Betrag (EUR, USD oder CHF), Quelle/Ziel, KYC-Flag.</li>
       <li><strong>Gold/Silber:</strong> Stückzahl × Stückelung (z.B. 5 × 1 oz), Form (Münze/Barren), Feinheit, Händler.</li>
       <li><strong>KYC-Flag:</strong> markiert Käufe über einen KYC-Broker — wichtig für die saubere Trennung zum Steuertool.</li>
       <li><strong>Entnahme</strong> = Transfer/Ausgabe ohne Verkauf: reduziert den Bestand, ist aber kein steuerlicher Verkauf.</li>
@@ -520,7 +525,7 @@ tr:hover td{color:var(--neon);}
     <p data-i18n-html="help.p6">Export & Sync → CSV importieren lädt <code>manual_buys.csv</code> (Käufe) / <code>manual_sales.csv</code> (Verkäufe) im Tresor-Format. Dubletten werden übersprungen — gefahrlos mehrfach importierbar. <strong>Broker-/Börsen-CSVs gehören dagegen direkt ins BTC-Steuertool</strong> (es hat eigene Broker-Parser) — nicht hierher.</p>
 
     <h2 data-i18n="help.h7">Steuertool-Export</h2>
-    <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle.</p>
+    <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle. Das Steuertool rechnet in EUR: Buchungen in USD/CHF landen nur im Export, wenn im Eintrag ein EUR-Gegenwert vom Buchungstag erfasst ist (laut Abrechnung) — sonst lässt der Export sie aus und zeigt eine Warnung.</p>
 
     <h2 data-i18n="help.h8">2FA über mehrere Geräte</h2>
     <p data-i18n-html="help.p8">Das 2FA-Secret liegt im verschlüsselten Tresor, pro Installation. Web und App sind getrennte Speicher → 2FA ist nicht automatisch gleich. Für denselben Aegis-Eintrag auf beiden: 2FA nur auf <em>einem</em> Gerät aktivieren, dann Backup auf dem anderen wiederherstellen (dort vorher kein 2FA aktivieren — ein bestehendes wird nie überschrieben).</p>
@@ -569,6 +574,8 @@ const I18N = {
   "add.tBtc":"₿ Bitcoin","add.tGold":"Au Gold","add.tSilver":"Ag Silver",
   "add.btcAmount":"BTC amount","add.kycNo":"noKYC (private / P2P / cash)","add.kycYes":"KYC broker (appears in tax report)",
   "add.count":"Count","add.denom":"Denomination (weight per piece)","add.denomOther":"Other…",
+  "add.curLabel":"Currency",
+  "add.eurRef":"EUR equivalent on transaction date (optional, from your statement — for the tax-tool export)",
   "add.form":"Form","add.formCoin":"Coin","add.formBar":"Bar","add.formOther":"Other",
   "add.weightPer":"Weight per piece","add.unitG":"Gram","add.unitOz":"Ounce (31.1035 g)","add.unitKg":"Kilogram",
   "add.fineness":"Fineness (‰)","add.dealer":"Dealer","add.dealerPh":"Coin dealer, Pro Aurum ...",
@@ -580,7 +587,7 @@ const I18N = {
   "verlauf.sInvested":"Net invested","verlauf.sBtc":"Bitcoin","verlauf.sGold":"Gold","verlauf.sSilver":"Silver",
   "verlauf.empty":"At least two entries are needed to show a history.",
   "exp.taxTitle":"Tax-tool export (BTC)",
-  "exp.taxIntro":"Generates CSVs in the format of your BTC tax tool — you just import them there. <code>manual_buys.csv</code> = all BTC buys (KYC flag), <code>manual_sales.csv</code> = all BTC sells (noKYC flag). Withdrawals are not sales and stay vault-internal.",
+  "exp.taxIntro":"Generates CSVs in the format of your BTC tax tool — you just import them there. <code>manual_buys.csv</code> = all BTC buys (KYC flag), <code>manual_sales.csv</code> = all BTC sells (noKYC flag). Withdrawals are not sales and stay vault-internal. Entries in USD/CHF are only included if an EUR equivalent is recorded in the entry (edit entry) — the tax tool calculates in EUR.",
   "exp.metalTitle":"Precious-metal inventory (CSV)",
   "exp.metalIntro":"Gold & silver holdings as a table (date, form, fineness, weight, price, dealer).",
   "exp.importTitle":"CSV import (BTC buys / sells)",
@@ -615,7 +622,7 @@ const I18N = {
   "help.h2":"First steps",
   "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings.</li>",
   "help.h3":"Adding entries",
-  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, EUR, source/destination, KYC flag.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
+  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
   "help.h4":"Overview & values",
   "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
   "help.h5":"Backup & Sync (important!)",
@@ -624,7 +631,7 @@ const I18N = {
   "help.h6":"CSV import",
   "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
   "help.h7":"Tax-tool export",
-  "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals.",
+  "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals. The tax tool calculates in EUR: entries in USD/CHF only make it into the export if an EUR equivalent from the transaction date is recorded in the entry (from your statement) — otherwise the export leaves them out and shows a warning.",
   "help.h8":"2FA across multiple devices",
   "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
   "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
@@ -644,8 +651,8 @@ const T = {
   "ov.now":{de:"jetzt",en:"now"},
   "ov.peak":{de:"Höchststand",en:"Peak"},
   "ov.datapoints":{de:"Datenpunkte",en:"data points"},
-  "add.eurBuy":{de:"Bezahlt (EUR, gesamt inkl. Gebühr)",en:"Paid (EUR, total incl. fee)"},
-  "add.eurSell":{de:"Erhalten (EUR, netto)",en:"Received (EUR, net)"},
+  "add.eurBuy":{de:"Bezahlt ({cur}, gesamt inkl. Gebühr)",en:"Paid ({cur}, total incl. fee)"},
+  "add.eurSell":{de:"Erhalten ({cur}, netto)",en:"Received ({cur}, net)"},
   "add.srcBuy":{de:"Quelle / Broker",en:"Source / broker"},
   "add.srcSell":{de:"Ziel / Käufer (optional)",en:"Destination / buyer (optional)"},
   "add.kycQ":{de:"KYC?",en:"KYC?"},
@@ -668,7 +675,7 @@ const T = {
   "col.type":{de:"Typ",en:"Type"},
   "col.dir":{de:"Vorgang",en:"Action"},
   "col.amount":{de:"Menge",en:"Amount"},
-  "col.eur":{de:"EUR",en:"EUR"},
+  "col.eur":{de:"Betrag",en:"Value"},
   "col.src":{de:"Quelle/Ziel",en:"Source/dest."},
   "col.actions":{de:"",en:""},
   "dir.buy":{de:"Kauf",en:"Buy"},
@@ -683,7 +690,10 @@ const T = {
   "toast.exported":{de:"Exportiert",en:"Exported"},
   "toast.failed":{de:"Fehlgeschlagen",en:"Failed"},
   "err.dateMissing":{de:"Datum fehlt.",en:"Date is missing."},
-  "err.eurInvalid":{de:"Gültigen EUR-Betrag eingeben.",en:"Enter a valid EUR amount."},
+  "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
+  "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
+  "verlauf.noBaseHint":{de:"{n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert nicht enthalten (Eintrag bearbeiten → EUR-Gegenwert ergänzen).",en:"{n} foreign-currency entries without an EUR equivalent are not included (edit the entry to add one)."},
+  "exp.fxSkipped":{de:"{n} USD/CHF-Buchung(en) ohne EUR-Gegenwert nicht im Export enthalten — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"{n} USD/CHF entries without an EUR equivalent were left out — edit the entry and add the EUR value."},
   "err.btcMissing":{de:"BTC-Menge fehlt.",en:"BTC amount is missing."},
   "err.countMissing":{de:"Stückzahl fehlt (mind. 1).",en:"Count is missing (min. 1)."},
   "err.weightMissing":{de:"Gewicht je Stück fehlt.",en:"Weight per piece is missing."},
@@ -957,7 +967,10 @@ const App = (function(){
     const isSell=addDir==='sell', isWd=addDir==='withdraw';
     $('add-title').textContent = editId?tr('add.titleEdit'):(isSell?tr('add.titleSell'):isWd?tr('add.titleWd'):tr('add.titleBuy'));
     $('f-eur-wrap').classList.toggle('hidden', isWd);
-    $('f-eur-label').textContent = isSell?tr('add.eurSell'):tr('add.eurBuy');
+    $('f-cur-wrap').classList.toggle('hidden', isWd);
+    const cur=$('f-cur').value;
+    $('f-eur-label').textContent = (isSell?tr('add.eurSell'):tr('add.eurBuy')).replace('{cur}',cur);
+    $('f-eurref-wrap').classList.toggle('hidden', isWd||cur==='EUR');
     $('f-src-btc-label').textContent = (isSell||isWd)?tr('add.srcSell'):tr('add.srcBuy');
     // KYC-Auswahl je nach Richtung beschriften (Steuertool: Kauf=kyc, Verkauf=no_kyc)
     $('f-kyc-wrap').classList.toggle('hidden', isWd);
@@ -986,18 +999,21 @@ const App = (function(){
     el.textContent=`${tr('preview.totalPrefix')}${count} × ${fmtNum(qty,unit==='g'?0:4)} ${unit} = ${fmtNum(tot,u==='oz'?4:2)} ${u} (${tr('preview.gross')})`;
   }
   function resetAddForm(){
-    ['f-eur','f-btc','f-qty','f-fine','f-note'].forEach(i=>$(i).value='');
-    $('f-count').value='1'; $('f-denom').value='1|oz';
-    $('f-custom-wrap').classList.add('hidden'); updateMetalPreview();
+    ['f-eur','f-eurref','f-btc','f-qty','f-fine','f-note'].forEach(i=>$(i).value='');
+    $('f-count').value='1'; $('f-denom').value='1|oz'; $('f-cur').value='EUR';
+    $('f-custom-wrap').classList.add('hidden'); updateMetalPreview(); refreshAddLabels();
   }
+  function onCurChange(){ refreshAddLabels(); }
   function addEntry(){
     err('add-err');
     const date=$('f-date').value;
     const isWd=addDir==='withdraw';
     const eur=isWd?0:parseFloat($('f-eur').value);
+    const cur=(!isWd && ['USD','CHF'].indexOf($('f-cur').value)>=0)?$('f-cur').value:'EUR';
     if(!date) return err('add-err',tr('err.dateMissing'));
     if(!isWd && !(eur>=0)) return err('add-err',tr('err.eurInvalid'));
-    const e={id: editId||cryptoId(), type:addType, dir:addDir, date, eur, note:$('f-note').value.trim()};
+    const e={id: editId||cryptoId(), type:addType, dir:addDir, date, eur, cur, note:$('f-note').value.trim()};
+    if(cur!=='EUR'){ const r=parseFloat($('f-eurref').value); if(r>0) e.eurRef=r; }
     if(addType==='btc'){
       const amt=parseFloat($('f-btc').value);
       if(!(amt>0)) return err('add-err',tr('err.btcMissing'));
@@ -1019,7 +1035,7 @@ const App = (function(){
     if(dup){
       const what=e.type==='btc'?fmtNum(e.btc,8)+' ₿':e.count+'× '+fmtNum(e.qty,4)+' '+e.unit;
       const dirL=tr('dir.'+entryDir(e));
-      const prev=dup.eur?' ('+fmtEur(dup.eur)+(dup.source?', '+dup.source:'')+')':(dup.source?' ('+dup.source+')':'');
+      const prev=dup.eur?' ('+fmtMoney(dup.eur,entryCur(dup))+(dup.source?', '+dup.source:'')+')':(dup.source?' ('+dup.source+')':'');
       const msg = LANG==='en'
         ? `Possible duplicate\n\nOn ${e.date} a ${dirL} of ${what}${prev} already exists.\n\nReally add it a second time?`
         : `Mögliches Duplikat\n\nAm ${e.date} ist bereits ein ${dirL} über ${what}${prev} erfasst.\n\nWirklich ein zweites Mal eintragen?`;
@@ -1044,6 +1060,9 @@ const App = (function(){
     $('f-date').value=e.date;
     $('f-note').value=e.note||'';
     $('f-eur').value=(entryDir(e)==='withdraw')?'':(e.eur!=null?e.eur:'');
+    $('f-cur').value=entryCur(e);
+    $('f-eurref').value=e.eurRef!=null?e.eurRef:'';
+    refreshAddLabels();
     if(e.type==='btc'){
       $('f-btc').value=e.btc!=null?e.btc:''; $('f-src-btc').value=e.source||'';
       if(entryDir(e)==='buy') $('f-kyc').selectedIndex = e.kyc?1:0;
@@ -1064,6 +1083,10 @@ const App = (function(){
     err('add-err');
   }
   function entryDir(e){return e.dir||'buy';}     // Altdaten ohne dir = Kauf
+  function entryCur(e){return e.cur==='USD'||e.cur==='CHF'?e.cur:'EUR';}   // Altdaten ohne cur = EUR
+  // EUR-Basis einer Buchung (für Steuertool-Export + Wert-Vergleich): EUR direkt,
+  // Fremdwährung nur mit erfasstem EUR-Gegenwert vom Buchungstag — sonst null.
+  function eurBasis(e){return entryCur(e)==='EUR'?e.eur:(e.eurRef>0?e.eurRef:null);}
   function signedAmt(e,amt){return entryDir(e)==='buy'?amt:-amt;}
   // Dubletten-Erkennung: gleicher Typ + Richtung + Datum + Menge (BTC auf Satoshi, Metall auf 0,1mg genau)
   function amtKey(e){return e.type==='btc'?'b'+(e.btc||0).toFixed(8):'m'+(e.grams||0).toFixed(4);}
@@ -1073,26 +1096,41 @@ const App = (function(){
   function delEntry(id){ if(!confirm(tr('confirm.del2')))return; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}); }
 
   /* ---------- aggregates ---------- */
+  const CURS=['EUR','USD','CHF'];
   function totals(){
-    // Netto-Bestand = Käufe − Verkäufe − Entnahmen; Einstand = Summe Käufe; Realisiert = Summe Verkäufe
-    let btc=0,gold=0,silver=0, invBtc=0,invGold=0,invSilver=0, relBtc=0,relGold=0,relSilver=0;
+    // Netto-Bestand = Käufe − Verkäufe − Entnahmen. Beträge werden je Währung getrennt
+    // geführt (bewusst keine Kursumrechnung — die App kennt keine Kurse, kein Netz).
+    // eurBase = Netto-EUR-Basis (EUR-Buchungen + erfasste EUR-Gegenwerte) für den Wert-Vergleich.
+    const zero=()=>({EUR:0,USD:0,CHF:0});
+    let btc=0,gold=0,silver=0;
+    const inv={btc:zero(),gold:zero(),silver:zero()}, rel={btc:zero(),gold:zero(),silver:zero()};
+    const eurBase={btc:0,gold:0,silver:0}, noBase={btc:0,gold:0,silver:0};
     for(const e of VAULT.entries){
-      const d=entryDir(e);
-      if(e.type==='btc'){
-        btc+=signedAmt(e,e.btc);
-        if(d==='buy')invBtc+=e.eur; else if(d==='sell')relBtc+=e.eur;
-      }else{
+      const d=entryDir(e), k=e.type, c=entryCur(e);
+      if(k==='btc') btc+=signedAmt(e,e.btc);
+      else{
         const fine=e.grams*((e.fineness||1000)/1000);
-        const add=signedAmt(e,fine);
-        if(e.type==='gold'){gold+=add; if(d==='buy')invGold+=e.eur; else if(d==='sell')relGold+=e.eur;}
-        else{silver+=add; if(d==='buy')invSilver+=e.eur; else if(d==='sell')relSilver+=e.eur;}
+        if(k==='gold') gold+=signedAmt(e,fine); else silver+=signedAmt(e,fine);
+      }
+      if(d==='buy'||d==='sell'){
+        (d==='buy'?inv:rel)[k][c]+=e.eur;
+        const b=eurBasis(e);
+        if(b==null) noBase[k]++; else eurBase[k]+=(d==='buy'?b:-b);
       }
     }
-    return {btc,gold,silver,
-      eurBtc:invBtc,eurGold:invGold,eurSilver:invSilver,eurTotal:invBtc+invGold+invSilver,
-      relBtc,relGold,relSilver,relTotal:relBtc+relGold+relSilver};
+    const addObj=(...os)=>{const o=zero();for(const x of os)for(const c of CURS)o[c]+=x[c];return o;};
+    const subObj=(a,b)=>{const o=zero();for(const c of CURS)o[c]=a[c]-b[c];return o;};
+    const invTot=addObj(inv.btc,inv.gold,inv.silver), relTot=addObj(rel.btc,rel.gold,rel.silver);
+    return {btc,gold,silver,inv,rel,invTot,relTot,netTot:subObj(invTot,relTot),
+      eurBase,noBase,eurBaseTotal:eurBase.btc+eurBase.gold+eurBase.silver,
+      noBaseTotal:noBase.btc+noBase.gold+noBase.silver};
   }
-  const fmtEur = n => (n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+  const CUR_SYM={EUR:'€',USD:'$',CHF:'CHF'};
+  const fmtMoney=(n,cur)=>(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
+  const fmtEur = n => fmtMoney(n,'EUR');
+  // Beträge je Währung als Liste ("1.200,00 € · 500,00 $") — Währungen ohne Betrag entfallen
+  const fmtByCur=o=>{const p=CURS.filter(c=>o&&Math.abs(o[c])>0.004).map(c=>fmtMoney(o[c],c));return p.length?p.join(' · '):fmtEur(0);};
+  const anyCur=o=>CURS.some(c=>o&&o[c]>0);
   const fmtNum = (n,d)=> (n||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
 
   /* ---------- render dashboard ---------- */
@@ -1101,12 +1139,12 @@ const App = (function(){
     const u=VAULT.unit||'oz';                 // Anzeige-Einheit für Edelmetall
     const inU=g=>u==='oz'?g/OZ_G:g;           // Feingramm -> Anzeige-Einheit
     const uL=u==='oz'?'oz':'g', uDec=u==='oz'?3:2;
-    const subInv=(inv,rel)=>`${tr('stat.investedLbl')} ${fmtEur(inv)}`+(rel>0?` · ${tr('stat.realizedLbl')} ${fmtEur(rel)}`:'');
+    const subInv=(inv,rel)=>`${tr('stat.investedLbl')} ${fmtByCur(inv)}`+(anyCur(rel)?` · ${tr('stat.realizedLbl')} ${fmtByCur(rel)}`:'');
     $('dash-stats').innerHTML=`
-      <div class="stat btc"><div class="k">${tr('stat.btc')}</div><div class="v">${fmtNum(t.btc,8)} ₿</div><div class="sub">${subInv(t.eurBtc,t.relBtc)}</div></div>
-      <div class="stat gold"><div class="k">${tr('stat.gold')}</div><div class="v">${fmtNum(inU(t.gold),uDec)} ${uL}</div><div class="sub">${subInv(t.eurGold,t.relGold)}</div></div>
-      <div class="stat silver"><div class="k">${tr('stat.silver')}</div><div class="v">${fmtNum(inU(t.silver),uDec)} ${uL}</div><div class="sub">${subInv(t.eurSilver,t.relSilver)}</div></div>
-      <div class="stat total"><div class="k">${tr('stat.invested')}</div><div class="v">${fmtEur(t.eurTotal-t.relTotal)}</div><div class="sub">${VAULT.entries.length} ${tr('stat.investedSub')}${t.relTotal>0?' · '+tr('stat.realized')+' '+fmtEur(t.relTotal):''}</div></div>`;
+      <div class="stat btc"><div class="k">${tr('stat.btc')}</div><div class="v">${fmtNum(t.btc,8)} ₿</div><div class="sub">${subInv(t.inv.btc,t.rel.btc)}</div></div>
+      <div class="stat gold"><div class="k">${tr('stat.gold')}</div><div class="v">${fmtNum(inU(t.gold),uDec)} ${uL}</div><div class="sub">${subInv(t.inv.gold,t.rel.gold)}</div></div>
+      <div class="stat silver"><div class="k">${tr('stat.silver')}</div><div class="v">${fmtNum(inU(t.silver),uDec)} ${uL}</div><div class="sub">${subInv(t.inv.silver,t.rel.silver)}</div></div>
+      <div class="stat total"><div class="k">${tr('stat.invested')}</div><div class="v">${fmtByCur(t.netTot)}</div><div class="sub">${VAULT.entries.length} ${tr('stat.investedSub')}${anyCur(t.relTot)?' · '+tr('stat.realized')+' '+fmtByCur(t.relTot):''}</div></div>`;
     // Einheiten-Toggle + Preis-Labels
     document.querySelectorAll('#metal-unit-seg button').forEach(b=>b.classList.toggle('on',b.dataset.u===u));
     $('price-gold-label').textContent=tr('price.gold')+uL; $('price-silver-label').textContent=tr('price.silver')+uL;
@@ -1116,16 +1154,18 @@ const App = (function(){
     const setIf=(id,v)=>{const el=$(id);if(document.activeElement!==el)el.value=v;};
     setIf('price-btc',VAULT.prices.btc||''); setIf('price-gold',dispG(VAULT.prices.gold)); setIf('price-silver',dispG(VAULT.prices.silver));
     const pb=parseFloat(VAULT.prices.btc), pg=parseFloat(VAULT.prices.gold), ps=parseFloat(VAULT.prices.silver); // pg/ps = €/g (intern)
-    // Vergleichsbasis: netto investierter Einstand der Klasse (Käufe − Verkäufe)
-    function valCard(label,cls,cur,netInv){if(!(cur>0))return '';const pl=cur-netInv;const sign=pl>=0?'+':'';const col=pl>=0?'var(--neon)':'var(--red)';
-      return `<div class="stat ${cls}"><div class="k">${label}</div><div class="v">${fmtEur(cur)}</div><div class="sub" style="color:${col}">${sign}${fmtEur(pl)} (${netInv>0?sign+fmtNum(pl/netInv*100,1)+'%':'–'})</div></div>`;}
+    // Vergleichsbasis: netto investierte EUR-Basis der Klasse (EUR-Buchungen + EUR-Gegenwerte);
+    // Fremdwährungs-Buchungen ohne EUR-Gegenwert fehlen darin → P/L als ≈ markieren.
+    function valCard(label,cls,cur,netInv,approx){if(!(cur>0))return '';const pl=cur-netInv;const sign=pl>=0?'+':'';const col=pl>=0?'var(--neon)':'var(--red)';
+      return `<div class="stat ${cls}"><div class="k">${label}</div><div class="v">${fmtEur(cur)}</div><div class="sub" style="color:${col}">${approx?'≈ ':''}${sign}${fmtEur(pl)} (${netInv>0?sign+fmtNum(pl/netInv*100,1)+'%':'–'})</div></div>`;}
     let html='';
-    if(pb>0) html+=valCard(tr('val.btcNow'),'btc',t.btc*pb,t.eurBtc-t.relBtc);
-    if(pg>0) html+=valCard(tr('val.goldNow'),'gold',t.gold*pg,t.eurGold-t.relGold);
-    if(ps>0) html+=valCard(tr('val.silverNow'),'silver',t.silver*ps,t.eurSilver-t.relSilver);
+    if(pb>0) html+=valCard(tr('val.btcNow'),'btc',t.btc*pb,t.eurBase.btc,t.noBase.btc>0);
+    if(pg>0) html+=valCard(tr('val.goldNow'),'gold',t.gold*pg,t.eurBase.gold,t.noBase.gold>0);
+    if(ps>0) html+=valCard(tr('val.silverNow'),'silver',t.silver*ps,t.eurBase.silver,t.noBase.silver>0);
     const totCur=(pb>0?t.btc*pb:0)+(pg>0?t.gold*pg:0)+(ps>0?t.silver*ps:0);
-    if(pb>0||pg>0||ps>0){const base=t.eurTotal-t.relTotal;const pl=totCur-base;const s=pl>=0?'+':'';const c=pl>=0?'var(--neon)':'var(--red)';
-      html+=`<div class="stat total"><div class="k">${tr('val.totalNow')}</div><div class="v">${fmtEur(totCur)}</div><div class="sub" style="color:${c}">${s}${fmtEur(pl)} ${tr('val.vsInvested')}</div></div>`;}
+    if(pb>0||pg>0||ps>0){const base=t.eurBaseTotal;const pl=totCur-base;const s=pl>=0?'+':'';const c=pl>=0?'var(--neon)':'var(--red)';
+      html+=`<div class="stat total"><div class="k">${tr('val.totalNow')}</div><div class="v">${fmtEur(totCur)}</div><div class="sub" style="color:${c}">${t.noBaseTotal>0?'≈ ':''}${s}${fmtEur(pl)} ${tr('val.vsInvested')}</div></div>`;}
+    if(html && t.noBaseTotal>0) html+=`<p class="muted" style="grid-column:1/-1;font-size:.78rem;margin:2px 0 0">${tr('val.noBaseHint').replace('{n}',t.noBaseTotal)}</p>`;
     $('dash-value').innerHTML=html||('<p class="muted">'+tr('dash.pricesHint')+'</p>');
   }
   function savePrices(){
@@ -1163,7 +1203,8 @@ const App = (function(){
                : '';
         pill='<span class="pill btc">BTC</span>';}
       else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(e.form):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
-      const eurCell = d==='withdraw'?'<span class="muted">–</span>':fmtEur(e.eur);
+      const eurCell = d==='withdraw'?'<span class="muted">–</span>'
+        :fmtMoney(e.eur,entryCur(e))+((entryCur(e)!=='EUR'&&e.eurRef>0)?' <span class="muted" style="font-size:.85em;white-space:nowrap">≈ '+fmtEur(e.eurRef)+'</span>':'');
       const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
       return `<tr${isDup?' class="dup-row"':''}><td>${esc(e.date)}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+esc(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${esc(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" onclick="App.editEntry('${idSafe}')">✎</button> <button class="del-x" title="${tr('tip.del')}" onclick="App.delEntry('${idSafe}')">✕</button></td></tr>`;
     }).join('');
@@ -1182,12 +1223,15 @@ const App = (function(){
     }[chartSeries];
   }
   function cumSeries(){
-    // kumulative Zeitreihe aus den Buchungen (nach Datum sortiert). Werte intern: invested in EUR, Metall in Feingramm.
+    // kumulative Zeitreihe aus den Buchungen (nach Datum sortiert). Werte intern: invested in EUR-Basis
+    // (Fremdwährung nur mit EUR-Gegenwert — sonst übersprungen und gezählt), Metall in Feingramm.
     const evs=VAULT.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
-    let cum=0; const pts=[];
+    let cum=0, skippedFx=0; const pts=[];
     for(const e of evs){
       const d=entryDir(e); let delta=0;
-      if(chartSeries==='invested'){ delta = d==='buy'? e.eur : d==='sell'? -e.eur : 0; }   // Entnahme bewegt kein Kapital
+      if(chartSeries==='invested'){                                  // Entnahme bewegt kein Kapital
+        if(d==='buy'||d==='sell'){ const b=eurBasis(e); if(b==null) skippedFx++; else delta=(d==='buy'?b:-b); }
+      }
       else if(chartSeries===e.type){
         const amt = e.type==='btc'? e.btc : e.grams*((e.fineness||1000)/1000);
         delta = signedAmt(e, amt);
@@ -1196,19 +1240,20 @@ const App = (function(){
     }
     // bei mehreren Buchungen am selben Tag nur den letzten Kumulwert je Tag behalten
     const byDay=new Map(); for(const p of pts) byDay.set(p.date,p);
-    return Array.from(byDay.values()).sort((a,b)=>a.t-b.t);
+    return {pts:Array.from(byDay.values()).sort((a,b)=>a.t-b.t), skippedFx};
   }
   function renderVerlauf(){
-    const m=seriesMeta(), pts=cumSeries();
+    const m=seriesMeta(), {pts,skippedFx}=cumSeries();
     const head=$('chart-head'), wrap=$('chart-wrap'), empty=$('chart-empty');
     const cur = pts.length? pts[pts.length-1].val : 0;
     const peak = pts.length? Math.max(...pts.map(p=>p.val)) : 0;
     head.innerHTML=`
       <div class="stat"><div class="k">${m.label} ${tr('ov.now')}</div><div class="v" style="color:${m.color}">${m.fmt(cur)}</div></div>
       <div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${pts.length} ${tr('ov.datapoints')}</div></div>`;
-    if(pts.length<2){ wrap.innerHTML=''; empty.classList.remove('hidden'); return; }
+    const fxHint=(chartSeries==='invested'&&skippedFx>0)?`<p class="muted" style="font-size:.78rem;margin-top:6px">${tr('verlauf.noBaseHint').replace('{n}',skippedFx)}</p>`:'';
+    if(pts.length<2){ wrap.innerHTML=fxHint; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
-    wrap.innerHTML = buildChartSVG(pts, m);
+    wrap.innerHTML = buildChartSVG(pts, m)+fxHint;
   }
   function buildChartSVG(pts, m){
     const W=600,H=240, pad={l:64,r:14,t:14,b:26};
@@ -1258,34 +1303,39 @@ const App = (function(){
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
+  // Steuertool erwartet EUR: Fremdwährungs-Buchungen nur mit erfasstem EUR-Gegenwert
+  // exportieren, sonst auslassen und sichtbar warnen (nie stillschweigend falsche Beträge).
+  function exportTaxCsv(entries, name, header, flagOf){
+    $('export-msg').textContent='';                 // alte Meldung/Warnung nicht stehen lassen
+    let csv=header, skipped=0, rows=0;
+    for(const e of entries.sort((a,b)=>a.date.localeCompare(b.date))){
+      const b=eurBasis(e); if(b==null){skipped++;continue;}
+      const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
+      csv+=`${e.date},${e.btc.toFixed(8)},${b.toFixed(2)},${csvCell(note)},${flagOf(e)?'ja':''}\n`;
+      rows++;
+    }
+    const warn=skipped?tr('exp.fxSkipped').replace('{n}',skipped):'';
+    if(!rows){ $('export-msg').textContent=warn; return toast(tr('toast.failed')); }
+    saveCsv(name,csv).then(()=>{ if(warn){const m=$('export-msg'); m.textContent=(m.textContent?m.textContent+' — ':'')+warn;} });
+  }
   function exportSteuertool(){
     const buys=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='buy');
     if(!buys.length)return toast(tr('exp.noBuys'));
-    let csv='date,btc_amount,eur_amount,note,kyc\n';
-    for(const e of buys.sort((a,b)=>a.date.localeCompare(b.date))){
-      const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
-      csv+=`${e.date},${e.btc.toFixed(8)},${e.eur.toFixed(2)},${csvCell(note)},${e.kyc?'ja':''}\n`;
-    }
-    saveCsv('manual_buys.csv',csv);
+    exportTaxCsv(buys,'manual_buys.csv','date,btc_amount,eur_amount,note,kyc\n',e=>e.kyc);
   }
   function exportSales(){
     const sales=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='sell');
     if(!sales.length)return toast(tr('exp.noSales'));
-    let csv='date,btc_amount,eur_amount,note,no_kyc\n';
-    for(const e of sales.sort((a,b)=>a.date.localeCompare(b.date))){
-      const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
-      csv+=`${e.date},${e.btc.toFixed(8)},${e.eur.toFixed(2)},${csvCell(note)},${e.noKyc?'ja':''}\n`;
-    }
-    saveCsv('manual_sales.csv',csv);
+    exportTaxCsv(sales,'manual_sales.csv','date,btc_amount,eur_amount,note,no_kyc\n',e=>e.noKyc);
   }
   function exportMetals(){
     const m=VAULT.entries.filter(e=>e.type==='gold'||e.type==='silver');
     if(!m.length)return toast(tr('exp.noMetals'));
-    let csv='date,vorgang,metall,form,feinheit,stueckzahl,gewicht_je_stueck,einheit,gewicht_g_gesamt,fein_g_gesamt,fein_oz_gesamt,eur,quelle_ziel,notiz\n';
+    let csv='date,vorgang,metall,form,feinheit,stueckzahl,gewicht_je_stueck,einheit,gewicht_g_gesamt,fein_g_gesamt,fein_oz_gesamt,betrag,waehrung,eur_gegenwert,quelle_ziel,notiz\n';
     const dirDe={buy:'Kauf',sell:'Verkauf',withdraw:'Entnahme'};
     for(const e of m.sort((a,b)=>a.date.localeCompare(b.date))){
       const fine=e.grams*((e.fineness||1000)/1000);
-      csv+=`${e.date},${dirDe[entryDir(e)]},${e.type==='gold'?'Gold':'Silber'},${e.form||''},${e.fineness||''},${e.count||''},${e.qty},${e.unit},${e.grams.toFixed(3)},${fine.toFixed(3)},${(fine/OZ_G).toFixed(4)},${e.eur.toFixed(2)},${csvCell(e.source||'')},${csvCell(e.note||'')}\n`;
+      csv+=`${e.date},${dirDe[entryDir(e)]},${e.type==='gold'?'Gold':'Silber'},${e.form||''},${e.fineness||''},${e.count||''},${e.qty},${e.unit},${e.grams.toFixed(3)},${fine.toFixed(3)},${(fine/OZ_G).toFixed(4)},${e.eur.toFixed(2)},${entryCur(e)},${e.eurRef>0?e.eurRef.toFixed(2):''},${csvCell(e.source||'')},${csvCell(e.note||'')}\n`;
     }
     saveCsv('edelmetalle.csv',csv);
   }
@@ -1361,7 +1411,7 @@ const App = (function(){
           const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
           const note=(c[3]||'').trim(), flag=(c[4]||'').trim().toLowerCase();
           if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!(btc>0)||!(eur>=0)){ bad++; continue; }
-          const e={ id:cryptoId(), type:'btc', dir, date, eur, btc, source:note, note:'' };
+          const e={ id:cryptoId(), type:'btc', dir, date, eur, cur:'EUR', btc, source:note, note:'' };
           if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
           else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
           if(findDuplicate(e,null)){ dups++; continue; }
@@ -1387,7 +1437,9 @@ const App = (function(){
     if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
     const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
     const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
-    const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)), note:str(e.note,500), source:str(e.source,200)};
+    const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
+      cur:(e.cur==='USD'||e.cur==='CHF')?e.cur:'EUR', note:str(e.note,500), source:str(e.source,200)};
+    if(out.cur!=='EUR' && num(e.eurRef)>0) out.eurRef=num(e.eurRef);
     if(e.type==='btc'){
       out.btc=num(e.btc); if(!(out.btc>0)) return null;
       if(dir==='buy') out.kyc=!!e.kyc;
@@ -1554,7 +1606,7 @@ const App = (function(){
   function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
-  return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,updateMetalPreview,
+  return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setAutolock,setChartSeries,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,_otpauth:''};
 })();

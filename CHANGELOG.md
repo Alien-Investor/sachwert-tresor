@@ -3,6 +3,34 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.1 — 2026-07-19
+
+Mehrwährungs-Support: Buchungen in EUR, USD oder CHF — für BTC und Edelmetalle.
+
+- **Neu: Währung je Buchung.** Beim Erfassen wählbar (EUR/USD/CHF); bestehende
+  Einträge gelten weiter als EUR und lassen sich rückwirkend über „Bearbeiten"
+  auf USD/CHF umstellen. Die App rechnet bewusst **nicht** um — sie kennt keine
+  Kurse und fragt keine ab (offline, keine Netzabfrage).
+- **Übersicht & Verlauf:** Summen („Investiert", „Realisiert", „Netto investiert")
+  werden **je Währung getrennt** ausgewiesen (z.B. „900,00 € · 1.000,00 $"),
+  statt Beträge verschiedener Währungen stillschweigend zu addieren.
+- **Neu: optionaler EUR-Gegenwert.** Bei USD/CHF-Buchungen kann der EUR-Wert vom
+  Buchungstag (laut Abrechnung) miterfasst werden. Damit bleiben Steuertool-Export
+  und Wert-Vergleich aufs Datum genau vollständig.
+- **Steuertool-Export bleibt steuerlich sauber:** Das BTC-Steuertool rechnet in EUR.
+  USD/CHF-Buchungen landen nur mit erfasstem EUR-Gegenwert im Export; ohne werden
+  sie ausgelassen und eine sichtbare Warnung zeigt, wie viele fehlen — niemals
+  stillschweigend falsche Beträge.
+- **Wert-Vergleich (manuelle Preise):** Gewinn/Verlust rechnet gegen die EUR-Basis
+  (EUR-Buchungen + EUR-Gegenwerte); fehlen Gegenwerte, wird das P/L als „≈" markiert
+  und ein Hinweis genannt.
+- **Liste & Exporte:** Beträge mit Währungssymbol, EUR-Gegenwert als „≈"-Zusatz;
+  `edelmetalle.csv` hat neue Spalten `waehrung` und `eur_gegenwert` (Spalte `eur`
+  heißt jetzt `betrag`).
+- **Import-Härtung erweitert:** Währungsfeld und EUR-Gegenwert laufen durch die
+  Feld-Whitelist des Vault-Imports (unbekannte Währungen werden zu EUR normalisiert,
+  ungültige Gegenwerte verworfen).
+
 ## v2.0 — 2026-07-04
 
 Sicherheits-Release: Härtung nach internem Code-Audit. Keine neuen Pflichtschritte

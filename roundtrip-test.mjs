@@ -38,7 +38,9 @@ function sanitizeEntry(e){
   if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
   const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
   const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
-  const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)), note:str(e.note,500), source:str(e.source,200)};
+  const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
+    cur:(e.cur==='USD'||e.cur==='CHF')?e.cur:'EUR', note:str(e.note,500), source:str(e.source,200)};
+  if(out.cur!=='EUR' && num(e.eurRef)>0) out.eurRef=num(e.eurRef);
   if(e.type==='btc'){
     out.btc=num(e.btc); if(!(out.btc>0)) return null;
     if(dir==='buy') out.kyc=!!e.kyc;
@@ -132,6 +134,27 @@ async function main(){
   const legacy={id:'ee11', type:'btc', date:'2024-05-05', eur:100, btc:0.002, source:'Altbestand'};   // Altdaten ohne dir
   const rLeg=mergeEntries([], [legacy]);
   ok(rLeg.added===1 && rLeg.entries[0].dir==='buy', 'Altdaten ohne dir werden als Kauf übernommen');
+
+  console.log('\n=== Test 7: Mehrwährung (cur/eurRef) — Whitelist + Normalisierung ===');
+  const fx=[
+    {id:'cc01', type:'btc', dir:'buy', date:'2026-07-01', eur:500, cur:'USD', eurRef:462.5, btc:0.005},   // sauberer USD-Kauf mit EUR-Gegenwert
+    {id:'cc02', type:'gold', dir:'buy', date:'2026-07-02', eur:900, cur:'CHF', count:1, qty:1, unit:'oz', grams:31.1034768}, // CHF ohne eurRef
+    {id:'cc03', type:'btc', dir:'buy', date:'2026-07-03', eur:100, cur:'JPY', btc:0.001},                 // Währung außerhalb Whitelist
+    {id:'cc04', type:'btc', dir:'buy', date:'2026-07-04', eur:100, cur:'<script>', btc:0.001},            // Injection statt Währung
+    {id:'cc05', type:'btc', dir:'buy', date:'2026-07-05', eur:100, cur:'EUR', eurRef:99, btc:0.001},      // eurRef bei EUR ist sinnlos
+    {id:'cc06', type:'btc', dir:'buy', date:'2026-07-06', eur:100, cur:'USD', eurRef:'evil', btc:0.001},  // eurRef kein Betrag
+  ];
+  const rFx=mergeEntries([], fx);
+  ok(rFx.added===6, `alle 6 Einträge übernommen (Währung wird normalisiert, nie abgewiesen) — added=${rFx.added}`);
+  const g=id=>rFx.entries.find(e=>e.id===id);
+  ok(g('cc01').cur==='USD' && g('cc01').eurRef===462.5, 'USD + EUR-Gegenwert bleiben erhalten');
+  ok(g('cc02').cur==='CHF' && !('eurRef' in g('cc02')), 'CHF ohne eurRef bleibt ohne eurRef');
+  ok(g('cc03').cur==='EUR' && g('cc04').cur==='EUR', 'unbekannte/böse Währung wird auf EUR normalisiert');
+  ok(!('eurRef' in g('cc05')), 'eurRef bei EUR-Buchung wird verworfen');
+  ok(!('eurRef' in g('cc06')), 'nicht-numerischer eurRef wird verworfen');
+  const legacyCur={id:'cc07', type:'btc', dir:'buy', date:'2024-01-01', eur:100, btc:0.001};              // Altdaten ohne cur
+  const rLC=mergeEntries([], [legacyCur]);
+  ok(rLC.entries[0].cur==='EUR', 'Altdaten ohne cur werden als EUR übernommen');
 
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);
