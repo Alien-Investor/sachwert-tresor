@@ -46,13 +46,19 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 ## Was es kann
 
 - **Buchen**: Kauf, **Verkauf** und **Entnahme** (Transfer/Ausgabe ohne Verkauf) — je für
-  Bitcoin (Menge, EUR, Quelle/Ziel, KYC-Flag) und Gold/Silber (Menge, Einheit g/oz/kg,
+  Bitcoin (Menge, Betrag, Quelle/Ziel, KYC-Flag) und Gold/Silber (Menge, Einheit g/oz/kg,
   Form Münze/Barren, Feinheit ‰, Stückzahl, Händler).
+- **Mehrwährung** (seit v2.1): Buchungen in **EUR, USD oder CHF**. Summen werden je Währung
+  getrennt ausgewiesen — die App rechnet bewusst nicht um (sie kennt keine Kurse, fragt
+  keine ab). Optional lässt sich je Fremdwährungs-Buchung der **EUR-Gegenwert vom
+  Buchungstag** (laut Abrechnung) miterfassen.
 - **Übersicht**: **Netto-Bestand** je Anlageklasse (Käufe − Verkäufe − Entnahmen),
   investierter Einstand, realisierte Erlöse. Optional aktuelle Preise manuell eintragen
   (bewusst **keine Netz-Abfrage**, OpSec) → aktueller Wert & G/V ggü. netto investiert.
 - **Steuertool-Export**: `manual_buys.csv` (Käufe) und `manual_sales.csv` (Verkäufe) exakt
   im Format des BTC-Steuertools. Entnahmen sind keine Verkäufe und bleiben tresor-intern.
+  Das Steuertool rechnet in EUR: USD/CHF-Buchungen sind nur mit erfasstem EUR-Gegenwert
+  enthalten — sonst werden sie ausgelassen und eine Warnung zeigt, wie viele fehlen.
 - **Edelmetall-CSV**: separates Inventar (mit Vorgang Kauf/Verkauf/Entnahme).
 - **Aegis-2FA mit QR**: QR scannen, als Bild speichern (Aegis kann ihn ohne Kamera aus der
   Galerie importieren), kopieren, oder den Base32-Schlüssel manuell eintragen.
