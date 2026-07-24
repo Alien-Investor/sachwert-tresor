@@ -763,7 +763,11 @@ const T = {
   "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
   "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"}
 };
-let LANG = localStorage.getItem('ai-tresor-lang') || ((navigator.language||'de').toLowerCase().indexOf('de')===0?'de':'en');
+// URL-Param ?lang=de|en überschreibt localStorage (sprachfeste Links) — in der
+// App (Capacitor/file://) ist location.search leer, dann greift die alte Kette.
+const _qsLang = new URLSearchParams(window.location.search).get('lang');
+let LANG = (_qsLang==='de'||_qsLang==='en') ? _qsLang
+  : (localStorage.getItem('ai-tresor-lang') || ((navigator.language||'de').toLowerCase().indexOf('de')===0?'de':'en'));
 const _i18nCache = new WeakMap();
 function tr(key){ const e=T[key]; return e?(e[LANG]!==undefined?e[LANG]:e.de):key; }
 function applyI18n(){
