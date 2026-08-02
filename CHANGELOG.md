@@ -3,6 +3,31 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.2 — 2026-08-02
+
+Sats-Anzeige + weitere Härtung: strengere CSP ohne Inline-Script, Backup-Erinnerung,
+Passphrase-Stärke-Anzeige, Robustheits-Fixes.
+
+- **Neu: BTC oder Sats.** Anzeige-Einheit in der Übersicht umschaltbar (wirkt auf
+  Übersicht, Bestände und Verlauf-Chart); beim Erfassen eigener Umschalter, um die
+  Menge wahlweise in BTC oder Sats einzugeben — getippte Werte werden beim
+  Umschalten mitkonvertiert. Gespeichert und exportiert wird weiterhin BTC, das
+  Steuertool-Format bleibt unverändert.
+- **Härtung: kein Inline-Script mehr.** Der komplette App-Code liegt jetzt in
+  `app.js`, alle Klick-Handler laufen über Event-Delegation — die CSP verbietet
+  Inline-Script vollständig (`script-src 'self'`, ohne `unsafe-inline`).
+  Zusammen mit `connect-src 'none'` bleibt damit auch eingeschleustem Markup
+  keine Ausführungsfläche.
+- **Neu: Backup-Erinnerung.** Die Übersicht warnt, wenn noch nie ein Backup
+  erstellt wurde oder das letzte Backup älter als 14 Tage ist und seitdem neue
+  Buchungen dazukamen. Rein lokal, keine Netzabfrage.
+- **Neu: Passphrase-Stärke-Anzeige** beim Einrichten und Ändern — heuristisch
+  (Länge/Wortfolge), nur Orientierung, kein Zwang.
+- **Robuster:** Schlägt das Speichern fehl (z.B. Speicher voll), wird die
+  Änderung auch in der Anzeige zurückgenommen (kein Auseinanderlaufen von
+  Anzeige und Datenbestand); Tresore aus einer neueren App-Version lösen beim
+  Entsperren einen Hinweis aus.
+
 ## v2.1 — 2026-07-19
 
 Mehrwährungs-Support: Buchungen in EUR, USD oder CHF — für BTC und Edelmetalle.

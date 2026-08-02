@@ -16,6 +16,7 @@ LICENSE !filter !diff
 # Auditierbarer Client-Quellcode — bewusst KLARTEXT (Open Source, offline-Prüfbarkeit).
 # Enthält KEINE Geheimnisse. Build-/Keystore-/Deploy-Skripte bleiben verschlüsselt.
 index.html !filter !diff
+app.js !filter !diff
 qr.js !filter !diff
 sw.js !filter !diff
 manifest.webmanifest !filter !diff

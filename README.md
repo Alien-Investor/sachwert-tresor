@@ -48,6 +48,11 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 - **Buchen**: Kauf, **Verkauf** und **Entnahme** (Transfer/Ausgabe ohne Verkauf) — je für
   Bitcoin (Menge, Betrag, Quelle/Ziel, KYC-Flag) und Gold/Silber (Menge, Einheit g/oz/kg,
   Form Münze/Barren, Feinheit ‰, Stückzahl, Händler).
+- **BTC oder Sats** (seit v2.2): Anzeige-Einheit umschaltbar (Übersicht, Bestände,
+  Verlauf) und beim Erfassen wahlweise Eingabe in BTC oder Sats — gespeichert und
+  exportiert wird immer BTC, das Steuertool-Format bleibt unverändert.
+- **Backup-Erinnerung** (seit v2.2): Die Übersicht warnt, wenn noch kein Backup existiert
+  oder das letzte länger her ist und neue Buchungen dazukamen — rein lokal.
 - **Mehrwährung** (seit v2.1): Buchungen in **EUR, USD oder CHF**. Summen werden je Währung
   getrennt ausgewiesen — die App rechnet bewusst nicht um (sie kennt keine Kurse, fragt
   keine ab). Optional lässt sich je Fremdwährungs-Buchung der **EUR-Gegenwert vom
@@ -77,7 +82,9 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
   Bestands-Vorschau im App-Switcher. **allowBackup=false**: Tresor-Daten landen in
   keinem ADB-/Cloud-Backup — Backups machst nur du selbst (`.vault`).
 - **Content-Security-Policy** mit `connect-src 'none'`: Auch die Web-Version kann
-  keinerlei Netz-Verbindung aufbauen.
+  keinerlei Netz-Verbindung aufbauen. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
+  (`script-src 'self'`): Inline-Script ist komplett verboten — selbst eingeschleustes
+  Markup hätte keine Ausführungsfläche.
 - **2FA (Aegis)**: optionaler TOTP-Zweitfaktor (RFC 6238) als zweite Hürde beim
   Entsperren auf dem Gerät. Die Verschlüsselung selbst schützt allein die Passphrase —
   wähle sie entsprechend stark.
@@ -91,7 +98,7 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 ## Open Source & selbst prüfen
 
 Der komplette **Client-Code ist offen** ([MIT](LICENSE)) — du musst niemandem vertrauen, du kannst
-nachsehen: `index.html` (App + Krypto), `qr.js`, `sw.js`. Schnell-Audit:
+nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`. Schnell-Audit:
 
 - **Kein Nach-Hause-Telefonieren:** keine `fetch`/`XMLHttpRequest`/WebSocket-Aufrufe, keine externen
   Skripte, keine CDNs, kein Analytics. Die einzige externe URL ist der Spenden-Link.

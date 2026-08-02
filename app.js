@@ -1,0 +1,1185 @@
+"use strict";
+/* Theme-Init vor dem ersten Render (app.js lädt synchron im <head>) */
+(function(){var t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');})();
+
+/* ============================================================
+   Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
+   ============================================================ */
+const LS_KEY = 'ai-sachwert-vault';
+const enc = new TextEncoder(), dec = new TextDecoder();
+
+/* ============================ i18n ============================
+   Deutsch = Original im HTML (data-i18n / -html / -ph). Englisch aus I18N.
+   Dynamische JS-Strings (Toasts, Labels) aus T (beide Sprachen) via t(). */
+const I18N = {
+  "tagline":"Bitcoin · Gold · Silver — local & encrypted",
+  "lbl.passphrase":"Passphrase","lbl.date":"Date","lbl.unit":"Unit",
+  "setup.title":"Set up your vault",
+  "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via PBKDF2). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
+  "setup.repeat":"Repeat passphrase","setup.ph1":"min. 8 characters, better a word sequence",
+  "setup.showpass":"Show passphrase (to verify)","setup.create":"Create vault",
+  "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
+  "lock.title":"Unlock vault","lock.showpass":"Show passphrase","lock.unlock":"Unlock",
+  "totp.title":"Second factor","totp.intro":"Enter the current 6-digit code from your <strong>Aegis 2FA manager</strong>.","totp.confirm":"Confirm",
+  "btn.cancel":"Cancel",
+  "tab.dash":"Overview","tab.add":"Add","tab.list":"Holdings","tab.verlauf":"History","tab.export":"Export & Sync","tab.settings":"Settings",
+  "dash.valTitle":"Current value (manual, offline)",
+  "dash.valIntro":"No price lookup over the network (OpSec). Enter current prices yourself — the value is computed locally.",
+  "dash.metalUnit":"Precious-metal unit","dash.oz":"Ounce (oz)","dash.g":"Gram (g)","dash.btcUnit":"Bitcoin unit","dash.btcPrice":"BTC price €/BTC",
+  "add.buy":"＋ Buy","add.sell":"－ Sell","add.withdraw":"↗ Withdrawal",
+  "add.tBtc":"₿ Bitcoin","add.tGold":"Au Gold","add.tSilver":"Ag Silver",
+  "add.kycNo":"noKYC (private / P2P / cash)","add.kycYes":"KYC broker (appears in tax report)",
+  "add.count":"Count","add.denom":"Denomination (weight per piece)","add.denomOther":"Other…",
+  "add.curLabel":"Currency",
+  "add.eurRef":"EUR equivalent on transaction date (optional, from your statement — for the tax-tool export)",
+  "add.form":"Form","add.formCoin":"Coin","add.formBar":"Bar","add.formOther":"Other",
+  "add.weightPer":"Weight per piece","add.unitG":"Gram","add.unitOz":"Ounce (31.1035 g)","add.unitKg":"Kilogram",
+  "add.fineness":"Fineness (‰)","add.dealer":"Dealer","add.dealerPh":"Coin dealer, Pro Aurum ...",
+  "add.noteLabel":"Note (optional)","add.notePh":"Free text, e.g. mintage / trade ID",
+  "list.title":"Holdings","list.fAll":"All","list.fBtc":"Bitcoin","list.fGold":"Gold","list.fSilver":"Silver",
+  "list.empty":"No entries yet. Get started in the “Add” tab.",
+  "verlauf.title":"Wealth development",
+  "verlauf.intro":"Calculated from your entries — <strong>no market prices, no network lookup</strong>. Shows how your invested capital or holdings have grown over time.",
+  "verlauf.sInvested":"Net invested","verlauf.sBtc":"Bitcoin","verlauf.sGold":"Gold","verlauf.sSilver":"Silver",
+  "verlauf.empty":"At least two entries are needed to show a history.",
+  "exp.taxTitle":"Tax-tool export (BTC)",
+  "exp.taxIntro":"Generates CSVs in the format of your BTC tax tool — you just import them there. <code>manual_buys.csv</code> = all BTC buys (KYC flag), <code>manual_sales.csv</code> = all BTC sells (noKYC flag). Withdrawals are not sales and stay vault-internal. Entries in USD/CHF are only included if an EUR equivalent is recorded in the entry (edit entry) — the tax tool calculates in EUR.",
+  "exp.metalTitle":"Precious-metal inventory (CSV)",
+  "exp.metalIntro":"Gold & silver holdings as a table (date, form, fineness, weight, price, dealer).",
+  "exp.importTitle":"CSV import (BTC buys / sells)",
+  "exp.importIntro":"Loads many entries at once in vault format: <code>manual_buys.csv</code> (buys) or <code>manual_sales.csv</code> (sells) — header <code>date,btc_amount,eur_amount,note,kyc</code> or <code>…,no_kyc</code>. For your own lists just use this format (date, BTC amount, EUR). Duplicates are skipped automatically.",
+  "exp.importBtn":"Import CSV",
+  "exp.backupTitle":"Backup & Sync (encrypted vault file)",
+  "exp.backupIntro":"The <code>.vault</code> file is fully encrypted. Put it in your <strong>Syncthing</strong> folder — it syncs P2P between desktop and GrapheneOS, without cloud. On the other device, load it via “Restore”. <strong>Importing merges</strong> (new entries are added, nothing is overwritten), and each device keeps its own passphrase.",
+  "exp.backupWarn":"⚠ Without a backup your vault is lost if you reinstall the app or switch devices. Export regularly — ideally straight into the Syncthing folder.",
+  "exp.backupCreate":"Create backup","exp.backupRestore":"Restore backup",
+  "exp.importPassPrompt":"Enter the passphrase of the selected backup file:","exp.importPassPh":"Passphrase of the backup file","exp.importVaultBtn":"Import",
+  "set.totpTitle":"Aegis 2FA (TOTP)",
+  "set.totpOffIntro":"Enable a second factor. You enter the key <strong>once into Aegis</strong> (manually or via QR reader). The key is stored encrypted in the vault and adds protection on unlock.",
+  "set.totpEnable":"Enable 2FA",
+  "set.totpSetup1":"Add in <strong>Aegis</strong> — three ways, all possible without a camera:",
+  "set.totpSetup2":"• <strong>With camera</strong> (e.g. desktop screen): scan the QR.<br>• <strong>Without camera, QR:</strong> save “QR as image” → in Aegis “+” → QR scan → import from gallery/image.<br>• <strong>Without camera, manual:</strong> “Copy key” → in Aegis “Add entry manually” → type <em>TOTP</em> → paste.",
+  "set.copyKey":"Copy key","set.saveQR":"Save QR as image","set.copyQR":"Copy QR","set.otpauth":"otpauth link",
+  "set.totpSetup3":"2) Aegis now shows a 6-digit code. Enter it to confirm:","set.activate":"Activate",
+  "set.totpOnText":"2FA is active. On unlock, an Aegis code is additionally required.","set.totpDisable":"Disable 2FA",
+  "set.cpTitle":"Change passphrase","set.cpCur":"Current passphrase","set.cpNew":"New passphrase","set.cpRepeat":"Repeat","set.cpShow":"Show passphrases","set.cpBtn":"Change",
+  "set.themeTitle":"Appearance","set.themeDark":"Black (Neon)","set.themeSoft":"Soft (Navy)",
+  "set.secTitle":"Security","set.autolock":"Auto-lock after inactivity",
+  "set.al0":"Off","set.al1":"1 minute","set.al5":"5 minutes","set.al15":"15 minutes","set.al30":"30 minutes",
+  "set.lockNow":"Lock now","set.wipe":"Delete local data",
+  "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
+  "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
+  "foot.line2":"Encryption: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238",
+  "foot.donate":"Charge energy · Donate",
+  "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
+  "help.h1":"What is the Sachwert-Tresor?",
+  "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
+  "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
+  "help.h2":"First steps",
+  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings.</li>",
+  "help.h3":"Adding entries",
+  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
+  "help.h4":"Overview & values",
+  "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
+  "help.h5":"Backup & Sync (important!)",
+  "help.p5":"Your holdings live encrypted in this device's local storage (localStorage) — in the <strong>app</strong> in protected app storage (survives restarts and updates, lost only on “Clear app data” or uninstall), in the <strong>browser</strong> in the browser profile (removed when you clear “cookies and site data” — not by clearing the cache alone). Either way: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>. The app is significantly more persistent — recommended for long-term use.",
+  "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li>",
+  "help.h6":"CSV import",
+  "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
+  "help.h7":"Tax-tool export",
+  "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals. The tax tool calculates in EUR: entries in USD/CHF only make it into the export if an EUR equivalent from the transaction date is recorded in the entry (from your statement) — otherwise the export leaves them out and shows a warning.",
+  "help.h8":"2FA across multiple devices",
+  "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
+  "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
+  "help.h9":"Security",
+  "help.l9":"<li>AES-256-GCM, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto — no third-party crypto.</li><li>No network requests, no trackers, no external CDNs. Everything offline.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>"
+};
+// Dynamische JS-Strings (beide Sprachen)
+const T = {
+  "msg.keyCopied":{de:"Schlüssel kopiert",en:"Key copied"},
+  "msg.otpauthCopied":{de:"otpauth-Link kopiert",en:"otpauth link copied"},
+  "add.titleBuy":{de:"Kauf erfassen",en:"Add buy"},
+  "add.titleSell":{de:"Verkauf erfassen",en:"Add sell"},
+  "add.titleWd":{de:"Entnahme erfassen",en:"Add withdrawal"},
+  "add.titleEdit":{de:"Eintrag bearbeiten",en:"Edit entry"},
+  "add.btnAdd":{de:"＋ Eintragen",en:"＋ Add"},
+  "add.btnSave":{de:"Speichern",en:"Save"},
+  "ov.now":{de:"jetzt",en:"now"},
+  "ov.peak":{de:"Höchststand",en:"Peak"},
+  "ov.datapoints":{de:"Datenpunkte",en:"data points"},
+  "add.eurBuy":{de:"Bezahlt ({cur}, gesamt inkl. Gebühr)",en:"Paid ({cur}, total incl. fee)"},
+  "add.eurSell":{de:"Erhalten ({cur}, netto)",en:"Received ({cur}, net)"},
+  "add.amtBtc":{de:"Menge BTC",en:"BTC amount"},
+  "add.amtSat":{de:"Menge Sats",en:"Sats amount"},
+  "add.srcBuy":{de:"Quelle / Broker",en:"Source / broker"},
+  "add.srcSell":{de:"Ziel / Käufer (optional)",en:"Destination / buyer (optional)"},
+  "add.kycQ":{de:"KYC?",en:"KYC?"},
+  "add.sellFrom":{de:"Verkauf aus welchem Bestand?",en:"Sell from which holdings?"},
+  "price.gold":{de:"Gold €/",en:"Gold €/"},
+  "price.silver":{de:"Silber €/",en:"Silver €/"},
+  "stat.btc":{de:"Bitcoin (Bestand)",en:"Bitcoin (holdings)"},
+  "stat.gold":{de:"Gold fein (Bestand)",en:"Gold fine (holdings)"},
+  "stat.silver":{de:"Silber fein (Bestand)",en:"Silver fine (holdings)"},
+  "stat.invested":{de:"Netto investiert",en:"Net invested"},
+  "stat.investedSub":{de:"Buchungen",en:"entries"},
+  "stat.realized":{de:"realisiert",en:"realized"},
+  "stat.invShort":{de:"Investiert",en:"Invested"},
+  "val.btcNow":{de:"Bitcoin aktuell",en:"Bitcoin now"},
+  "val.goldNow":{de:"Gold aktuell",en:"Gold now"},
+  "val.silverNow":{de:"Silber aktuell",en:"Silver now"},
+  "val.totalNow":{de:"Gesamt aktuell",en:"Total now"},
+  "val.vsInvested":{de:"ggü. netto investiert",en:"vs. net invested"},
+  "col.date":{de:"Datum",en:"Date"},
+  "col.type":{de:"Typ",en:"Type"},
+  "col.dir":{de:"Vorgang",en:"Action"},
+  "col.amount":{de:"Menge",en:"Amount"},
+  "col.eur":{de:"Betrag",en:"Value"},
+  "col.src":{de:"Quelle/Ziel",en:"Source/dest."},
+  "col.actions":{de:"",en:""},
+  "dir.buy":{de:"Kauf",en:"Buy"},
+  "dir.sell":{de:"Verkauf",en:"Sell"},
+  "dir.withdraw":{de:"Entnahme",en:"Withdrawal"},
+  "toast.buyAdded":{de:"Kauf eingetragen",en:"Buy added"},
+  "toast.sellAdded":{de:"Verkauf eingetragen",en:"Sell added"},
+  "toast.wdAdded":{de:"Entnahme eingetragen",en:"Withdrawal added"},
+  "toast.updated":{de:"Eintrag aktualisiert",en:"Entry updated"},
+  "toast.deleted":{de:"Eintrag gelöscht",en:"Entry deleted"},
+  "toast.saved":{de:"Gespeichert",en:"Saved"},
+  "toast.exported":{de:"Exportiert",en:"Exported"},
+  "toast.failed":{de:"Fehlgeschlagen",en:"Failed"},
+  "err.dateMissing":{de:"Datum fehlt.",en:"Date is missing."},
+  "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
+  "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
+  "verlauf.noBaseHint":{de:"{n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert nicht enthalten (Eintrag bearbeiten → EUR-Gegenwert ergänzen).",en:"{n} foreign-currency entries without an EUR equivalent are not included (edit the entry to add one)."},
+  "exp.fxSkipped":{de:"{n} USD/CHF-Buchung(en) ohne EUR-Gegenwert nicht im Export enthalten — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"{n} USD/CHF entries without an EUR equivalent were left out — edit the entry and add the EUR value."},
+  "err.btcMissing":{de:"BTC-Menge fehlt.",en:"BTC amount is missing."},
+  "err.countMissing":{de:"Stückzahl fehlt (mind. 1).",en:"Count is missing (min. 1)."},
+  "err.weightMissing":{de:"Gewicht je Stück fehlt.",en:"Weight per piece is missing."},
+  "confirm.delete":{de:"Diesen Eintrag wirklich löschen?",en:"Really delete this entry?"},
+  "confirm.wipe":{de:"Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.",en:"Delete the local vault on THIS device? Exported .vault files remain."},
+  "msg.merged":{de:"Zusammengeführt",en:"Merged"},
+  "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
+  "msg.total":{de:"gesamt",en:"total"},
+  "msg.passKept":{de:"Deine lokale Passphrase bleibt unverändert.",en:"Your local passphrase stays unchanged."},
+  "msg.importBad":{de:"Import fehlgeschlagen (falsche Passphrase oder Datei?).",en:"Import failed (wrong passphrase or file?)."},
+  "msg.notValidVault":{de:"Keine gültige .vault-Datei.",en:"Not a valid .vault file."},
+  "msg.enterPass":{de:"Bitte Passphrase eingeben.",en:"Please enter a passphrase."},
+  "msg.upToDate":{de:"Bereits aktuell",en:"Already up to date"},
+  "add.kycBuyNo":{de:"noKYC (privat / P2P / Bargeld)",en:"noKYC (private / P2P / cash)"},
+  "add.kycBuyYes":{de:"KYC-Broker (taucht im Finanzamt-Report auf)",en:"KYC broker (appears in tax report)"},
+  "add.kycSellNo":{de:"noKYC-Bestand (nur interner Report)",en:"noKYC holdings (internal report only)"},
+  "add.kycSellYes":{de:"KYC-Bestand (Finanzamt-Report)",en:"KYC holdings (tax report)"},
+  "col.detail":{de:"Detail",en:"Detail"},
+  "pill.nokycHold":{de:"noKYC-Bestand",en:"noKYC holdings"},
+  "pill.kycHold":{de:"KYC-Bestand",en:"KYC holdings"},
+  "pill.gold":{de:"Gold",en:"Gold"},"pill.silver":{de:"Silber",en:"Silver"},
+  "pill.dupQ":{de:"Dublette?",en:"Duplicate?"},
+  "pill.dupTitle":{de:"Gleicher Vorgang, Datum und Menge existiert mehrfach",en:"Same action, date and amount exists more than once"},
+  "series.invested":{de:"Netto investiert",en:"Net invested"},
+  "series.btc":{de:"Bitcoin-Bestand",en:"Bitcoin holdings"},
+  "series.gold":{de:"Gold-Bestand",en:"Gold holdings"},
+  "series.silver":{de:"Silber-Bestand",en:"Silver holdings"},
+  "preview.totalPrefix":{de:"→ Gesamt: ",en:"→ Total: "},"preview.gross":{de:"brutto",en:"gross"},
+  "dash.pricesHint":{de:"Trage oben Preise ein, um den aktuellen Wert zu sehen.",en:"Enter prices above to see the current value."},
+  "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
+  "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
+  "copy.manual":{de:"Manuell kopieren",en:"Copy manually"},
+  "tip.edit":{de:"Bearbeiten",en:"Edit"},"tip.del":{de:"Löschen",en:"Delete"},
+  "stat.investedLbl":{de:"Investiert",en:"Invested"},"stat.realizedLbl":{de:"Realisiert",en:"Realized"},
+  "toast.autolocked":{de:"Automatisch gesperrt",en:"Automatically locked"},
+  "toast.deletedShort":{de:"Gelöscht",en:"Deleted"},
+  "confirm.del2":{de:"Eintrag löschen?",en:"Delete entry?"},
+  "exp.noBuys":{de:"Keine BTC-Käufe vorhanden.",en:"No BTC buys."},
+  "exp.noSales":{de:"Keine BTC-Verkäufe vorhanden.",en:"No BTC sells."},
+  "exp.noMetals":{de:"Keine Edelmetall-Buchungen vorhanden.",en:"No precious-metal entries."},
+  "exp.savedShareSfx":{de:' gespeichert — über „Teilen" ablegen.',en:" saved — share it via the Share dialog."},
+  "exp.vaultSavedNative":{de:' — über „Teilen" in deinen Syncthing-Ordner legen.',en:" — share it into your Syncthing folder."},
+  "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
+  "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
+  "csv.resultPre":{de:"CSV-Import",en:"CSV import"},"csv.new":{de:"neu",en:"new"},"csv.dupsSkipped":{de:"Dubletten übersprungen",en:"duplicates skipped"},"csv.badRows":{de:"fehlerhafte Zeilen",en:"invalid rows"},
+  "lbl.buys":{de:"Käufe",en:"Buys"},"lbl.sells":{de:"Verkäufe",en:"Sells"},
+  "err.cpShort":{de:"Neue Passphrase: mind. 8 Zeichen.",en:"New passphrase: min. 8 characters."},
+  "err.cpMismatch":{de:"Neue Passphrasen stimmen nicht überein.",en:"New passphrases do not match."},
+  "err.cpWrong":{de:"Aktuelle Passphrase falsch.",en:"Current passphrase is wrong."},
+  "toast.qrSaved":{de:"QR als Bild gespeichert",en:"QR saved as image"},"toast.qrSaveFail":{de:"QR-Speichern fehlgeschlagen",en:"Saving QR failed"},
+  "toast.qrCopied":{de:"QR ins Clipboard kopiert",en:"QR copied to clipboard"},"toast.copyFail":{de:"Kopieren fehlgeschlagen",en:"Copy failed"},
+  "toast.noQr":{de:"Kein QR vorhanden",en:"No QR available"},"toast.clipUnavail":{de:"Clipboard nicht verfügbar — nutze „QR als Bild“",en:"Clipboard unavailable — use “Save QR as image”"},
+  "err.setupShort":{de:"Passphrase zu kurz (mind. 8 Zeichen).",en:"Passphrase too short (min. 8 characters)."},
+  "err.setupMismatch":{de:"Passphrasen stimmen nicht überein.",en:"Passphrases do not match."},
+  "err.vaultCorrupt":{de:"Tresor-Daten beschädigt.",en:"Vault data corrupted."},
+  "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
+  "err.totp6":{de:"6-stelligen Code eingeben.",en:"Enter the 6-digit code."},
+  "err.totpBad":{de:"Code falsch oder abgelaufen.",en:"Code wrong or expired."},
+  "err.totpSetupBad":{de:"Code stimmt nicht. In Aegis prüfen.",en:"Code doesn't match. Check in Aegis."},
+  "toast.vaultCreated":{de:"Tresor erstellt",en:"Vault created"},
+  "toast.totpOn":{de:"2FA aktiviert",en:"2FA enabled"},"toast.totpOff":{de:"2FA deaktiviert",en:"2FA disabled"},
+  "confirm.totpDisable":{de:"2FA wirklich deaktivieren?",en:"Really disable 2FA?"},
+  "busy.decrypting":{de:"Entschlüssele…",en:"Decrypting…"},
+  "busy.changing":{de:"Ändere…",en:"Changing…"},
+  "csv.failPre":{de:"CSV-Import fehlgeschlagen: ",en:"CSV import failed: "},
+  "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
+  "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
+  "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"},
+  "err.vaultNewer":{de:"Hinweis: Dieser Tresor stammt aus einer neueren App-Version — bitte App aktualisieren.",en:"Note: this vault was created by a newer app version — please update the app."},
+  "bk.never":{de:"⚠ Noch kein Backup erstellt — geht dieses Gerät verloren, ist der Tresor weg. Export & Sync → Backup erstellen.",en:"⚠ No backup yet — if this device is lost, the vault is gone. Export & Sync → Create backup."},
+  "bk.stale":{de:"⚠ Letztes Backup vor {d} Tagen — seitdem {n} neue Buchung(en). Export & Sync → Backup erstellen.",en:"⚠ Last backup {d} days ago — {n} new entries since. Export & Sync → Create backup."},
+  "pass.s0":{de:"zu kurz (mind. 8 Zeichen)",en:"too short (min. 8 characters)"},
+  "pass.s1":{de:"okay — länger ist besser",en:"okay — longer is better"},
+  "pass.s2":{de:"stark",en:"strong"},
+  "pass.s3":{de:"sehr stark",en:"very strong"}
+};
+// URL-Param ?lang=de|en überschreibt localStorage (sprachfeste Links) — in der
+// App (Capacitor/file://) ist location.search leer, dann greift die alte Kette.
+const _qsLang = new URLSearchParams(window.location.search).get('lang');
+let LANG = (_qsLang==='de'||_qsLang==='en') ? _qsLang
+  : (localStorage.getItem('ai-tresor-lang') || ((navigator.language||'de').toLowerCase().indexOf('de')===0?'de':'en'));
+const _i18nCache = new WeakMap();
+function tr(key){ const e=T[key]; return e?(e[LANG]!==undefined?e[LANG]:e.de):key; }
+function applyI18n(){
+  document.querySelectorAll('[data-i18n],[data-i18n-html],[data-i18n-ph]').forEach(el=>{
+    let c=_i18nCache.get(el); if(!c){ c={}; _i18nCache.set(el,c); }
+    [['data-i18n','textContent'],['data-i18n-html','innerHTML'],['data-i18n-ph','placeholder']].forEach(([attr,prop])=>{
+      const key=el.getAttribute(attr); if(!key) return;
+      if(c[prop]===undefined) c[prop]=el[prop];           // Original (DE) merken
+      const en=I18N[key];
+      el[prop]=(LANG==='en'&&en!==undefined)?en:c[prop];
+    });
+  });
+  document.documentElement.setAttribute('lang',LANG);
+  const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
+}
+function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(typeof App!=='undefined'&&App.relabel) App.relabel(); }
+
+/* ---------- base64 / bytes ---------- */
+function bufToB64(buf){let b='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i++)b+=String.fromCharCode(u[i]);return btoa(b);}
+function b64ToBuf(b64){const s=atob(b64);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer;}
+
+/* ---------- Base32 (RFC 4648, für TOTP-Secret) ---------- */
+const B32A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function base32Encode(bytes){let bits=0,val=0,out='';for(const b of bytes){val=(val<<8)|b;bits+=8;while(bits>=5){out+=B32A[(val>>>(bits-5))&31];bits-=5;}}if(bits>0)out+=B32A[(val<<(5-bits))&31];return out;}
+function base32Decode(str){str=str.toUpperCase().replace(/=+$/,'').replace(/\s/g,'');let bits=0,val=0;const out=[];for(const c of str){const idx=B32A.indexOf(c);if(idx<0)continue;val=(val<<5)|idx;bits+=5;if(bits>=8){out.push((val>>>(bits-8))&0xff);bits-=8;}}return new Uint8Array(out);}
+
+/* ---------- Crypto: PBKDF2 -> AES-GCM ---------- */
+const ITER = 600000;
+async function deriveKey(pass, salt){
+  const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encryptObj(obj, key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, enc.encode(JSON.stringify(obj)));
+  return ct ? {iv:bufToB64(iv), ct:bufToB64(ct)} : null;
+}
+async function decryptBlob(blob, key){
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(b64ToBuf(blob.iv))}, key, b64ToBuf(blob.ct));
+  return JSON.parse(dec.decode(pt));
+}
+
+/* ---------- TOTP (RFC 6238, HMAC-SHA1) ---------- */
+async function totp(secretB32, forTime){
+  const key = base32Decode(secretB32);
+  const ck = await crypto.subtle.importKey('raw', key, {name:'HMAC',hash:'SHA-1'}, false, ['sign']);
+  let counter = Math.floor((forTime||(Date.now()/1000))/30);
+  const cb = new ArrayBuffer(8); const dv = new DataView(cb);
+  dv.setUint32(4, counter>>>0); dv.setUint32(0, Math.floor(counter/0x100000000));
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', ck, cb));
+  const off = sig[19] & 0xf;
+  const bin = ((sig[off]&0x7f)<<24)|((sig[off+1]&0xff)<<16)|((sig[off+2]&0xff)<<8)|(sig[off+3]&0xff);
+  return String(bin % 1000000).padStart(6,'0');
+}
+async function totpValid(secret, input){
+  const now = Date.now()/1000;
+  for(const d of [-1,0,1]){ if(await totp(secret, now + d*30) === input) return true; }
+  return false;
+}
+
+/* ============================================================
+   App state
+   ============================================================ */
+const App = (function(){
+  let KEY = null;        // CryptoKey (in memory only)
+  let SALT = null;       // Uint8Array
+  let VAULT = null;      // decrypted object
+  let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', editId = null;
+  let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
+
+  const $ = id => document.getElementById(id);
+  const show = (id) => $(id).classList.remove('hidden');
+  const hide = (id) => $(id).classList.add('hidden');
+  function screen(name){['setup','lock','totp','app'].forEach(s=>$('screen-'+s).classList.add('hidden'));$('screen-'+name).classList.remove('hidden');}
+  function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),2200);}
+  function err(id,msg){const e=$(id);if(!msg){e.classList.add('hidden');return;}e.textContent=msg;e.classList.remove('hidden');}
+
+  const VAULT_VERSION=1;   // Schema-Version dieser App — Vaults aus neueren Versionen lösen eine Warnung aus
+  function emptyVault(){return {version:VAULT_VERSION, entries:[], totp:null, prices:{btc:'',gold:'',silver:''}, unit:'oz', btcUnit:'btc', autolock:5};}
+  const OZ_G = 31.1034768;  // Troy-Unze in Gramm
+  const SATS = 1e8;         // Anzeige/Eingabe wahlweise in Sats — Datenmodell + Exporte bleiben BTC
+  function btcUnit(){return VAULT&&VAULT.btcUnit==='sat'?'sat':'btc';}
+  const fmtBtc=v=>btcUnit()==='sat'?fmtNum(Math.round((v||0)*SATS),0)+' sats':fmtNum(v,8)+' ₿';
+
+  /* ---------- persistence ---------- */
+  async function persist(){
+    const blob = await encryptObj(VAULT, KEY);
+    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=ITER; blob.salt=bufToB64(SALT);
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
+    catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
+  }
+
+  /* ---------- boot ---------- */
+  function boot(){
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); }
+    else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); }
+    // theme buttons reflect current
+    const soft = document.documentElement.getAttribute('data-theme')==='soft';
+    $('th-dark').classList.toggle('on',!soft); $('th-soft').classList.toggle('on',soft);
+  }
+
+  /* ---------- setup ---------- */
+  async function doSetup(){
+    err('setup-err');
+    const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
+    if(p1.length<8) return err('setup-err',tr('err.setupShort'));
+    if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
+    SALT = crypto.getRandomValues(new Uint8Array(16));
+    KEY = await deriveKey(p1, SALT);
+    VAULT = emptyVault();
+    await persist();
+    $('setup-pass1').value=$('setup-pass2').value='';
+    enterApp();
+    toast(tr('toast.vaultCreated'));
+  }
+
+  /* ---------- unlock ---------- */
+  async function doUnlock(){
+    if(doUnlock._busy) return;                 // verhindert Doppel-Entsperren bei mehrfachem Enter/Klick
+    err('lock-err');
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return boot();
+    let blob; try{blob=JSON.parse(raw);}catch(e){return err('lock-err',tr('err.vaultCorrupt'));}
+    SALT = new Uint8Array(b64ToBuf(blob.salt));
+    const btn=$('unlock-btn'), orig=btn.textContent;
+    doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
+    try{
+      const k = await deriveKey($('lock-pass').value, SALT);
+      VAULT = await decryptBlob(blob, k);
+      KEY = k;
+    }catch(e){ return err('lock-err',tr('err.wrongPass')); }
+    finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
+    $('lock-pass').value='';
+    if((VAULT.version||1)>VAULT_VERSION) setTimeout(()=>toast(tr('err.vaultNewer')),600);   // nur warnen, nicht blockieren
+    if(VAULT.totp && VAULT.totp.enabled){ screen('totp'); setTimeout(()=>$('totp-code').focus(),100); }
+    else enterApp();
+  }
+  async function doTotp(){
+    err('totp-err');
+    const code = $('totp-code').value.trim();
+    if(!/^\d{6}$/.test(code)) return err('totp-err',tr('err.totp6'));
+    if(!await totpValid(VAULT.totp.secret, code)) return err('totp-err',tr('err.totpBad'));
+    $('totp-code').value='';
+    enterApp();
+  }
+
+  /* ---------- Auto-Lock bei Inaktivität ---------- */
+  let idleTimer=null, lastActivity=0;
+  function clearIdle(){ if(idleTimer){clearTimeout(idleTimer); idleTimer=null;} }
+  function resetIdle(){
+    clearIdle();
+    if(!KEY||!VAULT) return;                         // nur im entsperrten Zustand
+    const mins = VAULT.autolock==null?5:VAULT.autolock;
+    if(!mins) return;                                // 0 = Auto-Lock aus
+    idleTimer=setTimeout(()=>{ clearIdle(); toast(tr('toast.autolocked')); lock(); }, mins*60000);
+  }
+  function activity(){ if(!KEY) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
+
+  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); }
+  // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
+  function clearRendered(){
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
+    const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML='';
+    resetAddForm();
+    ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2'].forEach(i=>{const el=$(i);if(el)el.value='';});
+    $('totp-secret').textContent=''; App._otpauth='';
+    const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
+    pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
+  }
+  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; clearRendered(); boot(); }
+  ['click','keydown','touchstart','scroll','mousemove'].forEach(ev=>
+    document.addEventListener(ev, activity, {passive:true}));
+  // Backgrounding: setTimeout pausiert in eingefrorenen WebViews — beim Zurückkehren
+  // die tatsächlich verstrichene Zeit prüfen und ggf. sofort sperren.
+  let hiddenAt=0;
+  document.addEventListener('visibilitychange',()=>{
+    if(!KEY||!VAULT) return;
+    const mins = VAULT.autolock==null?5:VAULT.autolock;
+    if(document.hidden){ hiddenAt=Date.now(); return; }
+    const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0;
+    if(mins && away>mins*60000){ toast(tr('toast.autolocked')); lock(); }
+    else resetIdle();
+  });
+
+  /* ---------- tabs ---------- */
+  function tab(name){
+    if(name!=='add' && editId) exitEditMode();    // Bearbeiten abbrechen, wenn man den Tab verlässt
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+    document.querySelectorAll('.tabview').forEach(v=>v.classList.add('hidden'));
+    $('tab-'+name).classList.remove('hidden');
+    if(name==='dash') renderDash();
+    if(name==='list') renderList();
+    if(name==='verlauf') renderVerlauf();
+    if(name==='settings') renderSettings();
+    if(name==='add'){ if(!$('f-date').value) $('f-date').value=todayStr(); refreshAddLabels(); }
+  }
+  function todayStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+  /* ---------- add entry ---------- */
+  function setAddType(t){addType=t;document.querySelectorAll('#add-type button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+    $('fields-btc').classList.toggle('hidden',t!=='btc');
+    $('fields-metal').classList.toggle('hidden',t==='btc');
+    refreshAddLabels(); if(t!=='btc') updateMetalPreview();}
+  function setAddDir(d){addDir=d;document.querySelectorAll('#add-dir button').forEach(b=>b.classList.toggle('on',b.dataset.d===d));refreshAddLabels();}
+  function refreshAddLabels(){
+    const isSell=addDir==='sell', isWd=addDir==='withdraw';
+    $('add-title').textContent = editId?tr('add.titleEdit'):(isSell?tr('add.titleSell'):isWd?tr('add.titleWd'):tr('add.titleBuy'));
+    $('f-eur-wrap').classList.toggle('hidden', isWd);
+    $('f-cur-wrap').classList.toggle('hidden', isWd);
+    const cur=$('f-cur').value;
+    $('f-eur-label').textContent = (isSell?tr('add.eurSell'):tr('add.eurBuy')).replace('{cur}',cur);
+    $('f-eurref-wrap').classList.toggle('hidden', isWd||cur==='EUR');
+    $('f-src-btc-label').textContent = (isSell||isWd)?tr('add.srcSell'):tr('add.srcBuy');
+    // KYC-Auswahl je nach Richtung beschriften (Steuertool: Kauf=kyc, Verkauf=no_kyc)
+    $('f-kyc-wrap').classList.toggle('hidden', isWd);
+    if(!isWd){
+      $('f-kyc-label').textContent = isSell?tr('add.sellFrom'):tr('add.kycQ');
+      const sel=$('f-kyc');
+      sel.options[0].text = isSell?tr('add.kycSellNo'):tr('add.kycBuyNo');
+      sel.options[1].text = isSell?tr('add.kycSellYes'):tr('add.kycBuyYes');
+    }
+    refreshBtcInputUI();
+  }
+  // Eingabe-Umschalter BTC/Sats: vorhandener Feldwert wird beim Umschalten mitkonvertiert
+  function setInputBtcUnit(u){
+    if(u!==addBtcUnit){
+      const f=$('f-btc'), v=parseFloat(f.value);
+      if(!isNaN(v)) f.value = u==='sat' ? String(Math.round(v*SATS)) : String(+(v/SATS).toFixed(8));
+      addBtcUnit=u;
+    }
+    refreshBtcInputUI();
+  }
+  function refreshBtcInputUI(){
+    const sat=addBtcUnit==='sat';
+    $('f-btcu-btc').classList.toggle('on',!sat); $('f-btcu-sat').classList.toggle('on',sat);
+    $('f-btc-label').textContent=tr(sat?'add.amtSat':'add.amtBtc');
+    const f=$('f-btc'); f.placeholder=sat?'263717':'0.00263717'; f.step=sat?'1':'any';
+  }
+  function toGrams(qty,unit){qty=parseFloat(qty)||0;if(unit==='oz')return qty*31.1034768;if(unit==='kg')return qty*1000;return qty;}
+  function unitFactor(u){return u==='oz'?31.1034768:u==='kg'?1000:1;}
+  // Gewicht je Stück + Einheit aus Dropdown (oder Custom-Feldern)
+  function readDenom(){
+    const d=$('f-denom').value;
+    if(d==='custom') return {qty:parseFloat($('f-qty').value), unit:$('f-unit').value};
+    const p=d.split('|'); return {qty:parseFloat(p[0]), unit:p[1]};
+  }
+  function onDenomChange(){ $('f-custom-wrap').classList.toggle('hidden', $('f-denom').value!=='custom'); updateMetalPreview(); }
+  function updateMetalPreview(){
+    const el=$('metal-preview'); if(!el) return;
+    const {qty,unit}=readDenom(); const count=parseInt($('f-count').value);
+    if(!(qty>0)||!(count>0)){ el.textContent=''; return; }
+    const u=VAULT&&VAULT.unit||'oz', g=toGrams(qty,unit)*count;
+    const tot=u==='oz'?g/OZ_G:g;
+    el.textContent=`${tr('preview.totalPrefix')}${count} × ${fmtNum(qty,unit==='g'?0:4)} ${unit} = ${fmtNum(tot,u==='oz'?4:2)} ${u} (${tr('preview.gross')})`;
+  }
+  function resetAddForm(){
+    ['f-eur','f-eurref','f-btc','f-qty','f-fine','f-note'].forEach(i=>$(i).value='');
+    addBtcUnit=btcUnit();               // Eingabe-Einheit folgt der Anzeige-Einstellung
+    $('f-count').value='1'; $('f-denom').value='1|oz'; $('f-cur').value='EUR';
+    $('f-custom-wrap').classList.add('hidden'); updateMetalPreview(); refreshAddLabels();
+  }
+  function onCurChange(){ refreshAddLabels(); }
+  function addEntry(){
+    err('add-err');
+    const date=$('f-date').value;
+    const isWd=addDir==='withdraw';
+    const eur=isWd?0:parseFloat($('f-eur').value);
+    const cur=(!isWd && ['USD','CHF'].indexOf($('f-cur').value)>=0)?$('f-cur').value:'EUR';
+    if(!date) return err('add-err',tr('err.dateMissing'));
+    if(!isWd && !(eur>=0)) return err('add-err',tr('err.eurInvalid'));
+    const e={id: editId||cryptoId(), type:addType, dir:addDir, date, eur, cur, note:$('f-note').value.trim()};
+    if(cur!=='EUR'){ const r=parseFloat($('f-eurref').value); if(r>0) e.eurRef=r; }
+    if(addType==='btc'){
+      let amt=parseFloat($('f-btc').value);
+      if(addBtcUnit==='sat') amt=Math.round(amt)/SATS;   // Sats-Eingabe → intern immer BTC
+      if(!(amt>0)) return err('add-err',tr('err.btcMissing'));
+      e.btc=amt; e.source=$('f-src-btc').value.trim();
+      if(addDir==='buy') e.kyc=$('f-kyc').selectedIndex===1;
+      if(addDir==='sell') e.noKyc=$('f-kyc').selectedIndex===0;
+    }else{
+      const {qty, unit}=readDenom();
+      const count=parseInt($('f-count').value);
+      if(!(count>0)) return err('add-err',tr('err.countMissing'));
+      if(!(qty>0)) return err('add-err',tr('err.weightMissing'));
+      e.count=count; e.qty=qty; e.unit=unit;
+      e.grams=toGrams(qty,unit)*count;               // Gesamt-Bruttogewicht = Stückzahl × Gewicht je Stück
+      e.form=$('f-form').value; e.fineness=parseFloat($('f-fine').value)||null;
+      e.source=$('f-src-metal').value.trim();
+    }
+    // Dubletten-Warnung (kein hartes Blockieren — echte Doppel-DCA am selben Tag soll möglich bleiben; sich selbst beim Bearbeiten ausnehmen)
+    const dup=findDuplicate(e, editId);
+    if(dup){
+      const what=e.type==='btc'?fmtBtc(e.btc):e.count+'× '+fmtNum(e.qty,4)+' '+e.unit;
+      const dirL=tr('dir.'+entryDir(e));
+      const prev=dup.eur?' ('+fmtMoney(dup.eur,entryCur(dup))+(dup.source?', '+dup.source:'')+')':(dup.source?' ('+dup.source+')':'');
+      const msg = LANG==='en'
+        ? `Possible duplicate\n\nOn ${e.date} a ${dirL} of ${what}${prev} already exists.\n\nReally add it a second time?`
+        : `Mögliches Duplikat\n\nAm ${e.date} ist bereits ein ${dirL} über ${what}${prev} erfasst.\n\nWirklich ein zweites Mal eintragen?`;
+      if(!confirm(msg)) return;
+    }
+    const wasEdit=!!editId;
+    let undo=null;
+    if(wasEdit){ const i=VAULT.entries.findIndex(x=>x.id===editId); if(i>=0){ undo=VAULT.entries[i]; VAULT.entries[i]=e; } }
+    else VAULT.entries.push(e);
+    persist().then(()=>{
+      resetAddForm();
+      if(wasEdit){ exitEditMode(); toast(tr('toast.updated')); tab('list'); }
+      else { toast(addDir==='sell'?tr('toast.sellAdded'):addDir==='withdraw'?tr('toast.wdAdded'):tr('toast.buyAdded')); renderDash(); }
+    }).catch(()=>{
+      // persist() zeigt bereits den Fehler-Toast — hier nur den RAM-Zustand zurückrollen (Anzeige == Speicher)
+      if(wasEdit){ const i=VAULT.entries.findIndex(x=>x.id===e.id); if(i>=0&&undo) VAULT.entries[i]=undo; }
+      else VAULT.entries.pop();
+      renderDash();
+    });
+  }
+  function exitEditMode(){ editId=null; $('add-btn').textContent=tr('add.btnAdd'); hide('add-cancel'); refreshAddLabels(); }
+  function cancelEdit(){ resetAddForm(); exitEditMode(); tab('list'); }
+  function editEntry(id){
+    const e=VAULT.entries.find(x=>x.id===id); if(!e) return;
+    editId=id;
+    tab('add');                                   // wechselt Tab; setzt Datum nur falls leer
+    setAddDir(entryDir(e)); setAddType(e.type);
+    $('f-date').value=e.date;
+    $('f-note').value=e.note||'';
+    $('f-eur').value=(entryDir(e)==='withdraw')?'':(e.eur!=null?e.eur:'');
+    $('f-cur').value=entryCur(e);
+    $('f-eurref').value=e.eurRef!=null?e.eurRef:'';
+    refreshAddLabels();
+    if(e.type==='btc'){
+      $('f-btc').value=e.btc!=null?(addBtcUnit==='sat'?String(Math.round(e.btc*SATS)):e.btc):'';
+      $('f-src-btc').value=e.source||'';
+      if(entryDir(e)==='buy') $('f-kyc').selectedIndex = e.kyc?1:0;
+      else if(entryDir(e)==='sell') $('f-kyc').selectedIndex = e.noKyc?0:1;
+    }else{
+      $('f-count').value=e.count!=null?e.count:'1';
+      const key=(e.qty!=null?e.qty:'')+'|'+(e.unit||'g');
+      const denom=$('f-denom'), has=Array.from(denom.options).some(o=>o.value===key);
+      if(has){ denom.value=key; $('f-custom-wrap').classList.add('hidden'); $('f-qty').value=''; }
+      else { denom.value='custom'; $('f-custom-wrap').classList.remove('hidden'); $('f-qty').value=e.qty!=null?e.qty:''; $('f-unit').value=e.unit||'g'; }
+      $('f-form').value=e.form||'Münze'; $('f-fine').value=e.fineness!=null?e.fineness:'';
+      $('f-src-metal').value=e.source||'';
+      updateMetalPreview();
+    }
+    $('add-title').textContent=tr('add.titleEdit');
+    $('add-btn').textContent=tr('add.btnSave');
+    show('add-cancel');
+    err('add-err');
+  }
+  function entryDir(e){return e.dir||'buy';}     // Altdaten ohne dir = Kauf
+  function entryCur(e){return e.cur==='USD'||e.cur==='CHF'?e.cur:'EUR';}   // Altdaten ohne cur = EUR
+  // EUR-Basis einer Buchung (für Steuertool-Export + Wert-Vergleich): EUR direkt,
+  // Fremdwährung nur mit erfasstem EUR-Gegenwert vom Buchungstag — sonst null.
+  function eurBasis(e){return entryCur(e)==='EUR'?e.eur:(e.eurRef>0?e.eurRef:null);}
+  function signedAmt(e,amt){return entryDir(e)==='buy'?amt:-amt;}
+  // Dubletten-Erkennung: gleicher Typ + Richtung + Datum + Menge (BTC auf Satoshi, Metall auf 0,1mg genau)
+  function amtKey(e){return e.type==='btc'?'b'+(e.btc||0).toFixed(8):'m'+(e.grams||0).toFixed(4);}
+  function dupKey(e){return e.type+'|'+entryDir(e)+'|'+e.date+'|'+amtKey(e);}
+  function findDuplicate(e,excludeId){const k=dupKey(e);return VAULT.entries.find(x=>x.id!==excludeId&&dupKey(x)===k);}
+  function cryptoId(){const a=crypto.getRandomValues(new Uint8Array(8));return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');}
+  function delEntry(id){ if(!confirm(tr('confirm.del2')))return; const before=VAULT.entries; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}).catch(()=>{ VAULT.entries=before; renderList(); }); }
+
+  /* ---------- aggregates ---------- */
+  const CURS=['EUR','USD','CHF'];
+  function totals(){
+    // Netto-Bestand = Käufe − Verkäufe − Entnahmen. Beträge werden je Währung getrennt
+    // geführt (bewusst keine Kursumrechnung — die App kennt keine Kurse, kein Netz).
+    // eurBase = Netto-EUR-Basis (EUR-Buchungen + erfasste EUR-Gegenwerte) für den Wert-Vergleich.
+    const zero=()=>({EUR:0,USD:0,CHF:0});
+    let btc=0,gold=0,silver=0;
+    const inv={btc:zero(),gold:zero(),silver:zero()}, rel={btc:zero(),gold:zero(),silver:zero()};
+    const eurBase={btc:0,gold:0,silver:0}, noBase={btc:0,gold:0,silver:0};
+    for(const e of VAULT.entries){
+      const d=entryDir(e), k=e.type, c=entryCur(e);
+      if(k==='btc') btc+=signedAmt(e,e.btc);
+      else{
+        const fine=e.grams*((e.fineness||1000)/1000);
+        if(k==='gold') gold+=signedAmt(e,fine); else silver+=signedAmt(e,fine);
+      }
+      if(d==='buy'||d==='sell'){
+        (d==='buy'?inv:rel)[k][c]+=e.eur;
+        const b=eurBasis(e);
+        if(b==null) noBase[k]++; else eurBase[k]+=(d==='buy'?b:-b);
+      }
+    }
+    const addObj=(...os)=>{const o=zero();for(const x of os)for(const c of CURS)o[c]+=x[c];return o;};
+    const subObj=(a,b)=>{const o=zero();for(const c of CURS)o[c]=a[c]-b[c];return o;};
+    const invTot=addObj(inv.btc,inv.gold,inv.silver), relTot=addObj(rel.btc,rel.gold,rel.silver);
+    return {btc,gold,silver,inv,rel,invTot,relTot,netTot:subObj(invTot,relTot),
+      eurBase,noBase,eurBaseTotal:eurBase.btc+eurBase.gold+eurBase.silver,
+      noBaseTotal:noBase.btc+noBase.gold+noBase.silver};
+  }
+  const CUR_SYM={EUR:'€',USD:'$',CHF:'CHF'};
+  const fmtMoney=(n,cur)=>(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
+  const fmtEur = n => fmtMoney(n,'EUR');
+  // Beträge je Währung als Liste ("1.200,00 € · 500,00 $") — Währungen ohne Betrag entfallen
+  const fmtByCur=o=>{const p=CURS.filter(c=>o&&Math.abs(o[c])>0.004).map(c=>fmtMoney(o[c],c));return p.length?p.join(' · '):fmtEur(0);};
+  const anyCur=o=>CURS.some(c=>o&&o[c]>0);
+  const fmtNum = (n,d)=> (n||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+  /* ---------- render dashboard ---------- */
+  function renderDash(){
+    const t=totals();
+    const u=VAULT.unit||'oz';                 // Anzeige-Einheit für Edelmetall
+    const inU=g=>u==='oz'?g/OZ_G:g;           // Feingramm -> Anzeige-Einheit
+    const uL=u==='oz'?'oz':'g', uDec=u==='oz'?3:2;
+    const subInv=(inv,rel)=>`${tr('stat.investedLbl')} ${fmtByCur(inv)}`+(anyCur(rel)?` · ${tr('stat.realizedLbl')} ${fmtByCur(rel)}`:'');
+    $('dash-stats').innerHTML=backupHintHtml()+`
+      <div class="stat btc"><div class="k">${tr('stat.btc')}</div><div class="v">${fmtBtc(t.btc)}</div><div class="sub">${subInv(t.inv.btc,t.rel.btc)}</div></div>
+      <div class="stat gold"><div class="k">${tr('stat.gold')}</div><div class="v">${fmtNum(inU(t.gold),uDec)} ${uL}</div><div class="sub">${subInv(t.inv.gold,t.rel.gold)}</div></div>
+      <div class="stat silver"><div class="k">${tr('stat.silver')}</div><div class="v">${fmtNum(inU(t.silver),uDec)} ${uL}</div><div class="sub">${subInv(t.inv.silver,t.rel.silver)}</div></div>
+      <div class="stat total"><div class="k">${tr('stat.invested')}</div><div class="v">${fmtByCur(t.netTot)}</div><div class="sub">${VAULT.entries.length} ${tr('stat.investedSub')}${anyCur(t.relTot)?' · '+tr('stat.realized')+' '+fmtByCur(t.relTot):''}</div></div>`;
+    // Einheiten-Toggle + Preis-Labels
+    document.querySelectorAll('#metal-unit-seg button').forEach(b=>b.classList.toggle('on',b.dataset.u===u));
+    document.querySelectorAll('#btc-unit-seg button').forEach(b=>b.classList.toggle('on',b.dataset.u===btcUnit()));
+    $('price-gold-label').textContent=tr('price.gold')+uL; $('price-silver-label').textContent=tr('price.silver')+uL;
+    // Preise: intern €/g gespeichert, Anzeige in gewählter Einheit
+    const dispG=v=>{const n=parseFloat(v);return isNaN(n)?'':String(u==='oz'?+(n*OZ_G).toFixed(2):+n.toFixed(4));};
+    // fokussiertes Feld nicht überschreiben — der Nutzer tippt dort gerade (Debounce-Rerender)
+    const setIf=(id,v)=>{const el=$(id);if(document.activeElement!==el)el.value=v;};
+    setIf('price-btc',VAULT.prices.btc||''); setIf('price-gold',dispG(VAULT.prices.gold)); setIf('price-silver',dispG(VAULT.prices.silver));
+    const pb=parseFloat(VAULT.prices.btc), pg=parseFloat(VAULT.prices.gold), ps=parseFloat(VAULT.prices.silver); // pg/ps = €/g (intern)
+    // Vergleichsbasis: netto investierte EUR-Basis der Klasse (EUR-Buchungen + EUR-Gegenwerte);
+    // Fremdwährungs-Buchungen ohne EUR-Gegenwert fehlen darin → P/L als ≈ markieren.
+    function valCard(label,cls,cur,netInv,approx){if(!(cur>0))return '';const pl=cur-netInv;const sign=pl>=0?'+':'';const col=pl>=0?'var(--neon)':'var(--red)';
+      return `<div class="stat ${cls}"><div class="k">${label}</div><div class="v">${fmtEur(cur)}</div><div class="sub" style="color:${col}">${approx?'≈ ':''}${sign}${fmtEur(pl)} (${netInv>0?sign+fmtNum(pl/netInv*100,1)+'%':'–'})</div></div>`;}
+    let html='';
+    if(pb>0) html+=valCard(tr('val.btcNow'),'btc',t.btc*pb,t.eurBase.btc,t.noBase.btc>0);
+    if(pg>0) html+=valCard(tr('val.goldNow'),'gold',t.gold*pg,t.eurBase.gold,t.noBase.gold>0);
+    if(ps>0) html+=valCard(tr('val.silverNow'),'silver',t.silver*ps,t.eurBase.silver,t.noBase.silver>0);
+    const totCur=(pb>0?t.btc*pb:0)+(pg>0?t.gold*pg:0)+(ps>0?t.silver*ps:0);
+    if(pb>0||pg>0||ps>0){const base=t.eurBaseTotal;const pl=totCur-base;const s=pl>=0?'+':'';const c=pl>=0?'var(--neon)':'var(--red)';
+      html+=`<div class="stat total"><div class="k">${tr('val.totalNow')}</div><div class="v">${fmtEur(totCur)}</div><div class="sub" style="color:${c}">${t.noBaseTotal>0?'≈ ':''}${s}${fmtEur(pl)} ${tr('val.vsInvested')}</div></div>`;}
+    if(html && t.noBaseTotal>0) html+=`<p class="muted" style="grid-column:1/-1;font-size:.78rem;margin:2px 0 0">${tr('val.noBaseHint').replace('{n}',t.noBaseTotal)}</p>`;
+    $('dash-value').innerHTML=html||('<p class="muted">'+tr('dash.pricesHint')+'</p>');
+  }
+  function savePrices(){
+    const u=VAULT.unit||'oz';
+    const toG=v=>{v=(v||'').trim();if(v==='')return '';const n=parseFloat(v);if(isNaN(n))return '';return String(u==='oz'?n/OZ_G:n);};
+    VAULT.prices={btc:$('price-btc').value,gold:toG($('price-gold').value),silver:toG($('price-silver').value)};
+    persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(renderDash,400);
+  }
+  function setMetalUnit(u){VAULT.unit=u;persist();renderDash();}
+  function setBtcUnit(u){VAULT.btcUnit=(u==='sat'?'sat':'btc');addBtcUnit=VAULT.btcUnit;persist();renderDash();}
+  function setAutolock(v){VAULT.autolock=parseInt(v)||0;persist();resetIdle();toast(VAULT.autolock?tr('toast.autolockPrefix')+VAULT.autolock+' '+tr('unit.min'):tr('toast.autolockOff'));}
+
+  /* ---------- render list ---------- */
+  function setFilter(f){listFilter=f;document.querySelectorAll('#list-filter button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));renderList();}
+  function renderList(){
+    const rows=VAULT.entries.filter(e=>listFilter==='all'||e.type===listFilter).sort((a,b)=>b.date.localeCompare(a.date));
+    const tb=$('list-tbl').querySelector('tbody'), th=$('list-tbl').querySelector('thead');
+    if(!rows.length){$('list-tbl').classList.add('hidden');show('list-empty');return;}
+    $('list-tbl').classList.remove('hidden');hide('list-empty');
+    // Dubletten zählen (über alle Einträge, nicht nur die gefilterten)
+    const dupCount={};VAULT.entries.forEach(e=>{const k=dupKey(e);dupCount[k]=(dupCount[k]||0)+1;});
+    th.innerHTML=`<tr><th>${tr('col.date')}</th><th>${tr('col.dir')}</th><th>${tr('col.type')}</th><th>${tr('col.amount')}</th><th>${tr('col.detail')}</th><th>${tr('col.eur')}</th><th>${tr('col.src')}</th><th></th></tr>`;
+    tb.innerHTML=rows.map(e=>{
+      const d=entryDir(e);
+      const isDup=dupCount[dupKey(e)]>1;
+      const dirPill = d==='buy'?'<span class="pill dir-buy">＋ '+tr('dir.buy')+'</span>'
+        : d==='sell'?'<span class="pill dir-sell">－ '+tr('dir.sell')+'</span>'
+        : '<span class="pill dir-wd">↗ '+tr('dir.withdraw')+'</span>';
+      const sgn = d==='buy'?'':'−';
+      // Alle Eintragsfelder escapen — Einträge können aus importierten .vault-Dateien stammen
+      const esc=escapeHtml, idSafe=String(e.id||'').replace(/[^0-9a-zA-Z_-]/g,'');
+      let menge,detail,pill;
+      if(e.type==='btc'){menge=sgn+fmtBtc(e.btc);
+        detail = d==='buy'?(e.kyc?'<span class="pill kyc">KYC</span>':'<span class="pill nokyc">noKYC</span>')
+               : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
+               : '';
+        pill='<span class="pill btc">BTC</span>';}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(e.form):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
+      const eurCell = d==='withdraw'?'<span class="muted">–</span>'
+        :fmtMoney(e.eur,entryCur(e))+((entryCur(e)!=='EUR'&&e.eurRef>0)?' <span class="muted" style="font-size:.85em;white-space:nowrap">≈ '+fmtEur(e.eurRef)+'</span>':'');
+      const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
+      return `<tr${isDup?' class="dup-row"':''}><td>${esc(e.date)}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+esc(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${esc(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" data-action="editEntry" data-arg="${idSafe}">✎</button> <button class="del-x" title="${tr('tip.del')}" data-action="delEntry" data-arg="${idSafe}">✕</button></td></tr>`;
+    }).join('');
+  }
+  function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+  /* ---------- Verlauf / Vermögensentwicklung (reines SVG, keine Marktpreise) ---------- */
+  function setChartSeries(s){chartSeries=s;document.querySelectorAll('#chart-series button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));renderVerlauf();}
+  function seriesMeta(){
+    const u=VAULT.unit||'oz', uL=u==='oz'?'oz':'g';
+    return {
+      invested:{label:tr('series.invested'),color:'var(--neon)',fmt:v=>fmtEur(v)},
+      btc:{label:tr('series.btc'),color:'var(--btc)',fmt:v=>fmtBtc(v)},
+      gold:{label:tr('series.gold'),color:'var(--gold)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
+      silver:{label:tr('series.silver'),color:'var(--silver)',fmt:v=>fmtNum(u==='oz'?v/OZ_G:v,u==='oz'?3:2)+' '+uL},
+    }[chartSeries];
+  }
+  function cumSeries(){
+    // kumulative Zeitreihe aus den Buchungen (nach Datum sortiert). Werte intern: invested in EUR-Basis
+    // (Fremdwährung nur mit EUR-Gegenwert — sonst übersprungen und gezählt), Metall in Feingramm.
+    const evs=VAULT.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
+    let cum=0, skippedFx=0; const pts=[];
+    for(const e of evs){
+      const d=entryDir(e); let delta=0;
+      if(chartSeries==='invested'){                                  // Entnahme bewegt kein Kapital
+        if(d==='buy'||d==='sell'){ const b=eurBasis(e); if(b==null) skippedFx++; else delta=(d==='buy'?b:-b); }
+      }
+      else if(chartSeries===e.type){
+        const amt = e.type==='btc'? e.btc : e.grams*((e.fineness||1000)/1000);
+        delta = signedAmt(e, amt);
+      }
+      cum+=delta; pts.push({t:Date.parse(e.date+'T12:00:00Z'), val:cum, date:e.date});
+    }
+    // bei mehreren Buchungen am selben Tag nur den letzten Kumulwert je Tag behalten
+    const byDay=new Map(); for(const p of pts) byDay.set(p.date,p);
+    return {pts:Array.from(byDay.values()).sort((a,b)=>a.t-b.t), skippedFx};
+  }
+  function renderVerlauf(){
+    const m=seriesMeta(), {pts,skippedFx}=cumSeries();
+    const head=$('chart-head'), wrap=$('chart-wrap'), empty=$('chart-empty');
+    const cur = pts.length? pts[pts.length-1].val : 0;
+    const peak = pts.length? Math.max(...pts.map(p=>p.val)) : 0;
+    head.innerHTML=`
+      <div class="stat"><div class="k">${m.label} ${tr('ov.now')}</div><div class="v" style="color:${m.color}">${m.fmt(cur)}</div></div>
+      <div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${pts.length} ${tr('ov.datapoints')}</div></div>`;
+    const fxHint=(chartSeries==='invested'&&skippedFx>0)?`<p class="muted" style="font-size:.78rem;margin-top:6px">${tr('verlauf.noBaseHint').replace('{n}',skippedFx)}</p>`:'';
+    if(pts.length<2){ wrap.innerHTML=fxHint; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    wrap.innerHTML = buildChartSVG(pts, m)+fxHint;
+  }
+  function buildChartSVG(pts, m){
+    const W=600,H=240, pad={l:64,r:14,t:14,b:26};
+    const tMin=pts[0].t, tMax=pts[pts.length-1].t, tSpan=(tMax-tMin)||1;
+    let vMin=Math.min(0,...pts.map(p=>p.val)), vMax=Math.max(...pts.map(p=>p.val));
+    if(vMax===vMin) vMax=vMin+1;
+    const vSpan=vMax-vMin;
+    const X=t=>pad.l+(t-tMin)/tSpan*(W-pad.l-pad.r);
+    const Y=v=>pad.t+(1-(v-vMin)/vSpan)*(H-pad.t-pad.b);
+    // Stufen-Pfad (Wert hält bis zur nächsten Buchung)
+    let line=`M ${X(pts[0].t).toFixed(1)} ${Y(pts[0].val).toFixed(1)}`;
+    for(let i=1;i<pts.length;i++){ line+=` L ${X(pts[i].t).toFixed(1)} ${Y(pts[i-1].val).toFixed(1)} L ${X(pts[i].t).toFixed(1)} ${Y(pts[i].val).toFixed(1)}`; }
+    const area=`${line} L ${X(tMax).toFixed(1)} ${Y(vMin).toFixed(1)} L ${X(tMin).toFixed(1)} ${Y(vMin).toFixed(1)} Z`;
+    // Gridlines + Y-Labels (0, Mitte, Max)
+    const yVals=[vMin, vMin+vSpan/2, vMax].filter((v,i,a)=>a.indexOf(v)===i);
+    if(vMin<0 && vMax>0 && !yVals.includes(0)) yVals.push(0);
+    let grid='', ylab='';
+    for(const v of yVals){ const y=Y(v).toFixed(1);
+      grid+=`<line class="chart-grid" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>`;
+      ylab+=`<text class="chart-lbl" x="${pad.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">${chartSeries==='invested'?Math.round(v).toLocaleString('de-DE'):shortNum(chartSeries==='btc'?(btcUnit()==='sat'?v*SATS:v):( (VAULT.unit||'oz')==='oz'? v/OZ_G : v))}</text>`;
+    }
+    const fmtDay=ts=>{const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
+    const cid='cg'+chartSeries;
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${m.label} Verlauf">
+      <defs><linearGradient id="${cid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${m.color}" stop-opacity="0.18"/><stop offset="100%" stop-color="${m.color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${grid}
+      <line class="chart-axis" x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}"/>
+      <line class="chart-axis" x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}"/>
+      <path d="${area}" fill="url(#${cid})" stroke="none"/>
+      <path d="${line}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px ${m.color})"/>
+      <circle cx="${X(pts[pts.length-1].t).toFixed(1)}" cy="${Y(pts[pts.length-1].val).toFixed(1)}" r="3.2" fill="${m.color}"/>
+      ${ylab}
+      <text class="chart-lbl" x="${pad.l}" y="${H-8}" text-anchor="start">${fmtDay(tMin)}</text>
+      <text class="chart-lbl" x="${W-pad.r}" y="${H-8}" text-anchor="end">${fmtDay(tMax)}</text>
+    </svg>`;
+  }
+  function shortNum(v){const a=Math.abs(v);if(a>=1e6)return (v/1e6).toFixed(1).replace('.',',')+'M';if(a>=1000)return (v/1000).toFixed(1).replace('.',',')+'k';if(a>=1)return v.toFixed(a<10?2:1).replace('.',',');return v.toFixed(3).replace('.',',');}
+
+  /* ---------- CSV export ---------- */
+  function downloadFile(name, content, type, bom){
+    // BOM hilft Excel bei CSV-Umlauten, hat in der JSON-.vault aber nichts verloren
+    // (strenge JSON-Parser brechen daran) -> nur setzen, wenn nicht explizit abgewählt.
+    const parts = bom===false ? [content] : ['﻿'+content];
+    const blob=new Blob(parts,{type:type||'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  // Steuertool erwartet EUR: Fremdwährungs-Buchungen nur mit erfasstem EUR-Gegenwert
+  // exportieren, sonst auslassen und sichtbar warnen (nie stillschweigend falsche Beträge).
+  function exportTaxCsv(entries, name, header, flagOf){
+    $('export-msg').textContent='';                 // alte Meldung/Warnung nicht stehen lassen
+    let csv=header, skipped=0, rows=0;
+    for(const e of entries.sort((a,b)=>a.date.localeCompare(b.date))){
+      const b=eurBasis(e); if(b==null){skipped++;continue;}
+      const note=(e.source?e.source:'')+(e.note?(e.source?' — ':'')+e.note:'');
+      csv+=`${e.date},${e.btc.toFixed(8)},${b.toFixed(2)},${csvCell(note)},${flagOf(e)?'ja':''}\n`;
+      rows++;
+    }
+    const warn=skipped?tr('exp.fxSkipped').replace('{n}',skipped):'';
+    if(!rows){ $('export-msg').textContent=warn; return toast(tr('toast.failed')); }
+    saveCsv(name,csv).then(()=>{ if(warn){const m=$('export-msg'); m.textContent=(m.textContent?m.textContent+' — ':'')+warn;} });
+  }
+  function exportSteuertool(){
+    const buys=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='buy');
+    if(!buys.length)return toast(tr('exp.noBuys'));
+    exportTaxCsv(buys,'manual_buys.csv','date,btc_amount,eur_amount,note,kyc\n',e=>e.kyc);
+  }
+  function exportSales(){
+    const sales=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='sell');
+    if(!sales.length)return toast(tr('exp.noSales'));
+    exportTaxCsv(sales,'manual_sales.csv','date,btc_amount,eur_amount,note,no_kyc\n',e=>e.noKyc);
+  }
+  function exportMetals(){
+    const m=VAULT.entries.filter(e=>e.type==='gold'||e.type==='silver');
+    if(!m.length)return toast(tr('exp.noMetals'));
+    let csv='date,vorgang,metall,form,feinheit,stueckzahl,gewicht_je_stueck,einheit,gewicht_g_gesamt,fein_g_gesamt,fein_oz_gesamt,betrag,waehrung,eur_gegenwert,quelle_ziel,notiz\n';
+    const dirDe={buy:'Kauf',sell:'Verkauf',withdraw:'Entnahme'};
+    for(const e of m.sort((a,b)=>a.date.localeCompare(b.date))){
+      const fine=e.grams*((e.fineness||1000)/1000);
+      csv+=`${e.date},${dirDe[entryDir(e)]},${e.type==='gold'?'Gold':'Silber'},${e.form||''},${e.fineness||''},${e.count||''},${e.qty},${e.unit},${e.grams.toFixed(3)},${fine.toFixed(3)},${(fine/OZ_G).toFixed(4)},${e.eur.toFixed(2)},${entryCur(e)},${e.eurRef>0?e.eurRef.toFixed(2):''},${csvCell(e.source||'')},${csvCell(e.note||'')}\n`;
+    }
+    saveCsv('edelmetalle.csv',csv);
+  }
+  // Formel-Injection neutralisieren (=,+,@ am Zellanfang würde in Excel/Calc als Formel laufen)
+  function csvCell(s){s=(s||'').replace(/"/g,'""');if(/^[=+@]/.test(s))s="'"+s;return /[",\n;]/.test(s)?'"'+s+'"':s;}
+
+  /* ---------- vault file export/import (Syncthing) ---------- */
+  // Capacitor (native App) erkennen — dann Dateien übers OS speichern/teilen statt Browser-Download.
+  const CAP = window.Capacitor || null;
+  const isNative = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform());
+  async function nativeSaveAndShare(name, content){
+    const FS = CAP.Plugins && CAP.Plugins.Filesystem;
+    if(!FS) throw new Error('Filesystem-Plugin fehlt');
+    const w = await FS.writeFile({ path:name, data:content, directory:'DOCUMENTS', encoding:'utf8', recursive:true });
+    try{ const SH = CAP.Plugins && CAP.Plugins.Share; if(SH) await SH.share({ title:name, text:'Sachwert-Tresor Backup', url:w.uri }); }catch(_){}
+    return w.uri;
+  }
+  function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob);});}
+  // CSV-Export native-aware: App -> Filesystem+Share, Web -> Download (mit BOM für Excel-Umlaute).
+  async function saveCsv(name, csv){
+    const m=$('export-msg');
+    if(isNative){
+      try{ const uri=await nativeSaveAndShare(name, '﻿'+csv);
+        if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported'));
+      }catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
+    } else { downloadFile(name, csv); toast(tr('toast.exported')); }
+  }
+  async function exportVault(){
+    if(!localStorage.getItem(LS_KEY))return;
+    // Backup-Stand für die Erinnerung merken — wandert mit in die Exportdatei
+    VAULT.lastBackup=todayStr(); VAULT.lastBackupCount=VAULT.entries.length;
+    try{ await persist(); }catch(_){ return; }
+    const raw=localStorage.getItem(LS_KEY);
+    const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
+    if(isNative){
+      try{ const uri=await nativeSaveAndShare(name, raw);
+        $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative');
+        toast(tr('toast.saved'));
+      }catch(e){ $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+    } else {
+      downloadFile(name, raw, 'application/octet-stream', false);
+      $('export-msg').textContent=tr('exp.vaultSavedWeb');
+    }
+  }
+  // Minimal-CSV-Parser (RFC-4180-nah: Anführungszeichen, "" als Escape, BOM/CRLF tolerant).
+  function parseCsv(text){
+    const rows=[]; let i=0, field='', row=[], inq=false;
+    text=String(text).replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    while(i<text.length){
+      const c=text[i];
+      if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inq=false;i++;continue;} field+=c;i++;continue; }
+      if(c==='"'){inq=true;i++;continue;}
+      if(c===','){row.push(field);field='';i++;continue;}
+      if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue;}
+      field+=c;i++;
+    }
+    if(field.length||row.length){row.push(field);rows.push(row);}
+    return rows.filter(r=>r.length && r.some(x=>x.trim()!==''));
+  }
+  // CSV-Bulk-Import im Tresor-Eigenformat (manual_buys.csv = Käufe, manual_sales.csv = Verkäufe).
+  // CSV nur im Tresor-Format (date,btc_amount,eur_amount,…). Broker-CSVs gehoeren ins Steuertool, nicht hierher.
+  function importCsv(ev){
+    const f=ev.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const rows=parseCsv(r.result);
+        if(rows.length<2) throw new Error(tr('csv.errEmpty'));
+        const head=rows[0].map(h=>h.trim().toLowerCase());
+        const isBuy=head.includes('kyc'), isSale=head.includes('no_kyc');
+        if(head[0]!=='date'||head[1]!=='btc_amount'||head[2]!=='eur_amount'||(!isBuy&&!isSale))
+          throw new Error(tr('csv.errFormat'));
+        const dir=isSale?'sell':'buy';
+        let added=0,dups=0,bad=0;
+        for(let n=1;n<rows.length;n++){
+          const c=rows[n];
+          const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
+          const note=(c[3]||'').trim(), flag=(c[4]||'').trim().toLowerCase();
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!(btc>0)||!(eur>=0)){ bad++; continue; }
+          const e={ id:cryptoId(), type:'btc', dir, date, eur, cur:'EUR', btc, source:note, note:'' };
+          if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
+          else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
+          if(findDuplicate(e,null)){ dups++; continue; }
+          VAULT.entries.push(e); added++;
+        }
+        persist().then(()=>{ renderAll();
+          $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
+          toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
+        });
+      }catch(e){ $('export-msg').textContent=tr('csv.failPre')+((e&&e.message)||'Format?'); }
+      ev.target.value='';
+    };
+    r.readAsText(f);
+  }
+  // Import-Härtung: Einträge aus fremden .vault-Dateien nur mit bekannten Feldern,
+  // geprüften Typen und begrenzten Stringlängen übernehmen (kein HTML/JS-Schmuggel).
+  function sanitizeEntry(e){
+    if(!e || typeof e!=='object') return null;
+    if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
+    if(['btc','gold','silver'].indexOf(e.type)<0) return null;
+    const dir = e.dir==null ? 'buy' : e.dir;                       // Altdaten ohne dir = Kauf
+    if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
+    if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+    const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
+    const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
+    const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
+      cur:(e.cur==='USD'||e.cur==='CHF')?e.cur:'EUR', note:str(e.note,500), source:str(e.source,200)};
+    if(out.cur!=='EUR' && num(e.eurRef)>0) out.eurRef=num(e.eurRef);
+    if(e.type==='btc'){
+      out.btc=num(e.btc); if(!(out.btc>0)) return null;
+      if(dir==='buy') out.kyc=!!e.kyc;
+      if(dir==='sell') out.noKyc=!!e.noKyc;
+    }else{
+      out.grams=num(e.grams); if(!(out.grams>0)) return null;
+      out.qty=num(e.qty)||out.grams;
+      out.unit=['g','oz','kg'].indexOf(e.unit)>=0?e.unit:'g';
+      if(e.count!=null && num(e.count)>=1) out.count=Math.floor(num(e.count));
+      out.form=str(e.form,50);
+      out.fineness=(e.fineness!=null && num(e.fineness)>0 && num(e.fineness)<=1000)?num(e.fineness):null;
+    }
+    return out;
+  }
+  // Einträge zusammenführen: Vereinigung über die eindeutige id (keine Daten gehen verloren)
+  function mergeEntries(local, incoming){
+    const byId=new Map(local.map(e=>[e.id,e]));
+    let added=0;
+    for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
+    return {entries:Array.from(byId.values()), added};
+  }
+  let pendingImportBlob=null;   // gewählte .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
+  function importVault(ev){
+    const f=ev.target.files[0];
+    ev.target.value='';            // erlaubt erneute Auswahl derselben Datei
+    if(!f)return;
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const blob=JSON.parse(r.result);
+        if(!blob.ct||!blob.salt)throw 0;
+        pendingImportBlob=blob;
+        $('import-pass').value='';
+        show('import-pass-box');
+        $('export-msg').textContent='';
+        $('import-pass').focus();
+      }catch(e){$('export-msg').textContent=tr('msg.notValidVault');}
+    };
+    r.readAsText(f);
+  }
+  function cancelImport(){ pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value=''; }
+  async function doImportVault(_, btnEl){
+    if(!pendingImportBlob)return;
+    const btn=btnEl||null; const orig=btn&&btn.textContent;
+    const pass=$('import-pass').value;
+    if(!pass){$('export-msg').textContent=tr('msg.enterPass');return;}
+    if(btn){btn.disabled=true;btn.textContent=tr('busy.decrypting');}
+    try{
+      const blob=pendingImportBlob;
+      const salt=new Uint8Array(b64ToBuf(blob.salt));
+      const k=await deriveKey(pass,salt);
+      const v=await decryptBlob(blob,k);   // entschlüsselt = Passphrase korrekt
+      // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
+      const {entries, added}=mergeEntries(VAULT.entries, v.entries);
+      VAULT.entries=entries;
+      // 2FA übernehmen, falls lokal keins — Secret dabei streng validieren (Base32)
+      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp && typeof v.totp.secret==='string' && /^[A-Z2-7]{16,64}$/i.test(v.totp.secret))
+        VAULT.totp={enabled:!!v.totp.enabled, secret:v.totp.secret.toUpperCase()};
+      await persist();
+      pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
+      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`;
+      renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
+    }catch(e){$('export-msg').textContent=tr('msg.importBad');}
+    finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
+  }
+
+  /* ---------- TOTP setup ---------- */
+  let pendingSecret=null;
+  function totpStart(){
+    const bytes=crypto.getRandomValues(new Uint8Array(20));
+    pendingSecret=base32Encode(bytes);
+    App._otpauth=`otpauth://totp/Sachwert-Tresor:Alien%20Investor?secret=${pendingSecret}&issuer=Sachwert-Tresor&algorithm=SHA1&digits=6&period=30`;
+    $('totp-secret').textContent=pendingSecret;
+    drawQR($('totp-qr'), App._otpauth);
+    hide('totp-off');show('totp-setup');hide('totp-on');
+    $('totp-verify').value='';err('totp-setup-err');
+  }
+  function drawQR(canvas, text){
+    if(typeof qrMatrix!=='function'){canvas.style.display='none';return;}
+    let m; try{ m=qrMatrix(text); }catch(e){ canvas.style.display='none'; return; }
+    canvas.style.display='';
+    const quiet=4, n=m.size, scale=8, dim=(n+quiet*2)*scale;
+    canvas.width=dim; canvas.height=dim;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,dim,dim);
+    ctx.fillStyle='#000';
+    for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m.modules[r][c])ctx.fillRect((c+quiet)*scale,(r+quiet)*scale,scale,scale);
+  }
+  function saveQR(){
+    const c=$('totp-qr');
+    if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
+    // Als Datei speichern (zuverlässig auch auf GrapheneOS) -> in Aegis aus Galerie/Bild importieren
+    c.toBlob(async blob=>{
+      const fname='sachwert-tresor-2fa-qr.png';
+      if(isNative){
+        try{ const b64=await blobToBase64(blob);
+          const FS=CAP.Plugins&&CAP.Plugins.Filesystem;
+          const w=await FS.writeFile({path:fname,data:b64,directory:'DOCUMENTS',recursive:true});
+          const SH=CAP.Plugins&&CAP.Plugins.Share; if(SH) await SH.share({title:fname,url:w.uri});
+          toast(tr('toast.qrSaved'));
+        }catch(e){ toast(tr('toast.qrSaveFail')); }
+      } else {
+        const url=URL.createObjectURL(blob);const a=document.createElement('a');
+        a.href=url;a.download=fname;a.click();
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+        toast(tr('toast.qrSaved'));
+      }
+    },'image/png');
+  }
+  function copyQR(){
+    const c=$('totp-qr');
+    if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
+    if(!(navigator.clipboard && window.ClipboardItem))return toast(tr('toast.clipUnavail'));
+    c.toBlob(blob=>navigator.clipboard.write([new ClipboardItem({'image/png':blob})])
+      .then(()=>toast(tr('toast.qrCopied'))).catch(()=>toast(tr('toast.copyFail'))),'image/png');
+  }
+  async function totpConfirm(){
+    err('totp-setup-err');
+    const code=$('totp-verify').value.trim();
+    if(!await totpValid(pendingSecret,code))return err('totp-setup-err',tr('err.totpSetupBad'));
+    VAULT.totp={enabled:true,secret:pendingSecret};
+    await persist();pendingSecret=null;renderSettings();toast(tr('toast.totpOn'));
+  }
+  function totpCancel(){pendingSecret=null;renderSettings();}
+  async function totpDisable(){if(!confirm(tr('confirm.totpDisable')))return;VAULT.totp=null;await persist();renderSettings();toast(tr('toast.totpOff'));}
+  function renderSettings(){
+    const on=VAULT.totp&&VAULT.totp.enabled;
+    $('totp-off').classList.toggle('hidden',on);$('totp-on').classList.toggle('hidden',!on);hide('totp-setup');
+    const soft=document.documentElement.getAttribute('data-theme')==='soft';
+    $('th-dark').classList.toggle('on',!soft);$('th-soft').classList.toggle('on',soft);
+    $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock);
+  }
+
+  /* ---------- change passphrase ---------- */
+  async function changePass(){
+    if(changePass._busy) return;
+    err('cp-err');
+    const cur=$('cp-cur').value, p1=$('cp1').value, p2=$('cp2').value;
+    if(p1.length<8)return err('cp-err',tr('err.cpShort'));
+    if(p1!==p2)return err('cp-err',tr('err.cpMismatch'));
+    const btn=$('cp-btn'), orig=btn.textContent;
+    changePass._busy=true; btn.disabled=true; btn.textContent=tr('busy.changing');
+    try{
+      // 1) aktuelle Passphrase gegen den gespeicherten Tresor prüfen
+      const raw=localStorage.getItem(LS_KEY);
+      try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt))); await decryptBlob(blob,ck); }
+      catch(e){ return err('cp-err',tr('err.cpWrong')); }
+      // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt)
+      SALT=crypto.getRandomValues(new Uint8Array(16));
+      KEY=await deriveKey(p1,SALT);
+      await persist();
+      $('cp-cur').value=$('cp1').value=$('cp2').value='';
+      toast(tr('toast.passChanged'));
+    }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
+  }
+
+  /* ---------- misc ---------- */
+  function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
+  function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
+  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;localStorage.removeItem(LS_KEY);lock();}
+  function pickFile(id){const el=$(id);if(el)el.click();}
+  function copySecret(){copy($('totp-secret').textContent,tr('msg.keyCopied'));}
+  function copyOtpauth(){copy(App._otpauth,tr('msg.otpauthCopied'));}
+  // Passphrase-Stärke (rein lokal, heuristisch: Länge + Wortfolge). Nur Orientierung, kein Zwang.
+  function passStrength(p){
+    const words=p.trim().split(/[\s\-_.,;]+/).filter(w=>w.length>=3).length, len=p.length;
+    if(len<8) return 0;
+    if(len>=20||(len>=16&&words>=3)) return 3;
+    if(len>=12||words>=3) return 2;
+    return 1;
+  }
+  function renderMeter(inId,outId){
+    const p=$(inId).value, el=$(outId); if(!el) return;
+    if(!p){el.textContent='';return;}
+    const st=passStrength(p);
+    const col=['var(--red)','var(--orange)','var(--text-mid)','var(--neon)'][st];
+    el.innerHTML='<span style="color:'+col+'">'+'▮'.repeat(st+1)+'▯'.repeat(3-st)+' '+tr('pass.s'+st)+'</span>';
+  }
+  function meterSetup(){renderMeter('setup-pass1','setup-meter');}
+  function meterCp(){renderMeter('cp1','cp-meter');}
+  // Backup-Erinnerung: nie gesichert ODER neue Buchungen und Export älter als 14 Tage
+  function backupHintHtml(){
+    const n=VAULT.entries.length; if(!n) return '';
+    if(!VAULT.lastBackup) return '<div class="warn" style="grid-column:1/-1">'+tr('bk.never')+'</div>';
+    const newSince=Math.max(0,n-(VAULT.lastBackupCount||0));
+    const days=Math.floor((Date.now()-Date.parse(VAULT.lastBackup+'T12:00:00Z'))/86400000);
+    if(newSince>0&&days>=14) return '<div class="warn" style="grid-column:1/-1">'+tr('bk.stale').replace('{d}',days).replace('{n}',newSince)+'</div>';
+    return '';
+  }
+  function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
+  function closeHelp(){hide('help-overlay');}
+  function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
+  function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); }
+  function renderAll(){renderDash();renderList();renderSettings();}
+
+  return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
+    exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,
+    totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
+    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,_otpauth:''};
+})();
+
+/* ---------- Event-Delegation ----------
+   CSP ohne 'unsafe-inline' in script-src: KEINE Inline-Handler mehr (auch nicht in
+   per innerHTML erzeugtem Markup) — alles läuft über data-Attribute + diese Listener. */
+document.addEventListener('click',ev=>{
+  const sp=ev.target.closest('[data-showpass]');
+  if(sp){ const t=sp.checked?'text':'password'; sp.dataset.showpass.split(',').forEach(id=>{const f=document.getElementById(id);if(f)f.type=t;}); return; }
+  const el=ev.target.closest('[data-action]'); if(!el) return;
+  const fn=App[el.dataset.action];
+  if(typeof fn==='function') fn(el.dataset.arg, el);
+});
+document.addEventListener('change',ev=>{
+  const el=ev.target.closest('[data-change]'); if(!el) return;
+  const a=el.dataset.change;
+  if(a==='setAutolock') return App.setAutolock(el.value);
+  if(a==='importCsv'||a==='importVault') return App[a](ev);
+  const fn=App[a]; if(typeof fn==='function') fn();
+});
+document.addEventListener('input',ev=>{
+  const el=ev.target.closest('[data-input]'); if(!el) return;
+  const fn=App[el.dataset.input]; if(typeof fn==='function') fn();
+});
+document.addEventListener('keydown',ev=>{
+  if(ev.key!=='Enter') return;
+  const el=ev.target.closest('[data-enter]'); if(!el) return;
+  const fn=App[el.dataset.enter]; if(typeof fn==='function') fn();
+});
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(!window.crypto||!crypto.subtle){document.body.innerHTML='<div class="container"><div class="card warn">Dieser Browser unterstützt kein WebCrypto (oder läuft nicht im sicheren Kontext). Öffne die Datei über https:// oder file:// in Vanadium/Brave/Firefox.</div></div>';return;}
+  applyI18n();
+  App.boot();
+  // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar
+  if('serviceWorker' in navigator && location.protocol!=='file:'){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+});
