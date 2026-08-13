@@ -263,11 +263,12 @@ function base32Decode(str){str=str.toUpperCase().replace(/=+$/,'').replace(/\s/g
 
 /* ---------- Crypto: PBKDF2 -> AES-GCM ---------- */
 const ITER = 600000;
+// iter aus dem Blob honorieren (KDF-Agilität) — aber begrenzen: eine importierte/gespeicherte .vault
+// darf keine unbegrenzte Iterationszahl erzwingen (sonst PBKDF2-DoS beim Import). 0/NaN/String/zu groß → ITER.
+const clampIter = it => (Number.isInteger(it) && it>0 && it<=10000000) ? it : ITER;
 async function deriveKey(pass, salt, iter){
-  // iter aus dem Blob honorieren (KDF-Agilität): bestehende Tresore/Backups tragen iter=ITER,
-  // Verhalten also identisch — aber ITER kann künftig erhöht werden, ohne alte Dateien zu bricken.
   const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter||ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:clampIter(iter),hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
 async function encryptObj(obj, key){
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -302,6 +303,7 @@ async function totpValid(secret, input){
    ============================================================ */
 const App = (function(){
   let KEY = null;        // CryptoKey (in memory only)
+  let KEY_ITER = ITER;   // PBKDF2-Iterationen, mit denen KEY abgeleitet wurde — persist() schreibt genau diese (KDF-Agilität symmetrisch)
   let SALT = null;       // Uint8Array
   let VAULT = null;      // decrypted object
   let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', editId = null;
@@ -324,7 +326,7 @@ const App = (function(){
   /* ---------- persistence ---------- */
   async function persist(){
     const blob = await encryptObj(VAULT, KEY);
-    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=ITER; blob.salt=bufToB64(SALT);
+    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=KEY_ITER; blob.salt=bufToB64(SALT);
     try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
   }
@@ -346,7 +348,7 @@ const App = (function(){
     if(p1.length<12) return err('setup-err',tr('err.setupShort'));
     if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
     SALT = crypto.getRandomValues(new Uint8Array(16));
-    KEY = await deriveKey(p1, SALT);
+    KEY = await deriveKey(p1, SALT); KEY_ITER = ITER;
     VAULT = emptyVault();
     await persist();
     $('setup-pass1').value=$('setup-pass2').value='';
@@ -367,7 +369,7 @@ const App = (function(){
     try{
       const k = await deriveKey($('lock-pass').value, SALT, blob.iter);
       VAULT = await decryptBlob(blob, k);
-      KEY = k;
+      KEY = k; KEY_ITER = clampIter(blob.iter);
     }catch(e){ return err('lock-err',tr('err.wrongPass')); }
     finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
     $('lock-pass').value='';
@@ -852,10 +854,12 @@ const App = (function(){
   // Capacitor (native App) erkennen — dann Dateien übers OS speichern/teilen statt Browser-Download.
   const CAP = window.Capacitor || null;
   const isNative = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform());
-  async function nativeSaveAndShare(name, content){
+  async function nativeSaveAndShare(name, content, dir){
     const FS = CAP.Plugins && CAP.Plugins.Filesystem;
     if(!FS) throw new Error('Filesystem-Plugin fehlt');
-    const w = await FS.writeFile({ path:name, data:content, directory:'DOCUMENTS', encoding:'utf8', recursive:true });
+    // dir default DOCUMENTS (verschlüsseltes .vault-Backup, das der Nutzer selbst ablegt).
+    // Klartext-Exporte (CSV) + 2FA-QR kommen mit dir='CACHE' (app-intern, nicht world-readable) → nur transient teilen.
+    const w = await FS.writeFile({ path:name, data:content, directory:dir||'DOCUMENTS', encoding:'utf8', recursive:true });
     try{ const SH = CAP.Plugins && CAP.Plugins.Share; if(SH) await SH.share({ title:name, text:'Sachwert-Tresor Backup', url:w.uri }); }catch(_){}
     return w.uri;
   }
@@ -864,7 +868,7 @@ const App = (function(){
   async function saveCsv(name, csv){
     const m=$('export-msg');
     if(isNative){
-      try{ const uri=await nativeSaveAndShare(name, '﻿'+csv);
+      try{ const uri=await nativeSaveAndShare(name, '﻿'+csv, 'CACHE');
         if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported'));
       }catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
     } else { downloadFile(name, csv); toast(tr('toast.exported')); }
@@ -915,7 +919,7 @@ const App = (function(){
         if(head[0]!=='date'||head[1]!=='btc_amount'||head[2]!=='eur_amount'||(!isBuy&&!isSale))
           throw new Error(tr('csv.errFormat'));
         const dir=isSale?'sell':'buy';
-        let added=0,dups=0,bad=0;
+        let added=0,dups=0,bad=0; const newIds=[];
         for(let n=1;n<rows.length;n++){
           const c=rows[n];
           const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
@@ -925,11 +929,13 @@ const App = (function(){
           if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
           else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
           if(findDuplicate(e,null)){ dups++; continue; }
-          VAULT.entries.push(e); added++;
+          VAULT.entries.push(e); newIds.push(e.id); added++;
         }
         persist().then(()=>{ renderAll();
           $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
           toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
+        }).catch(()=>{   // Speicherfehler: neue Zeilen aus dem RAM zurückrollen (Anzeige == Speicher, wie addEntry/delEntry)
+          const del=new Set(newIds); VAULT.entries=VAULT.entries.filter(x=>!del.has(x.id)); renderAll();
         });
       }catch(e){ $('export-msg').textContent=tr('csv.failPre')+((e&&e.message)||'Format?'); }
       ev.target.value='';
@@ -1053,7 +1059,7 @@ const App = (function(){
       if(isNative){
         try{ const b64=await blobToBase64(blob);
           const FS=CAP.Plugins&&CAP.Plugins.Filesystem;
-          const w=await FS.writeFile({path:fname,data:b64,directory:'DOCUMENTS',recursive:true});
+          const w=await FS.writeFile({path:fname,data:b64,directory:'CACHE',recursive:true});
           const SH=CAP.Plugins&&CAP.Plugins.Share; if(SH) await SH.share({title:fname,url:w.uri});
           toast(tr('toast.qrSaved'));
         }catch(e){ toast(tr('toast.qrSaveFail')); }
@@ -1105,7 +1111,7 @@ const App = (function(){
       catch(e){ return err('cp-err',tr('err.cpWrong')); }
       // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt)
       SALT=crypto.getRandomValues(new Uint8Array(16));
-      KEY=await deriveKey(p1,SALT);
+      KEY=await deriveKey(p1,SALT); KEY_ITER=ITER;
       await persist();
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
       toast(tr('toast.passChanged'));

@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.4 — 2026-08-14
+
+Security-Audit run-2 Fixes (gap-fokussiert; run-1-Fixes re-validiert):
+- **KDF-Agilität repariert:** `persist()` schrieb hart `blob.iter=ITER`, obwohl die Leseseite `blob.iter` honoriert — hätte bei einem künftigen ITER-Anstieg bestehende Tresore beim ersten Speichern unentschlüsselbar gemacht. Jetzt wird `KEY_ITER` (der echte Iterationswert des Schlüssels) mitgeführt und geschrieben; Lese-/Schreibpfad symmetrisch.
+- **Import-DoS geschlossen:** `deriveKey` begrenzt die honorierte Iterationszahl (`clampIter`, 1…10 Mio, sonst ITER) — eine fremde `.vault` kann keine unbegrenzte PBKDF2-Rechenlast mehr erzwingen.
+- **CSV-Import Rollback:** schlägt `persist()` fehl (Speicher voll), werden die neu importierten Zeilen aus dem RAM zurückgerollt (wie bei Einzeleintrag/Löschen) — keine Anzeige/Speicher-Divergenz mehr.
+- **Native-Exporte gehärtet:** entschlüsselte CSV-Exporte und das 2FA-QR landen jetzt im app-internen `CACHE` (nicht world-readable) und werden nur transient geteilt, statt dauerhaft im öffentlichen `Documents`-Ordner. Verschlüsseltes `.vault`-Backup bleibt in `Documents`.
+- **Build-Härtung robuster:** `patch-hardening.mjs` prüft die Manifest-Invarianten (allowBackup=false, kein INTERNET) jetzt unbedingt und bricht den Build bei Drift ab.
+
 ## v2.3 — 2026-08-14
 
 Sicherheits-Audit-Fixes (Cloudflare security-audit Skill, run-1):
