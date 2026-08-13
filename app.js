@@ -16,7 +16,7 @@ const I18N = {
   "lbl.passphrase":"Passphrase","lbl.date":"Date","lbl.unit":"Unit",
   "setup.title":"Set up your vault",
   "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via PBKDF2). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
-  "setup.repeat":"Repeat passphrase","setup.ph1":"min. 8 characters, better a word sequence",
+  "setup.repeat":"Repeat passphrase","setup.ph1":"min. 12 characters, better a word sequence",
   "setup.showpass":"Show passphrase (to verify)","setup.create":"Create vault",
   "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
   "lock.title":"Unlock vault","lock.showpass":"Show passphrase","lock.unlock":"Unlock",
@@ -161,6 +161,8 @@ const T = {
   "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
   "msg.total":{de:"gesamt",en:"total"},
   "msg.passKept":{de:"Deine lokale Passphrase bleibt unverändert.",en:"Your local passphrase stays unchanged."},
+  "confirm.importTotp":{de:"Diese Backup-Datei will eine 2FA (Aegis) aktivieren. Nur zulassen, wenn es DEIN eigenes Backup ist — sonst sperrst du dich mit einem fremden Code aus. 2FA jetzt aus dem Backup übernehmen?",en:"This backup wants to enable 2FA (Aegis). Only allow this if it is YOUR own backup — otherwise a foreign code would lock you out. Adopt 2FA from the backup now?"},
+  "msg.totpAdopted":{de:"2FA aus dem Backup aktiviert.",en:"2FA from the backup enabled."},
   "msg.importBad":{de:"Import fehlgeschlagen (falsche Passphrase oder Datei?).",en:"Import failed (wrong passphrase or file?)."},
   "msg.notValidVault":{de:"Keine gültige .vault-Datei.",en:"Not a valid .vault file."},
   "msg.enterPass":{de:"Bitte Passphrase eingeben.",en:"Please enter a passphrase."},
@@ -198,13 +200,13 @@ const T = {
   "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
   "csv.resultPre":{de:"CSV-Import",en:"CSV import"},"csv.new":{de:"neu",en:"new"},"csv.dupsSkipped":{de:"Dubletten übersprungen",en:"duplicates skipped"},"csv.badRows":{de:"fehlerhafte Zeilen",en:"invalid rows"},
   "lbl.buys":{de:"Käufe",en:"Buys"},"lbl.sells":{de:"Verkäufe",en:"Sells"},
-  "err.cpShort":{de:"Neue Passphrase: mind. 8 Zeichen.",en:"New passphrase: min. 8 characters."},
+  "err.cpShort":{de:"Neue Passphrase: mind. 12 Zeichen.",en:"New passphrase: min. 12 characters."},
   "err.cpMismatch":{de:"Neue Passphrasen stimmen nicht überein.",en:"New passphrases do not match."},
   "err.cpWrong":{de:"Aktuelle Passphrase falsch.",en:"Current passphrase is wrong."},
   "toast.qrSaved":{de:"QR als Bild gespeichert",en:"QR saved as image"},"toast.qrSaveFail":{de:"QR-Speichern fehlgeschlagen",en:"Saving QR failed"},
   "toast.qrCopied":{de:"QR ins Clipboard kopiert",en:"QR copied to clipboard"},"toast.copyFail":{de:"Kopieren fehlgeschlagen",en:"Copy failed"},
   "toast.noQr":{de:"Kein QR vorhanden",en:"No QR available"},"toast.clipUnavail":{de:"Clipboard nicht verfügbar — nutze „QR als Bild“",en:"Clipboard unavailable — use “Save QR as image”"},
-  "err.setupShort":{de:"Passphrase zu kurz (mind. 8 Zeichen).",en:"Passphrase too short (min. 8 characters)."},
+  "err.setupShort":{de:"Passphrase zu kurz (mind. 12 Zeichen).",en:"Passphrase too short (min. 12 characters)."},
   "err.setupMismatch":{de:"Passphrasen stimmen nicht überein.",en:"Passphrases do not match."},
   "err.vaultCorrupt":{de:"Tresor-Daten beschädigt.",en:"Vault data corrupted."},
   "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
@@ -223,7 +225,7 @@ const T = {
   "err.vaultNewer":{de:"Hinweis: Dieser Tresor stammt aus einer neueren App-Version — bitte App aktualisieren.",en:"Note: this vault was created by a newer app version — please update the app."},
   "bk.never":{de:"⚠ Noch kein Backup erstellt — geht dieses Gerät verloren, ist der Tresor weg. Export & Sync → Backup erstellen.",en:"⚠ No backup yet — if this device is lost, the vault is gone. Export & Sync → Create backup."},
   "bk.stale":{de:"⚠ Letztes Backup vor {d} Tagen — seitdem {n} neue Buchung(en). Export & Sync → Backup erstellen.",en:"⚠ Last backup {d} days ago — {n} new entries since. Export & Sync → Create backup."},
-  "pass.s0":{de:"zu kurz (mind. 8 Zeichen)",en:"too short (min. 8 characters)"},
+  "pass.s0":{de:"zu kurz (mind. 12 Zeichen)",en:"too short (min. 12 characters)"},
   "pass.s1":{de:"okay — länger ist besser",en:"okay — longer is better"},
   "pass.s2":{de:"stark",en:"strong"},
   "pass.s3":{de:"sehr stark",en:"very strong"}
@@ -261,9 +263,11 @@ function base32Decode(str){str=str.toUpperCase().replace(/=+$/,'').replace(/\s/g
 
 /* ---------- Crypto: PBKDF2 -> AES-GCM ---------- */
 const ITER = 600000;
-async function deriveKey(pass, salt){
+async function deriveKey(pass, salt, iter){
+  // iter aus dem Blob honorieren (KDF-Agilität): bestehende Tresore/Backups tragen iter=ITER,
+  // Verhalten also identisch — aber ITER kann künftig erhöht werden, ohne alte Dateien zu bricken.
   const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter||ITER,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
 }
 async function encryptObj(obj, key){
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -339,7 +343,7 @@ const App = (function(){
   async function doSetup(){
     err('setup-err');
     const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
-    if(p1.length<8) return err('setup-err',tr('err.setupShort'));
+    if(p1.length<12) return err('setup-err',tr('err.setupShort'));
     if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
     SALT = crypto.getRandomValues(new Uint8Array(16));
     KEY = await deriveKey(p1, SALT);
@@ -361,7 +365,7 @@ const App = (function(){
     const btn=$('unlock-btn'), orig=btn.textContent;
     doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
     try{
-      const k = await deriveKey($('lock-pass').value, SALT);
+      const k = await deriveKey($('lock-pass').value, SALT, blob.iter);
       VAULT = await decryptBlob(blob, k);
       KEY = k;
     }catch(e){ return err('lock-err',tr('err.wrongPass')); }
@@ -711,7 +715,7 @@ const App = (function(){
       return `<tr${isDup?' class="dup-row"':''}><td>${esc(e.date)}</td><td>${dirPill}</td><td>${pill}</td><td>${menge}</td><td>${detail}${e.note?' · '+esc(e.note):''}${dupBadge}</td><td>${eurCell}</td><td>${esc(e.source||'')}</td><td style="white-space:nowrap"><button class="del-x" title="${tr('tip.edit')}" data-action="editEntry" data-arg="${idSafe}">✎</button> <button class="del-x" title="${tr('tip.del')}" data-action="delEntry" data-arg="${idSafe}">✕</button></td></tr>`;
     }).join('');
   }
-  function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
   /* ---------- Verlauf / Vermögensentwicklung (reines SVG, keine Marktpreise) ---------- */
   function setChartSeries(s){chartSeries=s;document.querySelectorAll('#chart-series button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));renderVerlauf();}
@@ -837,12 +841,12 @@ const App = (function(){
     const dirDe={buy:'Kauf',sell:'Verkauf',withdraw:'Entnahme'};
     for(const e of m.sort((a,b)=>a.date.localeCompare(b.date))){
       const fine=e.grams*((e.fineness||1000)/1000);
-      csv+=`${e.date},${dirDe[entryDir(e)]},${e.type==='gold'?'Gold':'Silber'},${e.form||''},${e.fineness||''},${e.count||''},${e.qty},${e.unit},${e.grams.toFixed(3)},${fine.toFixed(3)},${(fine/OZ_G).toFixed(4)},${e.eur.toFixed(2)},${entryCur(e)},${e.eurRef>0?e.eurRef.toFixed(2):''},${csvCell(e.source||'')},${csvCell(e.note||'')}\n`;
+      csv+=`${e.date},${dirDe[entryDir(e)]},${e.type==='gold'?'Gold':'Silber'},${csvCell(e.form||'')},${e.fineness||''},${e.count||''},${e.qty},${e.unit},${e.grams.toFixed(3)},${fine.toFixed(3)},${(fine/OZ_G).toFixed(4)},${e.eur.toFixed(2)},${entryCur(e)},${e.eurRef>0?e.eurRef.toFixed(2):''},${csvCell(e.source||'')},${csvCell(e.note||'')}\n`;
     }
     saveCsv('edelmetalle.csv',csv);
   }
   // Formel-Injection neutralisieren (=,+,@ am Zellanfang würde in Excel/Calc als Formel laufen)
-  function csvCell(s){s=(s||'').replace(/"/g,'""');if(/^[=+@]/.test(s))s="'"+s;return /[",\n;]/.test(s)?'"'+s+'"':s;}
+  function csvCell(s){s=(s||'').replace(/"/g,'""');if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n\r\t;]/.test(s)?'"'+s+'"':s;}
 
   /* ---------- vault file export/import (Syncthing) ---------- */
   // Capacitor (native App) erkennen — dann Dateien übers OS speichern/teilen statt Browser-Download.
@@ -996,17 +1000,23 @@ const App = (function(){
     try{
       const blob=pendingImportBlob;
       const salt=new Uint8Array(b64ToBuf(blob.salt));
-      const k=await deriveKey(pass,salt);
+      const k=await deriveKey(pass,salt,blob.iter);
       const v=await decryptBlob(blob,k);   // entschlüsselt = Passphrase korrekt
       // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
-      // 2FA übernehmen, falls lokal keins — Secret dabei streng validieren (Base32)
-      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp && typeof v.totp.secret==='string' && /^[A-Z2-7]{16,64}$/i.test(v.totp.secret))
-        VAULT.totp={enabled:!!v.totp.enabled, secret:v.totp.secret.toUpperCase()};
+      // 2FA aus einem Import NUR nach ausdrücklicher Bestätigung übernehmen (Secret Base32-validiert).
+      // Sonst könnte eine fremde .vault still ein Aegis-Gate mit unbekanntem Secret aktivieren und
+      // dich nach dem nächsten Entsperren aus dem eigenen Tresor aussperren.
+      let totpAdopted=false;
+      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp && v.totp.enabled===true
+         && typeof v.totp.secret==='string' && /^[A-Z2-7]{16,64}$/i.test(v.totp.secret)
+         && confirm(tr('confirm.importTotp'))){
+        VAULT.totp={enabled:true, secret:v.totp.secret.toUpperCase()}; totpAdopted=true;
+      }
       await persist();
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
-      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`;
+      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
     }catch(e){$('export-msg').textContent=tr('msg.importBad');}
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
@@ -1084,14 +1094,14 @@ const App = (function(){
     if(changePass._busy) return;
     err('cp-err');
     const cur=$('cp-cur').value, p1=$('cp1').value, p2=$('cp2').value;
-    if(p1.length<8)return err('cp-err',tr('err.cpShort'));
+    if(p1.length<12)return err('cp-err',tr('err.cpShort'));
     if(p1!==p2)return err('cp-err',tr('err.cpMismatch'));
     const btn=$('cp-btn'), orig=btn.textContent;
     changePass._busy=true; btn.disabled=true; btn.textContent=tr('busy.changing');
     try{
       // 1) aktuelle Passphrase gegen den gespeicherten Tresor prüfen
       const raw=localStorage.getItem(LS_KEY);
-      try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt))); await decryptBlob(blob,ck); }
+      try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt)),blob.iter); await decryptBlob(blob,ck); }
       catch(e){ return err('cp-err',tr('err.cpWrong')); }
       // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt)
       SALT=crypto.getRandomValues(new Uint8Array(16));
@@ -1112,9 +1122,9 @@ const App = (function(){
   // Passphrase-Stärke (rein lokal, heuristisch: Länge + Wortfolge). Nur Orientierung, kein Zwang.
   function passStrength(p){
     const words=p.trim().split(/[\s\-_.,;]+/).filter(w=>w.length>=3).length, len=p.length;
-    if(len<8) return 0;
-    if(len>=20||(len>=16&&words>=3)) return 3;
-    if(len>=12||words>=3) return 2;
+    if(len<12) return 0;
+    if(len>=24||(len>=18&&words>=4)) return 3;
+    if(len>=16||words>=3) return 2;
     return 1;
   }
   function renderMeter(inId,outId){

@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.3 — 2026-08-14
+
+Sicherheits-Audit-Fixes (Cloudflare security-audit Skill, run-1):
+- **CSV-Formel-Injection behoben:** Das `form`-Feld wurde als einziges Freitextfeld im Edelmetall-Export roh geschrieben — jetzt durch `csvCell()` neutralisiert. `csvCell()` fängt zusätzlich führendes `-`, TAB und CR ab (waren Lücken).
+- **2FA-Import abgesichert:** Eine importierte `.vault` kann 2FA nur noch nach ausdrücklicher Bestätigung aktivieren (verhindert Aussperren durch ein fremdes Aegis-Secret); die Übernahme wird in der Meldung angezeigt.
+- **Passphrase-Mindestlänge 8 → 12** bei Einrichtung und Passphrase-Wechsel (Meter-Schwellen angepasst). Bestehende Tresore entsperren unverändert.
+- **KDF-Agilität:** `deriveKey` honoriert jetzt `blob.iter` — ITER kann künftig erhöht werden, ohne alte Tresore/Backups zu bricken (rückwärtskompatibel, alle vorhandenen Blobs tragen iter=600000).
+- **Härtung:** `escapeHtml` escaped jetzt auch `'` (latenter Footgun bei künftigen innerHTML-Attributen).
+
 ## v2.2 — 2026-08-02
 
 Sats-Anzeige + weitere Härtung: strengere CSP ohne Inline-Script, Backup-Erinnerung,
