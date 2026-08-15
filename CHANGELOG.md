@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.5 — 2026-08-15
+
+Layout-Korrekturen auf schmalen Bildschirmen (nur CSS, keine Funktionsänderung):
+- **Kopfzeile:** Der Schriftzug „Sachwert-Tresor" lief auf Handy-Breiten unter den Sprach- und den Hilfe-Button. Er hält jetzt Abstand zu beiden Eckbuttons und passt unter 520 px einzeilig dazwischen; die Tagline rutscht nicht mehr in die Buttonzeile.
+- **Karten-Texte:** Lange Datei- und Spaltennamen (`manual_buys.csv`, `date,btc_amount,eur_amount,note,kyc`) hatten keine Umbruchstelle und ragten aus der Karte heraus — betraf vor allem „Export & Sync" auf Englisch. Absätze, Listen und `code`-Stellen brechen jetzt innerhalb der Box um.
+
 ## v2.4 — 2026-08-14
 
 Security-Audit run-2 Fixes (gap-fokussiert; run-1-Fixes re-validiert):

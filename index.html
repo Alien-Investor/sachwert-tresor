@@ -47,10 +47,16 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .app-head{text-align:center;position:relative;margin-bottom:24px;}
 .header-glow{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;height:100px;background:radial-gradient(ellipse,rgba(0,255,204,.08) 0%,transparent 70%);pointer-events:none;}
 .logo{font-family:'Orbitron',sans-serif;font-size:clamp(1.3rem,4vw,1.9rem);font-weight:900;letter-spacing:4px;text-transform:uppercase;color:var(--neon);text-shadow:0 0 20px rgba(0,255,204,.7),0 0 40px rgba(0,255,204,.3);}
+/* Padding + Mindesthoehe halten den Schriftzug frei von den Eckbuttons (Sprache links, Hilfe rechts) */
+.app-head .logo{padding:0 52px;min-height:36px;display:flex;align-items:center;justify-content:center;text-align:center;}
+/* Auf Handys enger setzen, damit er einzeilig zwischen die Buttons passt */
+@media(max-width:520px){.app-head .logo{letter-spacing:2px;font-size:clamp(1rem,4.4vw,1.5rem);}}
 .tagline{font-size:.72rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-top:6px;}
 
 /* CARDS / GENERIC */
 .card{background:var(--card-bg);border:1px solid var(--border);border-radius:4px;padding:18px;margin-bottom:16px;}
+/* Lange Datei-/Spaltennamen (manual_buys.csv, date,btc_amount,…) sonst aus der Karte laufen */
+.card p,.card li,.card code,.help-inner p,.help-inner li,.help-inner code{overflow-wrap:break-word;}
 .card h2{font-family:'Orbitron',sans-serif;font-size:.85rem;letter-spacing:2px;text-transform:uppercase;color:var(--neon);margin-bottom:14px;font-weight:700;}
 label{display:block;font-size:.72rem;letter-spacing:1px;color:var(--text-mid);margin:10px 0 4px;text-transform:uppercase;}
 input,select,textarea{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:3px;color:var(--neon);font-family:'Share Tech Mono',monospace;font-size:.9rem;padding:9px 10px;}
