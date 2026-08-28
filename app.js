@@ -72,6 +72,14 @@ const I18N = {
   "foot.line2":"Encryption: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238",
   "foot.donate":"Charge energy · Donate",
   "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
+  "exp.nlTitle":"Estate appendix (holdings sheet for the heir package)",
+  "exp.nlIntro":"One sheet with your current <strong>net holdings</strong> (Bitcoin, gold, silver with denominations) laid out like the <strong>Estate Planner</strong>: version number, date, destruction note. Quantities only, no prices, no dealers, no locations. The planner is deliberately blind to amounts; this sheet is attached to it as a class B annex.",
+  "exp.nlWarn":"⚠ This sheet states holdings in plain text. Keep it as confidential as an access guide, separate from the existence notice. Destroy the old version.",
+  "exp.nlOpen":"Create holdings sheet",
+  "nl.title":"Estate appendix",
+  "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
+  "nl.fassungLbl":"Version","nl.print":"Print","nl.save":"Save as file (.txt)",
+  "nl.howto":"Desktop: print. Phone: save as file, print it on the printer computer, then delete the file. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
   "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
@@ -198,6 +206,26 @@ const T = {
   "exp.vaultSavedNative":{de:' — über „Teilen" in deinen Syncthing-Ordner legen.',en:" — share it into your Syncthing folder."},
   "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
   "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
+  "nl.sheetTitle":{de:"Nachlass-Anhang – Bestandsliste",en:"Estate appendix – holdings sheet"},
+  "nl.klasse":{de:"Klasse B – vertraulich – getrennt vom Existenzhinweis verwahren",en:"Class B – confidential – keep separate from the existence notice"},
+  "nl.fassung":{de:"Fassung",en:"Version"},
+  "nl.stand":{de:"Stand",en:"As of"},
+  "nl.replaces":{de:"Ersetzt Fassung vom",en:"Replaces version dated"},
+  "nl.source":{de:"Quelle",en:"Source"},
+  "nl.sourceVal":{de:"Sachwert-Tresor (nur Mengen, keine Werte, keine Standorte)",en:"Sachwert-Tresor (quantities only, no values, no locations)"},
+  "nl.netHold":{de:"Netto-Bestand",en:"Net holdings"},
+  "nl.netFine":{de:"Netto-Feingewicht",en:"Net fine weight"},
+  "nl.silver":{de:"Silber",en:"Silver"},
+  "nl.denomHead":{de:"Stückelung (Stückzahl × Gewicht je Stück, Form, Feinheit):",en:"Denominations (count × weight per piece, form, fineness):"},
+  "nl.noDenom":{de:"Keine Stückelung ableitbar (Buchungen ohne Stückzahl).",en:"No denominations derivable (entries without piece count)."},
+  "nl.heirHead":{de:"Hinweise für den Erben",en:"Notes for the heir"},
+  "nl.h1":{de:"Diese Liste ist eine Momentaufnahme zum angegebenen Stand, kein Nachweis. Maßgeblich ist, was an den Orten aus dem Nachlassplaner tatsächlich vorliegt.",en:"This list is a snapshot as of the stated date, not proof. What counts is what is actually found at the locations listed in the Estate Planner."},
+  "nl.h2":{de:"Standorte, Geräte und Zugänge stehen absichtlich nicht auf diesem Blatt. Sie stehen handschriftlich im Nachlassplaner (Bögen Wallet-Inventar, Standorte, Lagerung).",en:"Locations, devices and access details are deliberately not on this sheet. They are handwritten in the Estate Planner (wallet inventory, locations, storage sheets)."},
+  "nl.h3":{de:"Bitcoin: Der Bestand liegt in den Wallets aus dem Inventar. Erst lesen, dann handeln. Nichts verschieben, bevor die Wiederherstellung verstanden ist.",en:"Bitcoin: the holdings sit in the wallets from the inventory. Read first, act later. Move nothing before recovery is understood."},
+  "nl.h4":{de:"Bewertung zum Stichtag (Tageskurs am Todestag) nimmt der Steuerberater vor. Anschaffungsdaten für die Steuer liegen im Tresor und im Steuertool-Export.",en:"Valuation as of the reference date (day of death) is done by the tax advisor. Acquisition data for tax purposes is in the vault and in the tax-tool export."},
+  "nl.h5":{de:"Liegt eine neuere Fassung vor, gilt nur diese. Ältere Blätter vernichten.",en:"If a newer version exists, only that one applies. Destroy older sheets."},
+  "nl.destroy":{de:"Alte Fassung vernichtet am (Datum, Unterschrift):",en:"Old version destroyed on (date, signature):"},
+  "nl.savedWeb":{de:" gespeichert. Ausdrucken, danach die Datei löschen (Klartext).",en:" saved. Print it, then delete the file (plain text)."},
   "csv.resultPre":{de:"CSV-Import",en:"CSV import"},"csv.new":{de:"neu",en:"new"},"csv.dupsSkipped":{de:"Dubletten übersprungen",en:"duplicates skipped"},"csv.badRows":{de:"fehlerhafte Zeilen",en:"invalid rows"},
   "lbl.buys":{de:"Käufe",en:"Buys"},"lbl.sells":{de:"Verkäufe",en:"Sells"},
   "err.cpShort":{de:"Neue Passphrase: mind. 12 Zeichen.",en:"New passphrase: min. 12 characters."},
@@ -1151,15 +1179,90 @@ const App = (function(){
     if(newSince>0&&days>=14) return '<div class="warn" style="grid-column:1/-1">'+tr('bk.stale').replace('{d}',days).replace('{n}',newSince)+'</div>';
     return '';
   }
+  /* ---------- Nachlass-Anhang (Bestandsliste fürs Erben-Paket) ----------
+     Anhang-Prinzip (Beschluss 2026-08-28): Der Nachlassplaner bleibt blind für Beträge,
+     dieses Blatt liegt ihm als Klasse-B-Anlage bei. Nur Mengen — keine Preise, keine
+     Quellen/Händler, keine Standorte (die gehören handschriftlich in den Planer). */
+  function nlToday(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function nlFassung(){const f=$('nl-fassung');return (f&&f.value.trim())||'1';}
+  // Stückelung: Netto-Stückzahl je (Metall, Form, Gewicht je Stück, Einheit, Feinheit)
+  function nlDenoms(type){
+    const m=new Map();
+    for(const e of VAULT.entries){
+      if(e.type!==type) continue;
+      const key=[e.form||'',e.qty||0,e.unit||'g',e.fineness||''].join('|');
+      const cnt=(parseInt(e.count,10)||1)*(entryDir(e)==='buy'?1:-1);
+      const g=m.get(key)||{form:e.form||'',qty:e.qty||0,unit:e.unit||'g',fineness:e.fineness||null,count:0};
+      g.count+=cnt; m.set(key,g);
+    }
+    return [...m.values()].filter(g=>g.count>0).sort((a,b)=>toGrams(b.qty,b.unit)-toGrams(a.qty,a.unit));
+  }
+  // Ein Datenmodell für Bildschirm, Druck und .txt — Freitexte (form) werden erst beim Rendern escaped.
+  function nlData(){
+    const t=totals();
+    const metal=(type,fine)=>({fineG:fine,fineOz:fine/OZ_G,denoms:nlDenoms(type)});
+    return {fassung:nlFassung(),date:nlToday(),btc:t.btc,gold:metal('gold',t.gold),silver:metal('silver',t.silver)};
+  }
+  function nlDenomLine(g){
+    const q=fmtNum(g.qty,g.unit==='g'?0:4)+' '+g.unit;
+    return g.count+' × '+q+(g.form?' '+g.form:'')+(g.fineness?' · '+fmtNum(g.fineness,1)+'‰':'');
+  }
+  function renderNachlass(){
+    const el=$('nl-sheet'); if(!el||!VAULT) return;
+    const d=nlData();
+    const metalBlock=(title,m)=>{
+      let h=`<h2>${title}</h2><table><tr><td>${tr('nl.netFine')}</td><td>${fmtNum(m.fineG,2)} g (${fmtNum(m.fineOz,3)} oz)</td></tr></table>`;
+      if(m.denoms.length){ h+=`<div class="hint" style="margin-top:6px">${tr('nl.denomHead')}</div><ul>`+m.denoms.map(g=>`<li>${escapeHtml(nlDenomLine(g))}</li>`).join('')+'</ul>'; }
+      else if(m.fineG>0.0005) h+=`<div class="hint">${tr('nl.noDenom')}</div>`;
+      return h;
+    };
+    el.innerHTML=`<h1>${tr('nl.sheetTitle')}</h1><span class="klasse">${tr('nl.klasse')}</span>
+      <table>
+        <tr><td>${tr('nl.fassung')}</td><td>${escapeHtml(d.fassung)}</td></tr>
+        <tr><td>${tr('nl.stand')}</td><td>${d.date}</td></tr>
+        <tr><td>${tr('nl.replaces')}</td><td><span class="line"></span></td></tr>
+        <tr><td>${tr('nl.source')}</td><td>${tr('nl.sourceVal')}</td></tr>
+      </table>
+      <h2>Bitcoin</h2><table><tr><td>${tr('nl.netHold')}</td><td>${fmtNum(d.btc,8)} BTC (${fmtNum(Math.round(d.btc*SATS),0)} sats)</td></tr></table>
+      ${metalBlock('Gold',d.gold)}${metalBlock(tr('nl.silver'),d.silver)}
+      <h2>${tr('nl.heirHead')}</h2><ul>${['nl.h1','nl.h2','nl.h3','nl.h4','nl.h5'].map(k=>`<li>${tr(k)}</li>`).join('')}</ul>
+      <div class="hint">${tr('nl.destroy')} <span class="line"></span></div>`;
+  }
+  function nachlassText(){
+    const d=nlData(), L=[];
+    const metal=(title,m)=>{ L.push('',title.toUpperCase(),tr('nl.netFine')+': '+fmtNum(m.fineG,2)+' g ('+fmtNum(m.fineOz,3)+' oz)');
+      if(m.denoms.length){ L.push(tr('nl.denomHead')); m.denoms.forEach(g=>L.push('  '+nlDenomLine(g))); }
+      else if(m.fineG>0.0005) L.push(tr('nl.noDenom')); };
+    L.push(tr('nl.sheetTitle').toUpperCase(), tr('nl.klasse'), '',
+      tr('nl.fassung')+': '+d.fassung, tr('nl.stand')+': '+d.date, tr('nl.replaces')+': ____________', tr('nl.source')+': '+tr('nl.sourceVal'),
+      '', 'BITCOIN', tr('nl.netHold')+': '+fmtNum(d.btc,8)+' BTC ('+fmtNum(Math.round(d.btc*SATS),0)+' sats)');
+    metal('Gold',d.gold); metal(tr('nl.silver'),d.silver);
+    L.push('', tr('nl.heirHead').toUpperCase()); ['nl.h1','nl.h2','nl.h3','nl.h4','nl.h5'].forEach(k=>L.push('- '+tr(k)));
+    L.push('', tr('nl.destroy')+' ____________');
+    return L.join('\n')+'\n';
+  }
+  function nlRemember(){ const f=nlFassung(); if(VAULT.nlFassung!==f){ VAULT.nlFassung=f; persist().catch(()=>{}); } }
+  function openNachlass(){ if(!VAULT) return; const f=$('nl-fassung'); if(f&&!f.value&&VAULT.nlFassung) f.value=VAULT.nlFassung; const m=$('nl-msg'); if(m) m.textContent=''; renderNachlass(); show('nachlass-overlay'); const o=$('nachlass-overlay'); if(o) o.scrollTop=0; }
+  function closeNachlass(){ hide('nachlass-overlay'); const el=$('nl-sheet'); if(el) el.innerHTML=''; }
+  function printNachlass(){ renderNachlass(); nlRemember(); window.print(); }
+  async function exportNachlassTxt(){
+    renderNachlass(); nlRemember();
+    const name='nachlass-anhang-'+nlToday()+'.txt', txt=nachlassText(), m=$('nl-msg');
+    if(isNative){
+      try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE'); if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); }
+      catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
+    } else { downloadFile(name, txt, 'text/plain;charset=utf-8', false); if(m) m.textContent=name+tr('nl.savedWeb'); toast(tr('toast.exported')); }
+  }
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
   function closeHelp(){hide('help-overlay');}
   function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
-  function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); }
+  function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
+    openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
     pickFile,copySecret,copyOtpauth,meterSetup,meterCp,_otpauth:''};
 })();
 

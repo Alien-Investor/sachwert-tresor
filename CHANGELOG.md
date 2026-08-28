@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.6 — 2026-08-28
+
+Neu: **Nachlass-Anhang** (Export & Sync). Ein Blatt mit den aktuellen Netto-Beständen für das Erben-Paket, im Aufbau des Nachlassplaners (alien-investor.org/nachlassplaner.html):
+- Bitcoin netto in BTC und Sats, Gold und Silber als Netto-Feingewicht (g und oz) plus Stückelung (Stückzahl × Gewicht je Stück, Form, Feinheit), abgeleitet aus Käufen minus Verkäufen und Entnahmen.
+- Kopf mit Fassungsnummer, Datum, „Ersetzt Fassung vom", Vernichtungsvermerk und Hinweisen in Erben-Sprache. Klasse B (vertraulich), getrennt vom Existenzhinweis zu verwahren.
+- **Nur Mengen.** Keine Preise, keine Händler, keine Standorte: Der Nachlassplaner bleibt absichtlich blind für Beträge, dieses Blatt liegt ihm als Anlage bei. Orte gehören handschriftlich in den Planer.
+- Ausgabe als Druck (Desktop, schwarz auf weiß, A4) oder als `.txt`-Datei (Handy, transient über „Teilen"). Die zuletzt benutzte Fassungsnummer merkt sich der Tresor.
+- Zweisprachig (DE/EN), keine neuen Datenfelder, kein Netz.
+
 ## v2.5 — 2026-08-15
 
 Layout-Korrekturen auf schmalen Bildschirmen (nur CSS, keine Funktionsänderung):

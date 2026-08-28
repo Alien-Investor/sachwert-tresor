@@ -65,6 +65,12 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
   Das Steuertool rechnet in EUR: USD/CHF-Buchungen sind nur mit erfasstem EUR-Gegenwert
   enthalten — sonst werden sie ausgelassen und eine Warnung zeigt, wie viele fehlen.
 - **Edelmetall-CSV**: separates Inventar (mit Vorgang Kauf/Verkauf/Entnahme).
+- **Nachlass-Anhang** (seit v2.6): ein Blatt mit den aktuellen Netto-Beständen für das
+  Erben-Paket, im Aufbau des [Nachlassplaners](https://alien-investor.org/nachlassplaner.html)
+  (Fassungsnummer, Datum, Vernichtungsvermerk, Hinweise in Erben-Sprache). Nur Mengen mit
+  Stückelung, keine Preise, keine Händler, keine Standorte. Zusammenspiel: Der Tresor kennt
+  die Mengen, der Planer kennt die Orte — der Anhang bringt beides in ein Erben-Paket, ohne
+  dass ein Werkzeug die Daten des anderen liest. Druck (Desktop) oder `.txt` (Handy).
 - **Aegis-2FA mit QR**: QR scannen, als Bild speichern (Aegis kann ihn ohne Kamera aus der
   Galerie importieren), kopieren, oder den Base32-Schlüssel manuell eintragen.
 - **Dubletten-Schutz**: Warnung beim Erfassen, wenn Typ + Vorgang + Datum + Menge bereits

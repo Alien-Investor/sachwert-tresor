@@ -142,6 +142,30 @@ tr:hover td{color:var(--neon);}
 .help-inner code{background:rgba(0,255,204,.1);padding:1px 5px;border-radius:3px;font-size:.82rem;}
 .help-inner .warn{color:#ffcc66;}
 .foot{text-align:center;color:var(--text-dim);font-size:.7rem;letter-spacing:1px;margin-top:30px;line-height:1.7;}
+/* Nachlass-Anhang: Blatt im Aufbau des Nachlassplaners (Bildschirm dunkel, Druck schwarz auf weiß) */
+.nl-sheet{margin-top:18px;border:1px solid var(--neon-mid);border-radius:4px;padding:18px 20px;font-family:'Share Tech Mono',monospace;font-size:.86rem;line-height:1.6;color:var(--text-mid);}
+.nl-sheet h1{font-family:'Orbitron',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--neon);margin:0 0 4px;text-transform:uppercase;}
+.nl-sheet h2{font-family:'Orbitron',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--neon);margin:18px 0 6px;text-transform:uppercase;}
+.nl-sheet .klasse{display:inline-block;border:1px solid #ffcc66;color:#ffcc66;padding:2px 8px;border-radius:3px;font-size:.72rem;letter-spacing:1px;margin-bottom:10px;}
+.nl-sheet table{border-collapse:collapse;width:100%;margin:4px 0;}
+.nl-sheet td{padding:3px 8px 3px 0;vertical-align:top;border-bottom:1px dotted var(--border);}
+.nl-sheet td:first-child{white-space:nowrap;color:var(--text-dim);}
+.nl-sheet ul{margin:4px 0 4px 18px;}
+.nl-sheet .line{display:inline-block;min-width:180px;border-bottom:1px solid var(--text-dim);height:1em;vertical-align:baseline;}
+.nl-sheet .hint{font-size:.78rem;color:var(--text-dim);margin-top:14px;}
+@media print{
+  body>*:not(#nachlass-overlay){display:none!important;}
+  #nachlass-overlay{position:static;background:#fff;color:#000;overflow:visible;}
+  #nachlass-overlay .help-inner{max-width:none;padding:0;}
+  .nl-noprint{display:none!important;}
+  html,body{background:#fff!important;color:#000!important;padding:0!important;margin:0!important;}
+  body::before,body::after{display:none!important;}
+  .nl-sheet,.nl-sheet *{color:#000!important;border-color:#000!important;text-shadow:none!important;background:transparent!important;}
+  .nl-sheet{border:none;font-size:11pt;padding:0;line-height:1.5;}
+  .nl-sheet .klasse{border:1px solid #000;}
+  .nl-sheet .line{border-bottom:1px solid #000;}
+  @page{size:A4;margin:18mm;}
+}
 
 /* INLINE-ICONS (Neon-Linienstil wie Webseite) */
 .ic{width:1.1em;height:1.1em;vertical-align:-0.18em;display:inline-block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(0,255,204,.45));}
@@ -401,6 +425,12 @@ tr:hover td{color:var(--neon);}
         <button class="btn" style="margin-top:12px" data-action="exportMetals"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> edelmetalle.csv</button>
       </div>
       <div class="card">
+        <h2 data-i18n="exp.nlTitle">Nachlass-Anhang (Bestandsliste für das Erben-Paket)</h2>
+        <p class="muted" data-i18n-html="exp.nlIntro">Ein Blatt mit deinen aktuellen <strong>Netto-Beständen</strong> (Bitcoin, Gold, Silber mit Stückelung) im Aufbau des <strong>Nachlassplaners</strong>: Fassungsnummer, Datum, Vernichtungsvermerk. Nur Mengen, keine Preise, keine Händler, keine Standorte. Der Planer bleibt absichtlich blind für Beträge, dieses Blatt liegt ihm als Anlage der Klasse B bei.</p>
+        <p style="margin-top:8px;color:#ffcc66;font-size:0.85em" data-i18n="exp.nlWarn">⚠ Dieses Blatt nennt Bestände im Klartext. Vertraulich wie eine Zugangsanleitung verwahren, getrennt vom Existenzhinweis. Alte Fassung vernichten.</p>
+        <button class="btn" style="margin-top:12px" data-action="openNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> <span data-i18n="exp.nlOpen">Bestandsliste erstellen</span></button>
+      </div>
+      <div class="card">
         <h2 data-i18n="exp.importTitle">CSV-Import (BTC-Käufe / -Verkäufe)</h2>
         <p class="muted" data-i18n-html="exp.importIntro">Lädt viele Buchungen auf einmal im Tresor-Format: <code>manual_buys.csv</code> (Käufe) oder <code>manual_sales.csv</code> (Verkäufe) — Kopfzeile <code>date,btc_amount,eur_amount,note,kyc</code> bzw. <code>…,no_kyc</code>. Für eigene Listen einfach dieses Format verwenden (Datum, BTC-Menge, EUR). Dubletten werden automatisch übersprungen.</p>
         <button class="btn" style="margin-top:12px" data-action="pickFile" data-arg="csv-file"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21V10"/><path d="M8 13.5l4-4 4 4"/><path d="M5 4.5h14"/></svg> <span data-i18n="exp.importBtn">CSV importieren</span></button>
@@ -558,6 +588,26 @@ tr:hover td{color:var(--neon);}
     </ul>
 
     <div style="text-align:center;margin-top:32px"><button class="btn ghost" data-action="closeHelp" data-i18n="help.close">Schließen</button></div>
+  </div>
+</div>
+<div id="nachlass-overlay" class="help-overlay hidden">
+  <div class="help-inner">
+    <div class="help-head nl-noprint">
+      <div class="logo" data-i18n="nl.title">Nachlass-Anhang</div>
+      <button class="btn ghost sm" data-action="closeNachlass" data-i18n="help.closeX">Schließen ✕</button>
+    </div>
+    <div class="nl-noprint">
+      <p class="warn" data-i18n="nl.warn">⚠ Klasse B, vertraulich: Dieses Blatt nennt Bestände im Klartext. Getrennt vom Existenzhinweis verwahren, alte Fassung vernichten. Standorte gehören nicht hierher, sondern handschriftlich in den Nachlassplaner.</p>
+      <div class="row" style="margin-top:12px;align-items:flex-end">
+        <label style="flex:0 0 auto"><span data-i18n="nl.fassungLbl">Fassung</span><br><input id="nl-fassung" type="text" inputmode="numeric" maxlength="12" placeholder="1" autocomplete="off" data-input="renderNachlass" style="width:90px"></label>
+        <button class="btn" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span data-i18n="nl.print">Drucken</span></button>
+        <button class="btn ghost" data-action="exportNachlassTxt"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> <span data-i18n="nl.save">Als Datei speichern (.txt)</span></button>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:.8em" data-i18n="nl.howto">Desktop: Drucken. Handy: als Datei speichern und am Drucker-Rechner ausdrucken, danach die Datei löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
+      <p id="nl-msg" class="muted" style="margin-top:6px;font-size:.8em"></p>
+    </div>
+    <div id="nl-sheet" class="nl-sheet"></div>
+    <div style="text-align:center;margin-top:32px" class="nl-noprint"><button class="btn ghost" data-action="closeNachlass" data-i18n="help.close">Schließen</button></div>
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
