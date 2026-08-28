@@ -148,8 +148,10 @@ tr:hover td{color:var(--neon);}
 .nl-sheet h2{font-family:'Orbitron',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--neon);margin:18px 0 6px;text-transform:uppercase;}
 .nl-sheet .klasse{display:inline-block;border:1px solid #ffcc66;color:#ffcc66;padding:2px 8px;border-radius:3px;font-size:.72rem;letter-spacing:1px;margin-bottom:10px;}
 .nl-sheet table{border-collapse:collapse;width:100%;margin:4px 0;}
-.nl-sheet td{padding:3px 8px 3px 0;vertical-align:top;border-bottom:1px dotted var(--border);}
-.nl-sheet td:first-child{white-space:nowrap;color:var(--text-dim);}
+.nl-sheet table{table-layout:fixed;}
+.nl-sheet td{padding:3px 8px 3px 0;vertical-align:top;border-bottom:1px dotted var(--border);white-space:normal;overflow-wrap:anywhere;}
+.nl-sheet td:first-child{width:38%;color:var(--text-dim);}
+.nl-sheet li{overflow-wrap:anywhere;}
 .nl-sheet ul{margin:4px 0 4px 18px;}
 .nl-sheet .line{display:inline-block;min-width:180px;border-bottom:1px solid var(--text-dim);height:1em;vertical-align:baseline;}
 .nl-sheet .hint{font-size:.78rem;color:var(--text-dim);margin-top:14px;}

@@ -3,6 +3,10 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.7 — 2026-08-28
+
+Layout-Korrektur im Nachlass-Anhang (nur CSS): Die Zeile „Quelle" und andere lange Werte brachen im Blatt nicht um und liefen auf schmalen Bildschirmen aus dem Rahmen (die allgemeine Tabellenregel `nowrap` galt auch dort). Werte und Listenpunkte brechen jetzt innerhalb der Box um, die Beschriftungsspalte hat eine feste Breite.
+
 ## v2.6 — 2026-08-28
 
 Neu: **Nachlass-Anhang** (Export & Sync). Ein Blatt mit den aktuellen Netto-Beständen für das Erben-Paket, im Aufbau des Nachlassplaners (alien-investor.org/nachlassplaner.html):
