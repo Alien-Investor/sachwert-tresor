@@ -3,6 +3,10 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.8 — 2026-08-28
+
+Nachlass-Anhang in der App: Der Teilen-Dialog bekam neben der `.txt`-Datei nur den Kurztext „Sachwert-Tresor Backup" mit — Drucker-Apps nehmen den Text statt der Datei und druckten deshalb ein leeres Blatt mit diesem Titel (Autor-Fund). Jetzt wird der Blattinhalt selbst als Text mitgegeben: Drucker-Apps drucken das Blatt direkt, Datei-Ziele (Proton Drive, Dateien) erhalten weiterhin die Datei. Hinweistext im Overlay entsprechend angepasst (DE/EN).
+
 ## v2.7 — 2026-08-28
 
 Layout-Korrektur im Nachlass-Anhang (nur CSS): Die Zeile „Quelle" und andere lange Werte brachen im Blatt nicht um und liefen auf schmalen Bildschirmen aus dem Rahmen (die allgemeine Tabellenregel `nowrap` galt auch dort). Werte und Listenpunkte brechen jetzt innerhalb der Box um, die Beschriftungsspalte hat eine feste Breite.

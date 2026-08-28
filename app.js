@@ -79,7 +79,7 @@ const I18N = {
   "nl.title":"Estate appendix",
   "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
   "nl.fassungLbl":"Version","nl.print":"Print","nl.save":"Save as file (.txt)",
-  "nl.howto":"Desktop: print. Phone: save as file, print it on the printer computer, then delete the file. Raise the version number before every printout.",
+  "nl.howto":"Desktop: print. Phone: the Share dialog opens; pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
   "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
@@ -882,13 +882,15 @@ const App = (function(){
   // Capacitor (native App) erkennen — dann Dateien übers OS speichern/teilen statt Browser-Download.
   const CAP = window.Capacitor || null;
   const isNative = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform());
-  async function nativeSaveAndShare(name, content, dir){
+  async function nativeSaveAndShare(name, content, dir, shareText){
     const FS = CAP.Plugins && CAP.Plugins.Filesystem;
     if(!FS) throw new Error('Filesystem-Plugin fehlt');
     // dir default DOCUMENTS (verschlüsseltes .vault-Backup, das der Nutzer selbst ablegt).
     // Klartext-Exporte (CSV) + 2FA-QR kommen mit dir='CACHE' (app-intern, nicht world-readable) → nur transient teilen.
     const w = await FS.writeFile({ path:name, data:content, directory:dir||'DOCUMENTS', encoding:'utf8', recursive:true });
-    try{ const SH = CAP.Plugins && CAP.Plugins.Share; if(SH) await SH.share({ title:name, text:'Sachwert-Tresor Backup', url:w.uri }); }catch(_){}
+    // shareText: Was Empfaenger bekommen, die Text statt Datei nehmen (Drucker-Apps). Default bleibt
+    // der Kurztext; der Nachlass-Anhang uebergibt seinen Blattinhalt, sonst druckt die App nur den Titel.
+    try{ const SH = CAP.Plugins && CAP.Plugins.Share; if(SH) await SH.share({ title:name, text:(shareText!==undefined?shareText:'Sachwert-Tresor Backup'), url:w.uri }); }catch(_){}
     return w.uri;
   }
   function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob);});}
@@ -1249,7 +1251,7 @@ const App = (function(){
     renderNachlass(); nlRemember();
     const name='nachlass-anhang-'+nlToday()+'.txt', txt=nachlassText(), m=$('nl-msg');
     if(isNative){
-      try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE'); if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); }
+      try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE', txt); if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); }
       catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
     } else { downloadFile(name, txt, 'text/plain;charset=utf-8', false); if(m) m.textContent=name+tr('nl.savedWeb'); toast(tr('toast.exported')); }
   }
