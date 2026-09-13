@@ -36,3 +36,13 @@ release-build.log
 *.jks
 keystore.properties
 release-signing.properties
+
+# App-Trailer (regenerierbare Artefakte, Musik aus dem Fundus)
+trailer/out/
+trailer/musik/
+trailer/shots/
+trailer/frames/
+trailer/cards/
+trailer/thumbs/
+trailer/kontakt-*
+trailer/out-build.log
