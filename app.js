@@ -6,6 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
+const APP_VERSION = '2.9';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -250,6 +251,7 @@ const T = {
   "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
   "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
   "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"},
+  "about":{de:"Sachwert-Tresor v{v} · AES-256-GCM · PBKDF2-SHA256 (600k) · 100 % lokal",en:"Sachwert-Tresor v{v} · AES-256-GCM · PBKDF2-SHA256 (600k) · 100 % local"},
   "err.vaultNewer":{de:"Hinweis: Dieser Tresor stammt aus einer neueren App-Version — bitte App aktualisieren.",en:"Note: this vault was created by a newer app version — please update the app."},
   "bk.never":{de:"⚠ Noch kein Backup erstellt — geht dieses Gerät verloren, ist der Tresor weg. Export & Sync → Backup erstellen.",en:"⚠ No backup yet — if this device is lost, the vault is gone. Export & Sync → Create backup."},
   "bk.stale":{de:"⚠ Letztes Backup vor {d} Tagen — seitdem {n} neue Buchung(en). Export & Sync → Backup erstellen.",en:"⚠ Last backup {d} days ago — {n} new entries since. Export & Sync → Create backup."},
@@ -1123,6 +1125,7 @@ const App = (function(){
     const soft=document.documentElement.getAttribute('data-theme')==='soft';
     $('th-dark').classList.toggle('on',!soft);$('th-soft').classList.toggle('on',soft);
     $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock);
+    $('about-line').textContent=tr('about').replace('{v}',APP_VERSION);   // Versionszeile ganz unten (einheitlich mit Alien Pass)
   }
 
   /* ---------- change passphrase ---------- */

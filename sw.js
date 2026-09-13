@@ -1,6 +1,6 @@
 /* Sachwert-Tresor Service Worker — App-Shell offline cachen.
    Speichert KEINE Tresor-Daten (die liegen verschlüsselt im localStorage). */
-const CACHE = 'sachwert-tresor-v23';
+const CACHE = 'sachwert-tresor-v24';
 const CORE = ['./', './index.html', './app.js', './qr.js', './manifest.webmanifest', './icon.svg', './vendor/fonts/fonts.css'];
 
 self.addEventListener('install', e => {

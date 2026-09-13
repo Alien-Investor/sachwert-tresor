@@ -3,6 +3,10 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.9 — 2026-09-13
+
+Versionsnummer sichtbar: Ganz unten in den Einstellungen steht jetzt „Sachwert-Tresor v2.9 · AES-256-GCM · PBKDF2-SHA256 (600k)" — einheitlich mit Alien Pass. Die Nummer kommt aus der Datei `VERSION` (Build setzt sie, Roundtrip-Test prüft den Abgleich).
+
 ## v2.8 — 2026-08-28
 
 Nachlass-Anhang in der App: Der Teilen-Dialog bekam neben der `.txt`-Datei nur den Kurztext „Sachwert-Tresor Backup" mit — Drucker-Apps nehmen den Text statt der Datei und druckten deshalb ein leeres Blatt mit diesem Titel (Autor-Fund). Jetzt wird der Blattinhalt selbst als Text mitgegeben: Drucker-Apps drucken das Blatt direkt, Datei-Ziele (Proton Drive, Dateien) erhalten weiterhin die Datei. Hinweistext im Overlay entsprechend angepasst (DE/EN).

@@ -6,6 +6,13 @@ const subtle = globalThis.crypto.subtle;
 const enc = new TextEncoder(), dec = new TextDecoder();
 const ITER = 600000;
 
+// Versionsanzeige (Einstellungen) muss zur Datei VERSION passen — sonst zeigt die App eine alte Nummer
+{ const {readFileSync}=await import('node:fs');
+  const vn=(readFileSync('VERSION','utf8').match(/^VERSION_NAME=(.+)$/m)||[])[1]?.trim();
+  const av=(readFileSync('app.js','utf8').match(/^const APP_VERSION = '([^']*)';/m)||[])[1];
+  if(!vn||av!==vn) throw new Error(`APP_VERSION (${av}) != VERSION_NAME (${vn})`);
+  console.log('  ✓ APP_VERSION', av, '= VERSION_NAME'); }
+
 const bufToB64 = buf => Buffer.from(new Uint8Array(buf)).toString('base64');
 const b64ToBuf = b64 => Uint8Array.from(Buffer.from(b64, 'base64')).buffer;
 
