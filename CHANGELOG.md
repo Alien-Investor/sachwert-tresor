@@ -7,7 +7,8 @@ Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
 Wartungsrelease, Robustheit beim Speichern (Querfund aus dem Sicherheitsaudit des Ausgaben-Trackers). Das Speichern merkt sich jetzt Schlüssel, Salt und Tresor-Stand vor dem Verschlüsseln und prüft sie danach:
 - Wird der Tresor während des Verschlüsselns gesperrt, schreibt die App nichts. Vorher hätte sie einen Blob mit leerem Salt speichern können, der sich nicht mehr entschlüsseln lässt.
-- Wird die Passphrase währenddessen geändert, bleibt der neu verschlüsselte Stand erhalten. Der ältere Schreibvorgang überschreibt ihn nicht mehr mit dem alten Schlüssel.
+- Wird die Passphrase währenddessen geändert, bleibt der neu verschlüsselte Stand erhalten. Der ältere Schreibvorgang überschreibt ihn nicht mehr mit dem alten Schlüssel, sondern verschlüsselt mit dem neuen neu.
+- Passphrase ändern: Salt und Schlüssel werden erst nach der Schlüsselableitung gemeinsam getauscht. Vorher konnte eine Einstellungsänderung während der Ableitung (einige Sekunden) einen Blob aus altem Schlüssel und neuem Salt speichern. Wird der Tresor währenddessen gesperrt, bricht der Wechsel ab, und schlägt das Speichern fehl, gilt weiter die alte Passphrase.
 - Nach dem Sperren rollen Erfassen, Löschen und CSV-Import keine Einträge mehr im Arbeitsspeicher zurück (dort liegt dann ein anderer oder gar kein Tresor).
 
 Mit der aktuellen Verschlüsselung war der Fall praktisch nicht erreichbar, trotzdem jetzt abgesichert. Kein neues Feature, keine Datenformat-Änderung.

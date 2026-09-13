@@ -357,15 +357,15 @@ const App = (function(){
   // Schlüsselgeneration VOR dem await pinnen und danach prüfen (Querfund Ausgaben-Tracker-Audit run-1 #12):
   // ein lock() während des Verschlüsselns darf nie einen Blob mit leerem/fremdem Salt schreiben.
   // Gesperrt → Fehler mit .locked (Aufrufer rollen dann NICHT zurück — VAULT ist weg bzw. frisch entsperrt).
-  // Passphrase inzwischen gewechselt (gleicher VAULT) → nicht schreiben: changePass() hat danach persistiert
-  // und diese Änderung bereits mit dem neuen Schlüssel gesichert; ein späterer Schreibvorgang hier würde sie überschreiben.
+  // Passphrase inzwischen gewechselt (gleicher VAULT) → dieser Blob ist veraltet: mit dem aktuellen Schlüssel neu verschlüsseln.
+  // Voraussetzung: SALT/KEY/KEY_ITER werden überall nur gemeinsam in einem synchronen Schritt getauscht (doSetup, changePass).
   function lockedErr(){ const e=new Error('vault locked'); e.locked=true; return e; }
   async function persist(){
     const key=KEY, vault=VAULT, salt=SALT, iter=KEY_ITER;
     if(!key||!vault||!salt) throw lockedErr();
     const blob = await encryptObj(vault, key);
     if(!KEY||VAULT!==vault) throw lockedErr();
-    if(KEY!==key||SALT!==salt) return;
+    if(KEY!==key||SALT!==salt) return persist();
     blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=iter; blob.salt=bufToB64(salt);
     try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
@@ -387,8 +387,9 @@ const App = (function(){
     const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
     if(p1.length<12) return err('setup-err',tr('err.setupShort'));
     if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
-    SALT = crypto.getRandomValues(new Uint8Array(16));
-    KEY = await deriveKey(p1, SALT); KEY_ITER = ITER;
+    const s = crypto.getRandomValues(new Uint8Array(16));
+    const k = await deriveKey(p1, s);
+    SALT = s; KEY = k; KEY_ITER = ITER;   // gemeinsam tauschen, nie SALT vor dem await (siehe persist)
     VAULT = emptyVault();
     await persist();
     $('setup-pass1').value=$('setup-pass2').value='';
@@ -1154,10 +1155,15 @@ const App = (function(){
       const raw=localStorage.getItem(LS_KEY);
       try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt)),blob.iter); await decryptBlob(blob,ck); }
       catch(e){ return err('cp-err',tr('err.cpWrong')); }
-      // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt)
-      SALT=crypto.getRandomValues(new Uint8Array(16));
-      KEY=await deriveKey(p1,SALT); KEY_ITER=ITER;
-      await persist();
+      // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt). Schlüssel erst LOKAL ableiten, dann SALT/KEY/KEY_ITER
+      //    in einem synchronen Schritt tauschen: ein persist() während PBKDF2 schriebe sonst alten Schlüssel + neuen Salt.
+      const vault=VAULT, oldS=SALT, oldK=KEY, oldI=KEY_ITER;
+      const s=crypto.getRandomValues(new Uint8Array(16));
+      const k=await deriveKey(p1,s);
+      if(!KEY||VAULT!==vault) return;   // während der Ableitung gesperrt: neuen Schlüssel nicht zurück in den RAM holen
+      SALT=s; KEY=k; KEY_ITER=ITER;
+      try{ await persist(); }
+      catch(e){ if(!(e&&e.locked)){ SALT=oldS; KEY=oldK; KEY_ITER=oldI; } return; }   // Speicher hält weiter die alte Passphrase — RAM passend zurück
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
       toast(tr('toast.passChanged'));
     }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
