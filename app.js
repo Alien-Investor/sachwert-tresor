@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '2.9';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '2.9.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -354,9 +354,19 @@ const App = (function(){
   const fmtBtc=v=>btcUnit()==='sat'?fmtNum(Math.round((v||0)*SATS),0)+' sats':fmtNum(v,8)+' ₿';
 
   /* ---------- persistence ---------- */
+  // Schlüsselgeneration VOR dem await pinnen und danach prüfen (Querfund Ausgaben-Tracker-Audit run-1 #12):
+  // ein lock() während des Verschlüsselns darf nie einen Blob mit leerem/fremdem Salt schreiben.
+  // Gesperrt → Fehler mit .locked (Aufrufer rollen dann NICHT zurück — VAULT ist weg bzw. frisch entsperrt).
+  // Passphrase inzwischen gewechselt (gleicher VAULT) → nicht schreiben: changePass() hat danach persistiert
+  // und diese Änderung bereits mit dem neuen Schlüssel gesichert; ein späterer Schreibvorgang hier würde sie überschreiben.
+  function lockedErr(){ const e=new Error('vault locked'); e.locked=true; return e; }
   async function persist(){
-    const blob = await encryptObj(VAULT, KEY);
-    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=KEY_ITER; blob.salt=bufToB64(SALT);
+    const key=KEY, vault=VAULT, salt=SALT, iter=KEY_ITER;
+    if(!key||!vault||!salt) throw lockedErr();
+    const blob = await encryptObj(vault, key);
+    if(!KEY||VAULT!==vault) throw lockedErr();
+    if(KEY!==key||SALT!==salt) return;
+    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=iter; blob.salt=bufToB64(salt);
     try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
   }
@@ -578,7 +588,8 @@ const App = (function(){
       resetAddForm();
       if(wasEdit){ exitEditMode(); toast(tr('toast.updated')); tab('list'); }
       else { toast(addDir==='sell'?tr('toast.sellAdded'):addDir==='withdraw'?tr('toast.wdAdded'):tr('toast.buyAdded')); renderDash(); }
-    }).catch(()=>{
+    }).catch(ex=>{
+      if(ex&&ex.locked) return;   // inzwischen gesperrt: nichts zurückrollen (VAULT ist nicht mehr dieser Stand)
       // persist() zeigt bereits den Fehler-Toast — hier nur den RAM-Zustand zurückrollen (Anzeige == Speicher)
       if(wasEdit){ const i=VAULT.entries.findIndex(x=>x.id===e.id); if(i>=0&&undo) VAULT.entries[i]=undo; }
       else VAULT.entries.pop();
@@ -629,7 +640,7 @@ const App = (function(){
   function dupKey(e){return e.type+'|'+entryDir(e)+'|'+e.date+'|'+amtKey(e);}
   function findDuplicate(e,excludeId){const k=dupKey(e);return VAULT.entries.find(x=>x.id!==excludeId&&dupKey(x)===k);}
   function cryptoId(){const a=crypto.getRandomValues(new Uint8Array(8));return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');}
-  function delEntry(id){ if(!confirm(tr('confirm.del2')))return; const before=VAULT.entries; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}).catch(()=>{ VAULT.entries=before; renderList(); }); }
+  function delEntry(id){ if(!confirm(tr('confirm.del2')))return; const before=VAULT.entries; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}).catch(ex=>{ if(ex&&ex.locked) return; VAULT.entries=before; renderList(); }); }
 
   /* ---------- aggregates ---------- */
   const CURS=['EUR','USD','CHF'];
@@ -966,7 +977,8 @@ const App = (function(){
         persist().then(()=>{ renderAll();
           $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
           toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
-        }).catch(()=>{   // Speicherfehler: neue Zeilen aus dem RAM zurückrollen (Anzeige == Speicher, wie addEntry/delEntry)
+        }).catch(ex=>{   // Speicherfehler: neue Zeilen aus dem RAM zurückrollen (Anzeige == Speicher, wie addEntry/delEntry)
+          if(ex&&ex.locked) return;
           const del=new Set(newIds); VAULT.entries=VAULT.entries.filter(x=>!del.has(x.id)); renderAll();
         });
       }catch(e){ $('export-msg').textContent=tr('csv.failPre')+((e&&e.message)||'Format?'); }
@@ -1056,7 +1068,7 @@ const App = (function(){
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
-    }catch(e){$('export-msg').textContent=tr('msg.importBad');}
+    }catch(e){ if(!(e&&e.locked)) $('export-msg').textContent=tr('msg.importBad'); }
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
   }
 

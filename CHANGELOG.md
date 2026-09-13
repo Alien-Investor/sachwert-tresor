@@ -3,6 +3,15 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.9.1 — 2026-09-13
+
+Wartungsrelease, Robustheit beim Speichern (Querfund aus dem Sicherheitsaudit des Ausgaben-Trackers). Das Speichern merkt sich jetzt Schlüssel, Salt und Tresor-Stand vor dem Verschlüsseln und prüft sie danach:
+- Wird der Tresor während des Verschlüsselns gesperrt, schreibt die App nichts. Vorher hätte sie einen Blob mit leerem Salt speichern können, der sich nicht mehr entschlüsseln lässt.
+- Wird die Passphrase währenddessen geändert, bleibt der neu verschlüsselte Stand erhalten. Der ältere Schreibvorgang überschreibt ihn nicht mehr mit dem alten Schlüssel.
+- Nach dem Sperren rollen Erfassen, Löschen und CSV-Import keine Einträge mehr im Arbeitsspeicher zurück (dort liegt dann ein anderer oder gar kein Tresor).
+
+Mit der aktuellen Verschlüsselung war der Fall praktisch nicht erreichbar, trotzdem jetzt abgesichert. Kein neues Feature, keine Datenformat-Änderung.
+
 ## v2.9 — 2026-09-13
 
 Versionsnummer sichtbar: Ganz unten in den Einstellungen steht jetzt „Sachwert-Tresor v2.9 · AES-256-GCM · PBKDF2-SHA256 (600k)" — einheitlich mit Alien Pass. Die Nummer kommt aus der Datei `VERSION` (Build setzt sie, Roundtrip-Test prüft den Abgleich).
