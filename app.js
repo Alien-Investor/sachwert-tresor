@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '2.9.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '2.10';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -279,6 +279,7 @@ function applyI18n(){
   });
   document.documentElement.setAttribute('lang',LANG);
   const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
+  if(typeof App!=='undefined'&&App.syncCombos) App.syncCombos();   // Optionen tragen data-i18n → Knopfbeschriftung nachziehen
 }
 function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(typeof App!=='undefined'&&App.relabel) App.relabel(); }
 
@@ -443,7 +444,7 @@ const App = (function(){
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
     ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
-    const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML='';
+    const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
     ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2'].forEach(i=>{const el=$(i);if(el)el.value='';});
     $('totp-secret').textContent=''; App._otpauth='';
@@ -502,7 +503,7 @@ const App = (function(){
       sel.options[0].text = isSell?tr('add.kycSellNo'):tr('add.kycBuyNo');
       sel.options[1].text = isSell?tr('add.kycSellYes'):tr('add.kycBuyYes');
     }
-    refreshBtcInputUI();
+    refreshBtcInputUI(); syncCombos();   // KYC-Texte und Währung/Stückelung (resetAddForm) → Knopfbeschriftungen
   }
   // Eingabe-Umschalter BTC/Sats: vorhandener Feldwert wird beim Umschalten mitkonvertiert
   function setInputBtcUnit(u){
@@ -543,6 +544,24 @@ const App = (function(){
     $('f-custom-wrap').classList.add('hidden'); updateMetalPreview(); refreshAddLabels();
   }
   function onCurChange(){ refreshAddLabels(); }
+
+  /* ---------- eigene Auswahlfelder (v2.10, Muster Alien Pass v1.5) ----------
+     Die aufgeklappte System-Liste der WebView ist grau und nicht gestaltbar. Das native <select> bleibt als
+     unsichtbarer Wertspeicher (.combo-native): alle .value-Leser und die data-change-Delegation gelten unverändert.
+     Darüber Knopf #cb-<id> + Menü #cm-<id>. Optionen ausschließlich per textContent. */
+  function closeMenus(){ document.querySelectorAll('.combo-menu').forEach(m=>{ m.classList.add('hidden'); m.replaceChildren(); }); }
+  function syncCombo(id){ const sel=$(id), lab=$('cb-'+id); if(!sel||!lab) return; const o=sel.options[sel.selectedIndex]; lab.textContent=o?o.textContent:''; }
+  function syncCombos(){ document.querySelectorAll('.combo-native').forEach(sel=>syncCombo(sel.id)); }
+  function toggleCombo(id){ const menu=$('cm-'+id), sel=$(id); if(!menu||!sel) return;
+    const wasOpen=!menu.classList.contains('hidden'); closeMenus(); if(wasOpen) return;
+    for(const o of sel.options){ const b=document.createElement('button'); b.className='combo-opt'+(o.value===sel.value?' on':'');
+      b.textContent=o.textContent; b.dataset.action='chooseOpt'; b.dataset.arg=o.value; b.dataset.sel=id; menu.appendChild(b); }
+    menu.classList.remove('hidden'); }
+  function chooseOpt(value, elx){ const sel=$(elx&&elx.dataset.sel); closeMenus();
+    // nur echte Optionen eines Wertspeichers (fremder Wert → selectedIndex -1 → z.B. Auto-Sperre still aus); gleicher Wert → kein change (sonst persist + Toast)
+    if(!sel||!sel.classList.contains('combo-native')||!Array.from(sel.options).some(o=>o.value===value)||sel.value===value) return;
+    sel.value=value; syncCombo(sel.id);
+    sel.dispatchEvent(new Event('change',{bubbles:true})); }   // die bestehende change-Delegation übernimmt von hier
   function addEntry(){
     err('add-err');
     const date=$('f-date').value;
@@ -625,6 +644,7 @@ const App = (function(){
       $('f-src-metal').value=e.source||'';
       updateMetalPreview();
     }
+    syncCombos();
     $('add-title').textContent=tr('add.titleEdit');
     $('add-btn').textContent=tr('add.btnSave');
     show('add-cancel');
@@ -1137,7 +1157,7 @@ const App = (function(){
     $('totp-off').classList.toggle('hidden',on);$('totp-on').classList.toggle('hidden',!on);hide('totp-setup');
     const soft=document.documentElement.getAttribute('data-theme')==='soft';
     $('th-dark').classList.toggle('on',!soft);$('th-soft').classList.toggle('on',soft);
-    $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock);
+    $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock); syncCombo('set-autolock');
     $('about-line').textContent=tr('about').replace('{v}',APP_VERSION);   // Versionszeile ganz unten (einheitlich mit Alien Pass)
   }
 
@@ -1286,13 +1306,15 @@ const App = (function(){
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
-    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,_otpauth:''};
+    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,_otpauth:''};
 })();
 
 /* ---------- Event-Delegation ----------
    CSP ohne 'unsafe-inline' in script-src: KEINE Inline-Handler mehr (auch nicht in
    per innerHTML erzeugtem Markup) — alles läuft über data-Attribute + diese Listener. */
 document.addEventListener('click',ev=>{
+  // Klick außerhalb eines Auswahlfelds schließt jedes offene Menü
+  if(!ev.target.closest('.combo')) App.closeMenus();
   const sp=ev.target.closest('[data-showpass]');
   if(sp){ const t=sp.checked?'text':'password'; sp.dataset.showpass.split(',').forEach(id=>{const f=document.getElementById(id);if(f)f.type=t;}); return; }
   const el=ev.target.closest('[data-action]'); if(!el) return;
@@ -1311,6 +1333,7 @@ document.addEventListener('input',ev=>{
   const fn=App[el.dataset.input]; if(typeof fn==='function') fn();
 });
 document.addEventListener('keydown',ev=>{
+  if(ev.key==='Escape'){ App.closeMenus(); return; }
   if(ev.key!=='Enter') return;
   const el=ev.target.closest('[data-enter]'); if(!el) return;
   const fn=App[el.dataset.enter]; if(typeof fn==='function') fn();

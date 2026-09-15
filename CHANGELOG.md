@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.10 — 2026-09-16
+
+Eigene Auswahlfelder im Neon-Look (wie Alien Pass v1.5): Währung, KYC, Stückelung, Form, Einheit und Auto-Sperre klappten in der App als graue Android-Systemliste auf, die sich nicht gestalten lässt. Jetzt öffnet sich darunter ein eigenes Menü im Stil der App, die aktuelle Auswahl ist markiert. Schließen per Auswahl, Klick daneben oder Escape. Beim Sperren werden offene Menüs geschlossen.
+
+Technisch bleibt das native Auswahlfeld unsichtbar als Wertspeicher erhalten — Erfassen, Bearbeiten, Export und das Datenformat sind unverändert. Das Datumsfeld öffnet weiter den Datumsdialog des Systems.
+
 ## v2.9.1 — 2026-09-13
 
 Wartungsrelease, Robustheit beim Speichern (Querfund aus dem Sicherheitsaudit des Ausgaben-Trackers). Das Speichern merkt sich jetzt Schlüssel, Salt und Tresor-Stand vor dem Verschlüsseln und prüft sie danach:
