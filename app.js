@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '2.10';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '2.11';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -18,9 +18,9 @@ const I18N = {
   "setup.title":"Set up your vault",
   "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via PBKDF2). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
   "setup.repeat":"Repeat passphrase","setup.ph1":"min. 12 characters, better a word sequence",
-  "setup.showpass":"Show passphrase (to verify)","setup.create":"Create vault",
+  "setup.create":"Create vault",
   "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
-  "lock.title":"Unlock vault","lock.showpass":"Show passphrase","lock.unlock":"Unlock",
+  "lock.title":"Unlock vault","lock.unlock":"Unlock",
   "totp.title":"Second factor","totp.intro":"Enter the current 6-digit code from your <strong>Aegis 2FA manager</strong>.","totp.confirm":"Confirm",
   "btn.cancel":"Cancel",
   "tab.dash":"Overview","tab.add":"Add","tab.list":"Holdings","tab.verlauf":"History","tab.export":"Export & Sync","tab.settings":"Settings",
@@ -63,7 +63,7 @@ const I18N = {
   "set.copyKey":"Copy key","set.saveQR":"Save QR as image","set.copyQR":"Copy QR","set.otpauth":"otpauth link",
   "set.totpSetup3":"2) Aegis now shows a 6-digit code. Enter it to confirm:","set.activate":"Activate",
   "set.totpOnText":"2FA is active. On unlock, an Aegis code is additionally required.","set.totpDisable":"Disable 2FA",
-  "set.cpTitle":"Change passphrase","set.cpCur":"Current passphrase","set.cpNew":"New passphrase","set.cpRepeat":"Repeat","set.cpShow":"Show passphrases","set.cpBtn":"Change",
+  "set.cpTitle":"Change passphrase","set.cpCur":"Current passphrase","set.cpNew":"New passphrase","set.cpRepeat":"Repeat","set.cpBtn":"Change",
   "set.themeTitle":"Appearance","set.themeDark":"Black (Neon)","set.themeSoft":"Soft (Navy)",
   "set.secTitle":"Security","set.autolock":"Auto-lock after inactivity",
   "set.al0":"Off","set.al1":"1 minute","set.al5":"5 minutes","set.al15":"15 minutes","set.al30":"30 minutes",
@@ -105,6 +105,7 @@ const I18N = {
 };
 // Dynamische JS-Strings (beide Sprachen)
 const T = {
+  "pw.toggle":{de:"Anzeigen / verbergen",en:"Show / hide"},
   "msg.keyCopied":{de:"Schlüssel kopiert",en:"Key copied"},
   "msg.otpauthCopied":{de:"otpauth-Link kopiert",en:"otpauth link copied"},
   "add.titleBuy":{de:"Kauf erfassen",en:"Add buy"},
@@ -279,6 +280,7 @@ function applyI18n(){
   });
   document.documentElement.setAttribute('lang',LANG);
   const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
+  document.querySelectorAll('.pw-eye').forEach(b=>{ b.title=tr('pw.toggle'); });
   if(typeof App!=='undefined'&&App.syncCombos) App.syncCombos();   // Optionen tragen data-i18n → Knopfbeschriftung nachziehen
 }
 function setLang(l){ LANG=l; try{localStorage.setItem('ai-tresor-lang',l);}catch(_){ } applyI18n(); if(typeof App!=='undefined'&&App.relabel) App.relabel(); }
@@ -451,7 +453,14 @@ const App = (function(){
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
   }
-  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; clearRendered(); boot(); }
+  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; clearRendered(); maskInputs(); boot(); }
+  // Auge im Passwortfeld (statt „anzeigen“-Kästchen, Muster Alien Pass): Knopf mit data-showpass=<Feld-ID>, Zustand in aria-pressed
+  function setEye(b,on){ b.setAttribute('aria-pressed',on?'true':'false'); b.dataset.showpass.split(',').forEach(id=>{ const f=$(id); if(f) f.type=on?'text':'password'; }); }
+  function togglePass(_,b){ if(b) setEye(b,b.getAttribute('aria-pressed')!=='true'); }
+  function maskInputs(){ document.querySelectorAll('[data-showpass]').forEach(b=>setEye(b,false)); }
+  function enhancePassFields(){ document.querySelectorAll('input[type=password]').forEach(inp=>{ if(!inp.id||inp.closest('.pw-wrap')) return;
+    const w=document.createElement('div'), b=document.createElement('button'); w.className='pw-wrap'; b.className='pw-eye'; b.type='button';
+    b.dataset.showpass=inp.id; b.setAttribute('aria-pressed','false'); b.title=tr('pw.toggle'); inp.parentNode.insertBefore(w,inp); w.append(inp,b); }); }
   ['click','keydown','touchstart','scroll','mousemove'].forEach(ev=>
     document.addEventListener(ev, activity, {passive:true}));
   // Backgrounding: setTimeout pausiert in eingefrorenen WebViews — beim Zurückkehren
@@ -1306,7 +1315,7 @@ const App = (function(){
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
-    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,_otpauth:''};
+    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,_otpauth:''};
 })();
 
 /* ---------- Event-Delegation ----------
@@ -1316,11 +1325,13 @@ document.addEventListener('click',ev=>{
   // Klick außerhalb eines Auswahlfelds schließt jedes offene Menü
   if(!ev.target.closest('.combo')) App.closeMenus();
   const sp=ev.target.closest('[data-showpass]');
-  if(sp){ const t=sp.checked?'text':'password'; sp.dataset.showpass.split(',').forEach(id=>{const f=document.getElementById(id);if(f)f.type=t;}); return; }
+  if(sp){ App.togglePass(null,sp); return; }
   const el=ev.target.closest('[data-action]'); if(!el) return;
   const fn=App[el.dataset.action];
   if(typeof fn==='function') fn(el.dataset.arg, el);
 });
+// Auge: Fokus bleibt im Passwortfeld (Tastatur klappt nicht zu, Cursor bleibt stehen)
+document.addEventListener('mousedown',ev=>{ if(ev.target.closest('.pw-eye')) ev.preventDefault(); });
 document.addEventListener('change',ev=>{
   const el=ev.target.closest('[data-change]'); if(!el) return;
   const a=el.dataset.change;
@@ -1341,6 +1352,7 @@ document.addEventListener('keydown',ev=>{
 
 window.addEventListener('DOMContentLoaded',()=>{
   if(!window.crypto||!crypto.subtle){document.body.innerHTML='<div class="container"><div class="card warn">Dieser Browser unterstützt kein WebCrypto (oder läuft nicht im sicheren Kontext). Öffne die Datei über https:// oder file:// in Vanadium/Brave/Firefox.</div></div>';return;}
+  App.enhancePassFields();   // vor applyI18n: setzt die Augen-Beschriftung
   applyI18n();
   App.boot();
   // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar

@@ -3,6 +3,12 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.11 — 2026-09-16
+
+Auge im Passwortfeld (wie Alien Pass v1.5.1): Statt des Kästchens „Passphrase anzeigen“ (weiß mit blauem Haken im Android-Standard) sitzt jetzt rechts in jedem Passphrase-Feld ein Auge — beim Einrichten, Entsperren, Backup-Import und Passphrase-Wechsel. Jedes Auge zeigt nur sein eigenes Feld, Tastatur und Cursor bleiben beim Antippen im Feld. Neu: Beim Sperren gehen alle Felder wieder zu, bisher blieb ein angehaktes Kästchen stehen.
+
+Nur Oberfläche — Datenformat, Verschlüsselung und Export sind unverändert.
+
 ## v2.10 — 2026-09-16
 
 Eigene Auswahlfelder im Neon-Look (wie Alien Pass v1.5): Währung, KYC, Stückelung, Form, Einheit und Auto-Sperre klappten in der App als graue Android-Systemliste auf, die sich nicht gestalten lässt. Jetzt öffnet sich darunter ein eigenes Menü im Stil der App, die aktuelle Auswahl ist markiert. Schließen per Auswahl, Klick daneben oder Escape. Beim Sperren werden offene Menüs geschlossen.
