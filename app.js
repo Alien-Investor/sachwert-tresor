@@ -249,8 +249,18 @@ const T = {
   "toast.noQr":{de:"Kein QR vorhanden",en:"No QR available"},"toast.clipUnavail":{de:"Clipboard nicht verfügbar — nutze „QR als Bild“",en:"Clipboard unavailable — use “Save QR as image”"},
   "err.setupShort":{de:"Passphrase zu kurz (mind. 12 Zeichen).",en:"Passphrase too short (min. 12 characters)."},
   "err.setupMismatch":{de:"Passphrasen stimmen nicht überein.",en:"Passphrases do not match."},
-  "err.vaultCorrupt":{de:"Tresor-Daten beschädigt.",en:"Vault data corrupted."},
   "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
+  "err.fileFormat":{de:"Keine gültige Tresor-Datei.",en:"Not a valid vault file."},
+  "err.fileNewer":{de:"Diese Datei stammt aus einer neueren App-Version. Bitte die App aktualisieren.",en:"This file comes from a newer app version. Please update the app."},
+  "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
+  "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
+  "err.noArgon2":{de:"Die Verschlüsselung (Argon2id) lässt sich in diesem Browser nicht starten. Am Tresor wurde nichts verändert.",en:"The encryption (Argon2id) cannot start in this browser. Nothing in the vault was changed."},
+  "err.setupFailed":{de:"Tresor konnte nicht angelegt werden.",en:"Could not create the vault."},
+  "err.migrateFailed":{de:"Umstellung der Verschlüsselung fehlgeschlagen — der Tresor ist unverändert im alten Format erhalten.",en:"Switching the encryption failed — the vault is preserved unchanged in the old format."},
+  "toast.migrated":{de:"Verschlüsselung auf Argon2id umgestellt",en:"Encryption switched to Argon2id"},
+  "busy.migrating":{de:"Verschlüsselung wird umgestellt…",en:"Switching encryption…"},
+  "busy.creating":{de:"Erstelle…",en:"Creating…"},
+  "bk.fresh":{de:"⚠ Die Verschlüsselung wurde auf Argon2id umgestellt. Deine alten Backups bleiben lesbar — ein frisches Backup im neuen Format ist trotzdem empfohlen.",en:"⚠ The encryption was switched to Argon2id. Your old backups remain readable — a fresh backup in the new format is still recommended."},
   "err.totp6":{de:"6-stelligen Code eingeben.",en:"Enter the 6-digit code."},
   "err.totpBad":{de:"Code falsch oder abgelaufen.",en:"Code wrong or expired."},
   "err.totpSetupBad":{de:"Code stimmt nicht. In Aegis prüfen.",en:"Code doesn't match. Check in Aegis."},
@@ -305,7 +315,9 @@ const B32A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function base32Encode(bytes){let bits=0,val=0,out='';for(const b of bytes){val=(val<<8)|b;bits+=8;while(bits>=5){out+=B32A[(val>>>(bits-5))&31];bits-=5;}}if(bits>0)out+=B32A[(val<<(5-bits))&31];return out;}
 function base32Decode(str){str=str.toUpperCase().replace(/=+$/,'').replace(/\s/g,'');let bits=0,val=0;const out=[];for(const c of str){const idx=B32A.indexOf(c);if(idx<0)continue;val=(val<<5)|idx;bits+=5;if(bits>=8){out.push((val>>>(bits-8))&0xff);bits-=8;}}return new Uint8Array(out);}
 
-/* ---------- Crypto: PBKDF2 -> AES-GCM ---------- */
+/* ---------- Lesepfad Alt-Format (AISV1: PBKDF2 -> AES-GCM) — NIE ENTFERNEN ----------
+   Seit v3.0 wird nur noch gelesen: nicht umgestellte Tresore und alte .vault-Backups müssen für immer
+   aufgehen. Einen Schreibpfad für AISV1 gibt es bewusst nicht mehr (siehe persist/migrateToV2). */
 const ITER = 600000;
 // iter aus dem Blob honorieren (KDF-Agilität) — aber begrenzen: eine importierte/gespeicherte .vault
 // darf keine unbegrenzte Iterationszahl erzwingen (sonst PBKDF2-DoS beim Import). 0/NaN/String/zu groß → ITER.
@@ -313,11 +325,6 @@ const clampIter = it => (Number.isInteger(it) && it>0 && it<=10000000) ? it : IT
 async function deriveKey(pass, salt, iter){
   const base = await crypto.subtle.importKey('raw', enc.encode(pass), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:clampIter(iter),hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-}
-async function encryptObj(obj, key){
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, enc.encode(JSON.stringify(obj)));
-  return ct ? {iv:bufToB64(iv), ct:bufToB64(ct)} : null;
 }
 async function decryptBlob(blob, key){
   const pt = await crypto.subtle.decrypt({name:'AES-GCM',iv:new Uint8Array(b64ToBuf(blob.iv))}, key, b64ToBuf(blob.ct));
@@ -419,10 +426,14 @@ async function totpValid(secret, input){
    App state
    ============================================================ */
 const App = (function(){
-  let KEY = null;        // CryptoKey (in memory only)
-  let KEY_ITER = ITER;   // PBKDF2-Iterationen, mit denen KEY abgeleitet wurde — persist() schreibt genau diese (KDF-Agilität symmetrisch)
-  let SALT = null;       // Uint8Array
+  // Sitzung (seit v3.0): DEK verschlüsselt den Body, KDF+WRAP sind der Passphrase-Slot, unter dem er verpackt liegt.
+  // DEK/KDF/WRAP sind EINE Schlüsselgeneration: nur gemeinsam in einem synchronen Schritt tauschen, KDF und WRAP
+  // nie mutieren (neue Generation = neues Objekt) — persist() erkennt einen Wechsel am Objektvergleich.
+  let DEK = null, KDF = null, WRAP = null;
   let VAULT = null;      // decrypted object
+  // Entschlüsselt, aber noch nicht in der Sitzung: wartet auf den Aegis-Code bzw. (Alt-Format) auf die Umstellung.
+  // {vault, dek,kdf,wrap} oder {legacy:true, vault, kdf, kek, raw}. Vor dem Gate liegt NICHTS in DEK/VAULT.
+  let pendingUnlock = null;
   let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', chartRange = 'max', editId = null;
   let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
 
@@ -443,20 +454,71 @@ const App = (function(){
 
   /* ---------- persistence ---------- */
   // Schlüsselgeneration VOR dem await pinnen und danach prüfen (Querfund Ausgaben-Tracker-Audit run-1 #12):
-  // ein lock() während des Verschlüsselns darf nie einen Blob mit leerem/fremdem Salt schreiben.
+  // ein lock() während des Verschlüsselns darf nie einen Blob mit fremdem Header schreiben.
   // Gesperrt → Fehler mit .locked (Aufrufer rollen dann NICHT zurück — VAULT ist weg bzw. frisch entsperrt).
   // Passphrase inzwischen gewechselt (gleicher VAULT) → dieser Blob ist veraltet: mit dem aktuellen Schlüssel neu verschlüsseln.
-  // Voraussetzung: SALT/KEY/KEY_ITER werden überall nur gemeinsam in einem synchronen Schritt getauscht (doSetup, changePass).
+  // Voraussetzung: DEK/KDF/WRAP werden überall nur gemeinsam in einem synchronen Schritt getauscht (doSetup, changePass, openSession).
+  // Einziger Schreibpfad: persist() schreibt ausschließlich AISV2 — kein Modus erzeugt noch das Alt-Format.
   function lockedErr(){ const e=new Error('vault locked'); e.locked=true; return e; }
   async function persist(){
-    const key=KEY, vault=VAULT, salt=SALT, iter=KEY_ITER;
-    if(!key||!vault||!salt) throw lockedErr();
-    const blob = await encryptObj(vault, key);
-    if(!KEY||VAULT!==vault) throw lockedErr();
-    if(KEY!==key||SALT!==salt) return persist();
-    blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=iter; blob.salt=bufToB64(salt);
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(blob)); }
+    const dek=DEK, kdf=KDF, wrap=WRAP, vault=VAULT;
+    if(!dek||!kdf||!wrap||!vault) throw lockedErr();
+    const body = await encryptBody(vault, dek, kdf);
+    if(!DEK||VAULT!==vault) throw lockedErr();
+    if(DEK!==dek||KDF!==kdf||WRAP!==wrap) return persist();
+    try{ localStorage.setItem(LS_KEY, serializeFile(kdf, wrap, body)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
+  }
+  function fileErrMsg(e){ const c=e&&e.message; return tr(c==='newer'?'err.fileNewer':c==='kdfbounds'?'err.fileBounds':c==='toolarge'?'err.fileLarge':c==='noargon2'?'err.noArgon2':'err.fileFormat'); }
+  const FILE_ERRS=['format','newer','kdfbounds','toolarge','noargon2'];
+  // Tresor-Text öffnen (lokaler Speicher wie importierte .vault). Struktur + Grenzen werden VOR jeder KDF-Arbeit geprüft.
+  // AISV2 → {vault, dek, kdf, wrap}. Alt-Format (AISV1/PBKDF2, auch frühe Backups) → {legacy:true, vault}.
+  // Wirft Error(FILE_ERRS) bei kaputter/fremder Datei, sonst den Entschlüsselungsfehler (= falsche Passphrase).
+  async function openVaultText(raw, pass){
+    let f;
+    try{ f=parseFile(raw); }
+    catch(e){
+      if(!e||e.message!=='format') throw e;
+      let o; try{ o=JSON.parse(raw); }catch(_){ throw e; }
+      if(!looksLegacy(o)) throw e;
+      // Lesepfad Alt-Format — nie entfernen: alte .vault-Backups und nicht umgestellte Tresore hängen daran.
+      const k=await deriveKey(pass, new Uint8Array(b64ToBuf(o.salt)), o.iter);
+      return {legacy:true, vault:await decryptBlob(o, k)};
+    }
+    const kek=await deriveKek(passBytes(pass), f.kdf);
+    const dek=await unwrapDek(f.wrap, kek, f.kdf, false);   // Sitzungsschlüssel nicht extrahierbar
+    return {legacy:false, vault:await decryptBody(f.body, dek, f.kdf), dek, kdf:f.kdf, wrap:f.wrap};
+  }
+  // Umstellung Alt-Format → AISV2 (einmalig, nach dem Aegis-Gate). Der alte Blob ist der einzige lesbare Ciphertext:
+  // erst komplett bauen, dann aus dem SERIALISIERTEN Text zurücklesen und vergleichen, erst dann überschreiben.
+  const PRE3_KEY='ai-sachwert-vault-pre3';   // Sicherungskopie des Alt-Blobs (gleiche Passphrase), gelöscht beim nächsten AISV2-Entsperren
+  async function migrateToV2(p){
+    const dekX=await newDek();
+    const wrap=await wrapDek(dekX, p.kek, p.kdf);
+    const dek=await unwrapDek(wrap, p.kek, p.kdf, false);
+    const s=serializeFile(p.kdf, wrap, await encryptBody(p.vault, dek, p.kdf));
+    const f=parseFile(s);                                          // Read-back: genau das, was gleich im Speicher steht
+    const back=await decryptBody(f.body, await unwrapDek(f.wrap, p.kek, f.kdf, false), f.kdf);
+    if(JSON.stringify(back)!==JSON.stringify(p.vault)) throw new Error('readback');
+    if(pendingUnlock!==p) throw lockedErr();                       // zwischendurch gesperrt: nichts schreiben
+    if(localStorage.getItem(LS_KEY)!==p.raw) throw new Error('changed');   // Speicher hat sich unter uns geändert
+    try{ localStorage.setItem(PRE3_KEY, p.raw); localStorage.setItem(LS_KEY, s); }
+    catch(e){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } throw e; }   // setItem ist atomar: der Alt-Blob steht unverändert
+    return {dek, kdf:p.kdf, wrap};
+  }
+  function dropPre3(){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } }
+
+  /* ---------- Argon2-Vorabprüfung ----------
+     Known-Answer-Test mit kleinen Parametern (~10 ms). Fehlt hash-wasm oder rechnet es falsch, wird NICHTS am Tresor
+     angefasst und der Sperrbildschirm sagt warum — statt eines „falsche Passphrase“, das nach Datenverlust aussieht. */
+  const KAT_HEX='0d70cea2a4ad12ea2e8089e36c39ea57d8b696b61c76ee283c178d13bd2ba882';
+  let argonReady=null;
+  function argonCheck(){
+    if(!argonReady) argonReady=(async()=>{ try{
+      const raw=await argon2Raw(enc.encode('sachwert-tresor-kat'), {m:8192,t:1,p:1,salt:enc.encode('sachwert-tresor!')});
+      return Array.from(raw,b=>b.toString(16).padStart(2,'0')).join('')===KAT_HEX;
+    }catch(_){ return false; } })();
+    return argonReady;
   }
 
   /* ---------- boot ---------- */
@@ -464,6 +526,7 @@ const App = (function(){
     const raw = localStorage.getItem(LS_KEY);
     if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); }
     else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); }
+    argonCheck().then(ok=>{ if(!ok) err(raw?'lock-err':'setup-err', tr('err.noArgon2')); });
     // theme buttons reflect current
     const soft = document.documentElement.getAttribute('data-theme')==='soft';
     $('th-dark').classList.toggle('on',!soft); $('th-soft').classList.toggle('on',soft);
@@ -471,15 +534,23 @@ const App = (function(){
 
   /* ---------- setup ---------- */
   async function doSetup(){
+    if(doSetup._busy) return;
     err('setup-err');
     const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
     if(p1.length<12) return err('setup-err',tr('err.setupShort'));
     if(p1!==p2) return err('setup-err',tr('err.setupMismatch'));
-    const s = crypto.getRandomValues(new Uint8Array(16));
-    const k = await deriveKey(p1, s);
-    SALT = s; KEY = k; KEY_ITER = ITER;   // gemeinsam tauschen, nie SALT vor dem await (siehe persist)
-    VAULT = emptyVault();
-    await persist();
+    const btn=$('setup-btn'), orig=btn.textContent;
+    doSetup._busy=true; btn.disabled=true; btn.textContent=tr('busy.creating');
+    try{
+      if(!await argonCheck()) return err('setup-err',tr('err.noArgon2'));
+      const kdf={m:KDF_DEFAULT.m, t:KDF_DEFAULT.t, p:KDF_DEFAULT.p, salt:rand(16)};
+      const kek=await deriveKek(passBytes(p1), kdf);
+      const wrap=await wrapDek(await newDek(), kek, kdf);
+      const dek=await unwrapDek(wrap, kek, kdf, false);          // Sitzungsschlüssel nicht extrahierbar
+      DEK=dek; KDF=kdf; WRAP=wrap; VAULT=emptyVault();           // gemeinsam tauschen (siehe persist)
+      await persist();
+    }catch(e){ DEK=KDF=WRAP=VAULT=null; return err('setup-err',tr('err.setupFailed')); }
+    finally{ doSetup._busy=false; btn.disabled=false; btn.textContent=orig; }
     $('setup-pass1').value=$('setup-pass2').value='';
     enterApp();
     toast(tr('toast.vaultCreated'));
@@ -487,31 +558,67 @@ const App = (function(){
 
   /* ---------- unlock ---------- */
   async function doUnlock(){
-    if(doUnlock._busy) return;                 // verhindert Doppel-Entsperren bei mehrfachem Enter/Klick
+    if(doUnlock._busy||openSession._busy) return;   // verhindert Doppel-Entsperren bei mehrfachem Enter/Klick
     err('lock-err');
+    if(DEK||pendingUnlock) return;
     const raw = localStorage.getItem(LS_KEY);
     if(!raw) return boot();
-    let blob; try{blob=JSON.parse(raw);}catch(e){return err('lock-err',tr('err.vaultCorrupt'));}
-    SALT = new Uint8Array(b64ToBuf(blob.salt));
     const btn=$('unlock-btn'), orig=btn.textContent;
     doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
     try{
-      const k = await deriveKey($('lock-pass').value, SALT, blob.iter);
-      VAULT = await decryptBlob(blob, k);
-      KEY = k; KEY_ITER = clampIter(blob.iter);
-    }catch(e){ return err('lock-err',tr('err.wrongPass')); }
+      if(!await argonCheck()) return err('lock-err',tr('err.noArgon2'));   // ohne Argon2 nichts anfassen (auch kein Alt-Tresor)
+      const pass=$('lock-pass').value;
+      const r=await openVaultText(raw, pass);
+      if(r.legacy){
+        // Alt-Format: den neuen KEK schon jetzt ableiten (frischer Salt), solange die Passphrase da ist.
+        // Geschrieben wird erst nach dem Aegis-Gate in openSession() — mit Passphrase allein nichts umschreiben.
+        r.kdf={m:KDF_DEFAULT.m, t:KDF_DEFAULT.t, p:KDF_DEFAULT.p, salt:rand(16)};
+        r.kek=await deriveKek(passBytes(pass), r.kdf); r.raw=raw;
+      }
+      if(DEK||pendingUnlock) return;
+      pendingUnlock=r;
+    }catch(e){ return err('lock-err', e&&FILE_ERRS.includes(e.message)?fileErrMsg(e):tr('err.wrongPass')); }
     finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
+    afterGate();
+  }
+  // Nach bestandener Passphrase: Aegis-Wartestellung oder direkt in die Sitzung
+  function afterGate(){
     $('lock-pass').value='';
-    if((VAULT.version||1)>VAULT_VERSION) setTimeout(()=>toast(tr('err.vaultNewer')),600);   // nur warnen, nicht blockieren
-    if(VAULT.totp && VAULT.totp.enabled){ screen('totp'); setTimeout(()=>$('totp-code').focus(),100); }
-    else enterApp();
+    const v=pendingUnlock&&pendingUnlock.vault; if(!v) return;
+    if((v.version||1)>VAULT_VERSION) setTimeout(()=>toast(tr('err.vaultNewer')),600);   // nur warnen, nicht blockieren
+    if(v.totp && v.totp.enabled){ screen('totp'); $('totp-code').value=''; err('totp-err'); resetIdle(); setTimeout(()=>$('totp-code').focus(),100); return; }   // Idle-Sperre gilt auch in der Wartestellung
+    openSession();
   }
   async function doTotp(){
+    const p=pendingUnlock; if(!p||doTotp._busy||openSession._busy) return;
     err('totp-err');
     const code = $('totp-code').value.trim();
     if(!/^\d{6}$/.test(code)) return err('totp-err',tr('err.totp6'));
-    if(!await totpValid(VAULT.totp.secret, code)) return err('totp-err',tr('err.totpBad'));
+    doTotp._busy=true;
+    try{ if(!await totpValid(p.vault.totp.secret, code)) return err('totp-err',tr('err.totpBad')); }
+    finally{ doTotp._busy=false; }
+    if(pendingUnlock!==p) return;                    // zwischendurch gesperrt
     $('totp-code').value='';
+    await openSession();
+  }
+  // Gemeinsamer Abschluss beider Pforten: erst hier kommt der Schlüssel in die Sitzung (und wird ggf. umgestellt)
+  async function openSession(){
+    const p=pendingUnlock; if(!p||openSession._busy) return;
+    if(p.legacy){
+      const btns=[$('unlock-btn'),$('totp-btn')], labels=btns.map(b=>b.textContent);
+      openSession._busy=true; btns.forEach(b=>{ b.disabled=true; b.textContent=tr('busy.migrating'); });
+      p.vault.needsFreshBackup=true;                 // Hüllenfeld: Export-Tab empfiehlt ein frisches Backup
+      let g;
+      try{ g=await migrateToV2(p); }
+      catch(e){ if(!(e&&e.locked)){ toast(tr('err.migrateFailed')); lock(); } return; }
+      finally{ openSession._busy=false; btns.forEach((b,i)=>{ b.disabled=false; b.textContent=labels[i]; }); }
+      if(pendingUnlock!==p) return;                  // nach dem Schreiben gesperrt: Datei ist umgestellt, Sitzung bleibt zu
+      DEK=g.dek; KDF=g.kdf; WRAP=g.wrap; VAULT=p.vault; pendingUnlock=null;
+      enterApp(); setTimeout(()=>toast(tr('toast.migrated')),300);
+      return;
+    }
+    DEK=p.dek; KDF=p.kdf; WRAP=p.wrap; VAULT=p.vault; pendingUnlock=null;
+    dropPre3();                                      // AISV2 lässt sich öffnen: die Sicherungskopie des Alt-Blobs wird nicht mehr gebraucht
     enterApp();
   }
 
@@ -520,12 +627,13 @@ const App = (function(){
   function clearIdle(){ if(idleTimer){clearTimeout(idleTimer); idleTimer=null;} }
   function resetIdle(){
     clearIdle();
-    if(!KEY||!VAULT) return;                         // nur im entsperrten Zustand
-    const mins = VAULT.autolock==null?5:VAULT.autolock;
+    const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
+    if(!v) return;                                   // nur entsperrt oder in der Aegis-Wartestellung
+    const mins = v.autolock==null?5:v.autolock;
     if(!mins) return;                                // 0 = Auto-Lock aus
     idleTimer=setTimeout(()=>{ clearIdle(); toast(tr('toast.autolocked')); lock(); }, mins*60000);
   }
-  function activity(){ if(!KEY) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
+  function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
   function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); }
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
@@ -554,7 +662,7 @@ const App = (function(){
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
   }
-  function lock(){ clearIdle(); KEY=null; VAULT=null; SALT=null; clearRendered(); maskInputs(); boot(); }
+  function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null; clearRendered(); maskInputs(); boot(); }
   // Auge im Passwortfeld (statt „anzeigen“-Kästchen, Muster Alien Pass): Knopf mit data-showpass=<Feld-ID>, Zustand in aria-pressed
   function setEye(b,on){ b.setAttribute('aria-pressed',on?'true':'false'); b.dataset.showpass.split(',').forEach(id=>{ const f=$(id); if(f) f.type=on?'text':'password'; }); }
   function togglePass(_,b){ if(b) setEye(b,b.getAttribute('aria-pressed')!=='true'); }
@@ -568,8 +676,9 @@ const App = (function(){
   // die tatsächlich verstrichene Zeit prüfen und ggf. sofort sperren.
   let hiddenAt=0;
   document.addEventListener('visibilitychange',()=>{
-    if(!KEY||!VAULT) return;
-    const mins = VAULT.autolock==null?5:VAULT.autolock;
+    const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
+    if(!v) return;
+    const mins = v.autolock==null?5:v.autolock;
     if(document.hidden){ hiddenAt=Date.now(); return; }
     const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0;
     if(mins && away>mins*60000){ toast(tr('toast.autolocked')); lock(); }
@@ -1233,8 +1342,9 @@ const App = (function(){
   async function exportVault(){
     if(!localStorage.getItem(LS_KEY))return;
     // Backup-Stand für die Erinnerung merken — wandert mit in die Exportdatei
-    VAULT.lastBackup=todayStr(); VAULT.lastBackupCount=VAULT.entries.length;
-    try{ await persist(); }catch(_){ return; }
+    const hadFresh=VAULT.needsFreshBackup;
+    VAULT.lastBackup=todayStr(); VAULT.lastBackupCount=VAULT.entries.length; delete VAULT.needsFreshBackup;   // Backup im neuen Format liegt vor
+    try{ await persist(); }catch(e){ if(!(e&&e.locked)&&VAULT&&hadFresh) VAULT.needsFreshBackup=true; return; }
     const raw=localStorage.getItem(LS_KEY);
     const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
     if(isNative){
@@ -1355,7 +1465,7 @@ const App = (function(){
     for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
     return {entries:Array.from(byId.values()), added};
   }
-  let pendingImportBlob=null;   // gewählte .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
+  let pendingImportBlob=null;   // Text der gewählten .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
   function importVault(ev){
     const f=ev.target.files[0];
     ev.target.value='';            // erlaubt erneute Auswahl derselben Datei
@@ -1363,9 +1473,12 @@ const App = (function(){
     const r=new FileReader();
     r.onload=()=>{
       try{
-        const blob=JSON.parse(r.result);
-        if(!blob.ct||!blob.salt)throw 0;
-        pendingImportBlob=blob;
+        const text=String(r.result);
+        // AISV2 streng prüfen (Grenzen VOR jeder KDF-Arbeit); Alt-Backups bewusst locker (ct+salt), damit frühe Dateien nicht an einem Magic scheitern
+        try{ parseFile(text); }
+        catch(e){ if(e&&e.message!=='format'){ $('export-msg').textContent=fileErrMsg(e); return; }
+          const blob=JSON.parse(text); if(!blob||!blob.ct||!blob.salt) throw 0; }
+        pendingImportBlob=text;
         $('import-pass').value='';
         show('import-pass-box');
         $('export-msg').textContent='';
@@ -1382,11 +1495,10 @@ const App = (function(){
     if(!pass){$('export-msg').textContent=tr('msg.enterPass');return;}
     if(btn){btn.disabled=true;btn.textContent=tr('busy.decrypting');}
     try{
-      const blob=pendingImportBlob;
-      const salt=new Uint8Array(b64ToBuf(blob.salt));
-      const k=await deriveKey(pass,salt,blob.iter);
-      const v=await decryptBlob(blob,k);   // entschlüsselt = Passphrase korrekt
-      // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
+      if(!await argonCheck()){ $('export-msg').textContent=tr('err.noArgon2'); return; }
+      const v=(await openVaultText(pendingImportBlob, pass)).vault;   // entschlüsselt = Passphrase korrekt (AISV2 oder Alt-Format)
+      if(!VAULT) return;                   // während der Ableitung gesperrt
+      // Zusammenführen statt ersetzen — deine lokale Passphrase (DEK/KDF/WRAP) bleibt unverändert
       // Zustand vor dem Zusammenfuehren merken: scheitert persist(), darf die Anzeige nicht fremde
       // Buchungen zeigen, die nie gespeichert wurden — der naechste persist() schriebe sie sonst
       // dauerhaft fest (Audit run-3, Fund B-3; gleiches Muster wie importCsv seit run-2).
@@ -1412,7 +1524,7 @@ const App = (function(){
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
-    }catch(e){ if(!(e&&e.locked)) $('export-msg').textContent=tr('msg.importBad'); }
+    }catch(e){ if(!(e&&e.locked)) $('export-msg').textContent=e&&FILE_ERRS.includes(e.message)?fileErrMsg(e):tr('msg.importBad'); }
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
   }
 
@@ -1494,19 +1606,22 @@ const App = (function(){
     const btn=$('cp-btn'), orig=btn.textContent;
     changePass._busy=true; btn.disabled=true; btn.textContent=tr('busy.changing');
     try{
-      // 1) aktuelle Passphrase gegen den gespeicherten Tresor prüfen
-      const raw=localStorage.getItem(LS_KEY);
-      try{ const blob=JSON.parse(raw); const ck=await deriveKey(cur,new Uint8Array(b64ToBuf(blob.salt)),blob.iter); await decryptBlob(blob,ck); }
+      // 1) aktuelle Passphrase gegen den Slot der laufenden Sitzung prüfen (echtes Auspacken, kein Vergleich)
+      const vault=VAULT, old={DEK, KDF, WRAP};
+      if(!vault) return;
+      try{ const kOld=await deriveKek(passBytes(cur), old.KDF); await unwrapDek(old.WRAP, kOld, old.KDF, false); }
       catch(e){ return err('cp-err',tr('err.cpWrong')); }
-      // 2) mit neuer Passphrase neu verschlüsseln (frischer Salt). Schlüssel erst LOKAL ableiten, dann SALT/KEY/KEY_ITER
-      //    in einem synchronen Schritt tauschen: ein persist() während PBKDF2 schriebe sonst alten Schlüssel + neuen Salt.
-      const vault=VAULT, oldS=SALT, oldK=KEY, oldI=KEY_ITER;
-      const s=crypto.getRandomValues(new Uint8Array(16));
-      const k=await deriveKey(p1,s);
-      if(!KEY||VAULT!==vault) return;   // während der Ableitung gesperrt: neuen Schlüssel nicht zurück in den RAM holen
-      SALT=s; KEY=k; KEY_ITER=ITER;
+      // 2) DEK-Rotation unter neuer Passphrase (frischer Salt, frischer DEK). Alles erst LOKAL bauen, dann DEK/KDF/WRAP
+      //    in einem synchronen Schritt tauschen: ein persist() während Argon2 schriebe sonst einen gemischten Stand.
+      const kdf={m:old.KDF.m, t:old.KDF.t, p:old.KDF.p, salt:rand(16)};
+      const kNew=await deriveKek(passBytes(p1), kdf);
+      const wrap=await wrapDek(await newDek(), kNew, kdf);
+      const dek=await unwrapDek(wrap, kNew, kdf, false);
+      if(!DEK||VAULT!==vault) return;   // während der Ableitung gesperrt: neuen Schlüssel nicht zurück in den RAM holen
+      DEK=dek; KDF=kdf; WRAP=wrap;
       try{ await persist(); }
-      catch(e){ if(!(e&&e.locked)){ SALT=oldS; KEY=oldK; KEY_ITER=oldI; } return; }   // Speicher hält weiter die alte Passphrase — RAM passend zurück
+      catch(e){ if(!(e&&e.locked)){ DEK=old.DEK; KDF=old.KDF; WRAP=old.WRAP; } return; }   // Speicher hält weiter die alte Passphrase — RAM passend zurück
+      dropPre3();                        // Sicherungskopie trüge noch die alte Passphrase
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
       toast(tr('toast.passChanged'));
     }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
@@ -1515,7 +1630,7 @@ const App = (function(){
   /* ---------- misc ---------- */
   function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
   function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
-  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;localStorage.removeItem(LS_KEY);lock();}
+  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;localStorage.removeItem(LS_KEY);dropPre3();lock();}
   function pickFile(id){const el=$(id);if(el)el.click();}
   function copySecret(){copy($('totp-secret').textContent,tr('msg.keyCopied'));}
   function copyOtpauth(){copy(App._otpauth,tr('msg.otpauthCopied'));}
@@ -1538,6 +1653,7 @@ const App = (function(){
   function meterCp(){renderMeter('cp1','cp-meter');}
   // Backup-Erinnerung: nie gesichert ODER neue Buchungen und Export älter als 14 Tage
   function backupHintHtml(){
+    if(VAULT.needsFreshBackup) return '<div class="warn" style="grid-column:1/-1">'+tr('bk.fresh')+'</div>';
     const n=VAULT.entries.length; if(!n) return '';
     if(!VAULT.lastBackup) return '<div class="warn" style="grid-column:1/-1">'+tr('bk.never')+'</div>';
     const newSince=Math.max(0,n-(VAULT.lastBackupCount||0));

@@ -272,7 +272,7 @@ tr:hover td{color:var(--neon);}
       <p class="muted" data-i18n-html="totp.intro">Gib den aktuellen 6-stelligen Code aus deinem <strong>Aegis 2FA Manager</strong> ein.</p>
       <input id="totp-code" class="pin-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" data-enter="doTotp">
       <div id="totp-err" class="warn hidden" style="margin-top:12px"></div>
-      <button class="btn" style="margin-top:16px;width:100%" data-action="doTotp" data-i18n="totp.confirm">Bestätigen</button>
+      <button id="totp-btn" class="btn" style="margin-top:16px;width:100%" data-action="doTotp" data-i18n="totp.confirm">Bestätigen</button>
       <button class="btn ghost sm" style="margin-top:10px;width:100%" data-action="lock" data-i18n="btn.cancel">Abbrechen</button>
     </div>
   </div>
