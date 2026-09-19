@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '2.12';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.0';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -729,7 +729,7 @@ const App = (function(){
   }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
-    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pass H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
     // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
@@ -1766,6 +1766,10 @@ const App = (function(){
       const c=e&&e.message; if(gen!==bioGen) return;
       if(c==='cancel') return; if(c==='lockout') return err('lock-err',tr('bio.lockout'));
       if(c==='reboot'){ bioDrop(false); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }   // Slot hat unlock() selbst gelöscht, Kanarie bleiben lassen
+      // 'error' = Timeout/Sensor nicht bereit im Dialog: unlock() lässt den Slot nativ stehen → hier auch nichts löschen. bioDrop(true)
+      // → disable() räumte die Kanarie ab; ein provozierter Timeout plus danach registrierter Finger bliebe sonst unbemerkt
+      // (Rückmeldung aus Alien Pass v1.6.1, N1)
+      if(c==='error'){ err('lock-err',tr('bio.naNow')); return; }
       if(c==='invalidated') setBioAlert(true);                            // neuer Finger während die App gesperrt im Hintergrund lag: bleibende Warnung (Kurz-Review A)
       bioDrop(c!=='invalidated'&&c!=='none'); return bioMsg(tr('bio.reset'));   // ungültiger Schlüssel, alter/fremder Blob, Manipulation
     }finally{ doBio._busy=false; if(secret) secret.fill(0); }
