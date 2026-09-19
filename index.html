@@ -8,8 +8,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#000000">
-<!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js).
+     'wasm-unsafe-eval' ist die EINZIGE Erweiterung (seit v3.0): Chromium verlangt den Token für jede
+     WebAssembly-Kompilierung, auch aus eingebettetem Base64 (Argon2id aus vendor/hash-wasm). Er erlaubt
+     ausschließlich WASM — KEIN String-eval, KEIN Inline-Script. connect-src 'none' bleibt unangetastet. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script src="vendor/hash-wasm/argon2.umd.min.js"></script>
 <script src="qr.js"></script>
 <script src="app.js"></script>
 <link href="vendor/fonts/fonts.css" rel="stylesheet">
@@ -195,7 +199,7 @@ tr:hover td{color:var(--neon);}
 .ic{width:1.1em;height:1.1em;vertical-align:-0.18em;display:inline-block;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 3px rgba(0,255,204,.45));}
 .lockicon{display:flex;justify-content:center;margin-bottom:10px;}
 .lockicon .ic{width:2.6rem;height:2.6rem;stroke-width:1.3;color:var(--neon);filter:drop-shadow(0 0 10px rgba(0,255,204,.6));}
-.btn .ic{stroke-width:1.9;}
+.btn .ic{stroke-width:1.9;flex-shrink:0;}   /* Flex-Element: bricht der Text um, würde das Symbol sonst auf Punktgröße gestaucht */
 
 /* CHART — Look wie charts.html (Rahmen + neon Eck-Akzente) */
 .chart-wrap{position:relative;width:100%;border:1px solid var(--border);border-radius:4px;background:#0a0f0d;padding:10px;overflow:hidden;}
@@ -236,7 +240,7 @@ tr:hover td{color:var(--neon);}
     <div class="card">
       <div class="lockicon"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="11" cy="12" r="4"/><path d="M11 8.4v1.4M11 14.2v1.4M7.4 12h1.4M13.2 12h1.4"/><circle cx="11" cy="12" r="1"/><path d="M19 9.5v5"/></svg></div>
       <h2 data-i18n="setup.title">Tresor einrichten</h2>
-      <p class="muted" data-i18n-html="setup.intro">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via PBKDF2). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
+      <p class="muted" data-i18n-html="setup.intro">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via Argon2id). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
       <label data-i18n="lbl.passphrase">Passphrase</label>
       <input id="setup-pass1" type="password" autocomplete="new-password" placeholder="mind. 12 Zeichen, besser eine Wortfolge" data-i18n-ph="setup.ph1" data-input="meterSetup">
       <div id="setup-meter" style="margin-top:4px;font-size:.78rem"></div>
@@ -257,6 +261,8 @@ tr:hover td{color:var(--neon);}
       <input id="lock-pass" type="password" autocomplete="off" data-enter="doUnlock">
       <div id="lock-err" class="warn hidden" style="margin-top:12px"></div>
       <button id="unlock-btn" class="btn" style="margin-top:16px;width:100%" data-action="doUnlock" data-i18n="lock.unlock">Entsperren</button>
+      <button id="bio-btn" class="btn ghost hidden" style="margin-top:10px;width:100%" data-action="doBio"><svg class="ic" viewBox="0 0 24 24"><path d="M7 8.5a6 6 0 0 1 10 0"/><path d="M5.5 12a7.5 7.5 0 0 1 13 0"/><path d="M8.5 12a4 4 0 0 1 7 0v2a5 5 0 0 1-2 4"/><path d="M12 11.5v3a6 6 0 0 0 3 5"/><path d="M9 16.5a8 8 0 0 0 1.5 3"/></svg> <span data-i18n="lock.bio">Mit Fingerabdruck entsperren</span></button>
+      <p id="bio-msg" class="muted hidden" style="margin-top:12px"></p>
     </div>
   </div>
 
@@ -268,8 +274,8 @@ tr:hover td{color:var(--neon);}
       <p class="muted" data-i18n-html="totp.intro">Gib den aktuellen 6-stelligen Code aus deinem <strong>Aegis 2FA Manager</strong> ein.</p>
       <input id="totp-code" class="pin-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" data-enter="doTotp">
       <div id="totp-err" class="warn hidden" style="margin-top:12px"></div>
-      <button class="btn" style="margin-top:16px;width:100%" data-action="doTotp" data-i18n="totp.confirm">Bestätigen</button>
-      <button class="btn ghost sm" style="margin-top:10px;width:100%" data-action="lock" data-i18n="btn.cancel">Abbrechen</button>
+      <button id="totp-btn" class="btn" style="margin-top:16px;width:100%" data-action="doTotp" data-i18n="totp.confirm">Bestätigen</button>
+      <button class="btn ghost sm" style="margin-top:10px;width:100%" data-action="cancelTotp" data-i18n="btn.cancel">Abbrechen</button>
     </div>
   </div>
 
@@ -538,6 +544,20 @@ tr:hover td{color:var(--neon);}
           <button class="btn danger sm" style="margin-top:10px" data-action="totpDisable" data-i18n="set.totpDisable">2FA deaktivieren</button>
         </div>
       </div>
+      <div class="card hidden" id="bio-card">
+        <h2 data-i18n="set.bioTitle">Fingerabdruck-Entsperren (Android)</h2>
+        <div id="bio-alert" class="warn hidden" style="margin-bottom:12px"></div>
+        <div id="bio-off">
+          <p class="muted" data-i18n-html="set.bioOffIntro">Entsperrt den Tresor mit dem Fingerabdruck des Geräts statt mit der Passphrase. <strong>Ehrlich gesagt:</strong> Ein Fingerabdruck ist bequem, aber erzwingbar — an einer Grenze oder von jemandem, der deine Hand führt. Android bindet den Schlüssel an jede starke Biometrie des Geräts: Wo eine starke Gesichtserkennung eingerichtet ist (manche Stock-Pixel; auf GrapheneOS nicht), öffnet auch sie den Tresor, nach einem Bestätigungs-Tipp. Die Passphrase bleibt der eigentliche Schutz: Sie wird nach jedem Neustart des Handys verlangt, nach einem Passphrase-Wechsel und sobald ein neuer Fingerabdruck im System eingerichtet wird. Technisch schließt ein vom Android-Keystore verwahrter Zufallsschlüssel den Datenschlüssel auf; nichts davon gelangt in Backups.</p>
+          <label data-i18n="set.bioPass">Passphrase zur Bestätigung</label><input id="bio-pass" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" data-enter="bioEnable">
+          <div id="bio-err" class="warn hidden" style="margin-top:10px"></div>
+          <button id="bio-btn-on" class="btn" style="margin-top:12px" data-action="bioEnable" data-i18n="set.bioEnable">Fingerabdruck aktivieren</button>
+        </div>
+        <div id="bio-on" class="hidden">
+          <p class="muted"><svg class="ic" viewBox="0 0 24 24" style="color:var(--neon)"><path d="M5 12.5l4 4 10-10"/></svg> <span data-i18n="set.bioOnText">Aktiv. Beim Entsperren genügt der Fingerabdruck — bis zum nächsten Neustart, Passphrase-Wechsel oder neuen Fingerabdruck im System. „Jetzt sperren“ ist der bewusste Riegel: Der nächste Start verlangt dann die Passphrase, danach gilt der Fingerabdruck wieder. Gilt nur auf diesem Gerät.</span></p>
+          <button class="btn danger sm" style="margin-top:10px" data-action="bioDisable" data-i18n="set.bioDisable">Fingerabdruck deaktivieren</button>
+        </div>
+      </div>
       <div class="card">
         <h2 data-i18n="set.cpTitle">Passphrase ändern</h2>
         <label data-i18n="set.cpCur">Aktuelle Passphrase</label><input id="cp-cur" type="password" autocomplete="current-password">
@@ -568,7 +588,7 @@ tr:hover td{color:var(--neon);}
           </select>
           <div id="cm-set-autolock" class="combo-menu hidden"></div>
         </div>
-        <button class="btn ghost" data-action="lock"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> <span data-i18n="set.lockNow">Jetzt sperren</span></button>
+        <button class="btn ghost" data-action="lockNow"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> <span data-i18n="set.lockNow">Jetzt sperren</span></button>
         <button class="btn danger" style="margin-left:8px;margin-top:10px" data-action="wipeLocal" data-i18n="set.wipe">Lokale Daten löschen</button>
         <p class="muted" style="margin-top:10px" data-i18n-html="set.wipeNote">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
         <p class="muted" style="margin-top:10px" id="about-line"></p>
@@ -578,7 +598,7 @@ tr:hover td{color:var(--neon);}
 
   <div class="foot">
     <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
-    <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238</span><br>
+    <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238</span><br>
     <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
   </div>
 </div>
@@ -633,10 +653,15 @@ tr:hover td{color:var(--neon);}
 
     <h2 data-i18n="help.h9">Sicherheit</h2>
     <ul data-i18n-html="help.l9">
-      <li>AES-256-GCM, Schlüssel via PBKDF2-SHA256 (600.000 Iterationen), native WebCrypto — kein Fremd-Krypto.</li>
-      <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline.</li>
+      <li>AES-256-GCM über native WebCrypto. Den Schlüssel leitet <strong>Argon2id</strong> aus deiner Passphrase ab (64 MiB Speicher, 3 Durchgänge): Jeder Rateversuch kostet Arbeitsspeicher, das macht Durchprobieren auf Grafikkarten und Spezialchips teuer. Argon2id stammt aus der quelloffenen Bibliothek hash-wasm (MIT), fest eingebunden und beim Build per SHA-256 geprüft.</li>
+      <li>Tresore und <code>.vault</code>-Backups aus Versionen vor 3.0 öffnen weiter. Der Tresor auf dem Gerät wird beim ersten Entsperren automatisch umgestellt.</li>
+      <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline. Die Android-App hat keine INTERNET-Berechtigung; ihre einzige System-Berechtigung gilt dem Fingerabdruck.</li>
+      <li>Nach 3 falschen Versuchen wächst eine Wartezeit (bis 30 Sekunden) — ein Riegel gegen Durchprobieren am Gerät, kein Krypto-Schutz.</li>
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>
+
+    <h2 data-i18n="help.h10">Fingerabdruck (Android-App)</h2>
+    <p data-i18n-html="help.p10">Unter Einstellungen lässt sich das Entsperren per Fingerabdruck einschalten (mit der Passphrase als Bestätigung). <strong>Ehrlich eingeordnet:</strong> Das ist bequem, aber erzwingbar, und kein zusätzlicher Schutz — nur ein zweiter Weg zum selben Schlüssel. Die Passphrase wird wieder verlangt nach jedem Neustart des Handys, nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden), nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck registriert wird. Im letzten Fall schaltet die App den Fingerabdruck ab und zeigt eine Warnung — warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Die Neustart-Regel ist Programmcode, keine kryptografische Garantie. Ist Aegis-2FA aktiv, wird der Code auch nach dem Fingerabdruck verlangt.</p>
 
     <div style="text-align:center;margin-top:32px"><button class="btn ghost" data-action="closeHelp" data-i18n="help.close">Schließen</button></div>
   </div>

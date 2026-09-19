@@ -17,10 +17,24 @@ description: |
   price lookups over the network. Your data never leaves the device in plaintext.
 
   Features:
-  - NO permissions at all — not even INTERNET. The OS itself guarantees the app
-    cannot phone home; verify it right in the APK manifest (since v2.0)
-  - FLAG_SECURE: no screenshots, no screen recording, no preview in recents (v2.0)
-  - AES-256-GCM encryption, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto
+  - No INTERNET permission — the OS itself guarantees the app cannot phone home; verify
+    it right in the APK manifest (since v2.0). Its only system permission is USE_BIOMETRIC
+    for the optional fingerprint unlock (v3.0), plus USE_FINGERPRINT, brought in by
+    androidx.biometric and limited by the app to Android 8.1 and below. The also-listed
+    ...DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION is an app-internal AndroidX signature
+    permission with no system access. The build aborts if the finished APK requests any
+    other permission
+  - FLAG_SECURE: no screenshots, no screen recording, no preview in recents (v2.0); no
+    backup and no device-to-device transfer of vault data (v3.0)
+  - AES-256-GCM encryption (native WebCrypto); since v3.0 the key is derived with Argon2id
+    (64 MiB, 3 passes), far costlier to brute-force on GPUs than the former PBKDF2. Older
+    vaults and backups keep opening and are switched over automatically
+  - Optional fingerprint unlock (v3.0, Android Keystore): convenient, but it can be forced,
+    and it is no extra factor. The passphrase is required after every reboot, after a
+    passphrase change (fingerprint unlock is then off and must be re-enabled), after
+    "Lock now" and whenever a new fingerprint is enrolled in
+    Android — the app then switches fingerprint unlock off and warns you
+  - Failed-attempt brake (v3.0): a growing wait after 3 wrong attempts
   - Optional 2FA (Aegis / TOTP, RFC 6238) with a self-contained QR encoder
   - Bitcoin: buys, sells and withdrawals; gold and silver by count × denomination
   - Multi-currency entries (EUR / USD / CHF), totals kept separate per currency —
@@ -33,7 +47,8 @@ description: |
   - Encrypted .vault backup, peer-to-peer sync via Syncthing (no cloud)
   - CSV export compatible with the BTC tax tool (KYC / noKYC kept separate)
   - Fully bilingual (German / English), offline in-app manual included
-  - Open source (MIT) — no third-party crypto, no external CDNs, no trackers
+  - Open source (MIT) — Argon2id from the open-source hash-wasm library (MIT, checked
+    against a pinned SHA-256 at build time); no external CDNs, no trackers
 
   Signing certificate SHA-256 (verify with AppVerifier), identical for every version:
   66:0F:21:0C:7A:28:9F:38:8B:B4:81:2C:23:82:5A:77:F1:FC:84:E6:A7:EE:58:D6:42:81:B6:BF:5C:D8:79:88

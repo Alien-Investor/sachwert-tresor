@@ -3,6 +3,44 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.0 — 2026-09-19
+
+> **Vor dem Update ein Backup exportieren** (Export & Sync → Backup erstellen). Beim ersten
+> Entsperren nach dem Update stellt der Tresor seine Verschlüsselung um — abgesichert, aber eine
+> Einwegtür: Ältere App-Versionen können den umgestellten Tresor danach nicht mehr öffnen.
+> Alte `.vault`-Backups bleiben in v3.0 dauerhaft importierbar.
+
+Stärkere Verschlüsselung, Fingerabdruck-Entsperren, Fehlversuchs-Bremse:
+
+- **Argon2id statt PBKDF2.** Der Schlüssel wird jetzt mit Argon2id aus der Passphrase abgeleitet
+  (64 MiB Speicher, 3 Durchgänge). Jeder Rateversuch kostet damit Arbeitsspeicher, was Durchprobieren
+  auf Grafikkarten und Spezialchips deutlich teurer macht. Argon2id stammt aus der quelloffenen
+  Bibliothek hash-wasm (MIT, 4.12.0), fest eingebunden und beim Build per SHA-256 geprüft.
+- **Neues Dateiformat mit Datenschlüssel.** Die Daten verschlüsselt ein zufälliger Datenschlüssel,
+  die Passphrase schützt nur diesen. Ein Passphrase-Wechsel erneuert beide.
+- **Automatische Umstellung.** Ein Tresor aus einer älteren Version wird beim ersten Entsperren
+  umgestellt (bei aktiver 2FA erst nach dem Code). Geschrieben wird erst, nachdem die neue Datei zur
+  Probe entschlüsselt wurde; bis zum nächsten Entsperren bleibt, wenn der Speicher reicht, eine Sicherungskopie des alten Stands.
+  Danach empfiehlt die Übersicht ein frisches Backup im neuen Format.
+- **Fingerabdruck-Entsperren** (nur Android-App, optional, in den Einstellungen). Bequem, aber
+  erzwingbar und kein zusätzlicher Faktor. Die Passphrase wird wieder verlangt nach jedem Neustart,
+  nach einem Passphrase-Wechsel (dann ist der Fingerabdruck aus), nach „Jetzt sperren“ und sobald in
+  Android ein neuer Fingerabdruck registriert wird — dann schaltet die App den Fingerabdruck ab und
+  zeigt eine Warnung, bis du sie gelesen hast.
+- **Fehlversuchs-Bremse.** Ab dem 3. falschen Versuch (Passphrase oder 2FA-Code) wächst eine
+  Wartezeit bis 30 Sekunden, auch über einen Neustart der App hinweg.
+- **Einzige System-Berechtigung ist jetzt `USE_BIOMETRIC`** (dazu `USE_FINGERPRINT`, von der App auf
+  Android bis 8.1 beschränkt). Weiterhin **keine INTERNET-Berechtigung**. Neu: Tresor-Daten werden
+  auch beim Handywechsel nicht mitkopiert. Der Build prüft die fertige APK und bricht bei jeder
+  anderen Berechtigung ab.
+- Verständlichere Fehlermeldungen: eine kaputte oder fremde Datei heißt jetzt „keine gültige
+  Tresor-Datei“ statt „falsche Passphrase“; reicht der Speicher für Argon2id nicht, sagt die App das.
+- Nach einem Fehlversuch oder beim Wechsel in den Hintergrund bleibt keine getippte Passphrase mehr
+  im Eingabefeld stehen.
+
+Geprüft durch zwei interne Security-Audits (davon eines über die gesamte Version) und Gerätetests
+auf GrapheneOS.
+
 ## v2.12 — 2026-09-19
 
 Vermögensentwicklung im Verlauf-Tab deutlich ausgebaut:

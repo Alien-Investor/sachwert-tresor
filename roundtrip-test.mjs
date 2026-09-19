@@ -221,6 +221,137 @@ async function main(){
   const many=Array.from({length:PRICE_HIST_MAX+50},(_,i)=>({d:'20'+String(10+Math.floor(i/365)).padStart(2,'0')+'-01-01', btc:String(1000+i)}));
   ok(mergeSnaps([], many).length<=PRICE_HIST_MAX, 'Deckel PRICE_HIST_MAX greift');
 
+  console.log('\n[9] Argon2id + CSP-Zusicherungen (v3.0-Vorbereitung)');
+  const { readFileSync } = await import('node:fs');
+  // Known-Answer-Test gegen den offiziellen Vektor der Referenzimplementierung phc-winner-argon2
+  // (argon2id v1.3, t=2, m=65536, p=1, password/somesalt). Beweist, dass der gebuendelte WASM-Build
+  // spec-konform rechnet — nicht nur reproduzierbar mit sich selbst.
+  const hashwasm = (await import('./vendor/hash-wasm/argon2.umd.min.js')).default
+                 ?? (await import('./vendor/hash-wasm/argon2.umd.min.js'));
+  globalThis.hashwasm = hashwasm;     // die Sentinel-Region greift wie im Browser auf globalThis zu
+  const kat = await hashwasm.argon2id({password:'password', salt:enc.encode('somesalt'),
+    parallelism:1, iterations:2, memorySize:65536, hashLength:32, outputType:'hex'});
+  ok(kat==='09316115d5cf24ed5a15a31a3ba326e5cf32edc24702987c02b6566f61913cf7',
+     'Argon2id trifft den Referenzvektor der phc-winner-argon2-Testsuite');
+
+  // CSP wird STATISCH geprueft: page.evaluate laeuft ueber CDP und umgeht die Seiten-CSP
+  // grundsaetzlich (auch ohne jedes eval-Token) — ein eval()-Test im Browser beweist NICHTS.
+  // Aussagekraeftig sind nur diese Textpruefung und die DOM-Injektion in verify-v22.mjs.
+  const html = readFileSync('index.html','utf8');
+  const csp = (html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)||[])[1]||'';
+  const scriptSrc = (csp.match(/script-src ([^;]+)/)||[])[1]||'';
+  ok(/connect-src 'none'/.test(csp), "connect-src 'none' steht unveraendert in der CSP");
+  ok(/'wasm-unsafe-eval'/.test(scriptSrc), "script-src erlaubt 'wasm-unsafe-eval' (Argon2-WASM)");
+  ok(!/(^|[^-])'unsafe-eval'/.test(scriptSrc), "script-src erlaubt KEIN allgemeines 'unsafe-eval'");
+  ok(!/'unsafe-inline'/.test(scriptSrc), "script-src erlaubt KEIN 'unsafe-inline'");
+  ok(/object-src 'none'/.test(csp) && /base-uri 'none'/.test(csp), "object-src und base-uri bleiben 'none'");
+  ok(html.indexOf('vendor/hash-wasm/argon2.umd.min.js') < html.indexOf('src="app.js"'),
+     'Argon2 wird vor app.js geladen');
+  const sw = readFileSync('sw.js','utf8');
+  ok(/hash-wasm\/argon2\.umd\.min\.js/.test(sw), 'Argon2 steht im Service-Worker-CORE (sonst waere die Web-PWA offline tot)');
+
+  console.log('\n[10] Dateiformat AISV2 — ausgewertet wird die Sentinel-Region aus app.js selbst');
+  // Kein Nachbau: die Region zwischen den VAULT-FORMAT-Sentinels wird direkt ausgefuehrt.
+  // Eine Kopie wuerde mit der Zeit auseinanderlaufen, diese Region kann es nicht.
+  const appSrc = readFileSync('app.js','utf8');
+  const region = appSrc.split('/* === VAULT-FORMAT BEGIN === */')[1].split('/* === VAULT-FORMAT END === */')[0];
+  ok(!!region && region.length>1500, 'Sentinel-Region gefunden (Marker nicht umbenennen!)');
+  const V = new Function('enc','dec','bufToB64','b64ToBuf',
+    region + '\nreturn {MAGIC,FILE_VER,KDF_DEFAULT,KDF_BOUNDS,MAX_FILE_BYTES,rand,b64Bytes,passBytes,kdfOk,aad,'
+           + 'deriveKek,newDek,wrapDek,unwrapDek,bioKey,parseBioBlob,serializeBioBlob,encryptBody,decryptBody,'
+           + 'serializeFile,parseFile,looksLegacy};')(enc,dec,bufToB64,b64ToBuf);
+  const KDF_TEST={m:8192,t:1,p:1};                       // klein, damit die Suite schnell bleibt
+  const mkKdf=()=>({...KDF_TEST, salt:V.rand(16)});
+  const FIXPASS='fixture-passphrase-nicht-geheim';
+
+  // --- Roundtrip ueber die echte Schluesselhierarchie ---
+  const kdfA=mkKdf();
+  const kekA=await V.deriveKek(V.passBytes('meine passphrase'), kdfA);
+  const dekA=await V.newDek();
+  const wrapA=await V.wrapDek(dekA, kekA, kdfA, 'wrap');
+  const sessA=await V.unwrapDek(wrapA, kekA, kdfA, false, 'wrap');
+  const bodyA=await V.encryptBody({hallo:'welt', n:42}, sessA, kdfA);
+  const fileA=V.serializeFile(kdfA, wrapA, bodyA);
+  const parsedA=V.parseFile(fileA);
+  const kekA2=await V.deriveKek(V.passBytes('meine passphrase'), parsedA.kdf);
+  const sessA2=await V.unwrapDek(parsedA.wrap, kekA2, parsedA.kdf, false, 'wrap');
+  const backA=await V.decryptBody(parsedA.body, sessA2, parsedA.kdf);
+  ok(backA.hallo==='welt' && backA.n===42, 'AISV2: schreiben, parsen, entschluesseln ist verlustfrei');
+  ok(JSON.parse(fileA).magic==='AISV2' && JSON.parse(fileA).ver===1, 'Datei traegt magic AISV2 und ver 1');
+  ok(JSON.parse(fileA).kdf.name==='argon2id' && !('iter' in JSON.parse(fileA)), 'Header nennt argon2id, kein PBKDF2-iter mehr');
+  const thrown=async f=>{ try{ await f(); return null; }catch(e){ return e.message; } };
+  ok(await thrown(async()=>{ const kekX=await V.deriveKek(V.passBytes('falsch'), parsedA.kdf);
+      await V.unwrapDek(parsedA.wrap, kekX, parsedA.kdf, false, 'wrap'); }), 'falsche Passphrase oeffnet den Wrap-Slot nicht');
+
+  // --- parseFile: Struktur und Grenzen VOR jeder KDF-Arbeit ---
+  const mut=(f,fn)=>{ const o=JSON.parse(f); fn(o); return JSON.stringify(o); };
+  ok(V.parseFile.length===1 && (await thrown(()=>V.parseFile(mut(fileA,o=>o.magic='AIPV1'))))==='format', 'fremdes magic -> format');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.ver=2))))==='newer', 'neuere Huellenversion -> newer (nicht "falsche Passphrase")');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.ver=0))))==='format', 'unsinnige Huellenversion -> format');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.kdf.name='scrypt'))))==='format', 'fremde KDF -> format');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.kdf.m=1))))==='kdfbounds', 'zu kleines m -> kdfbounds');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.kdf.m=999999))))==='kdfbounds', 'zu grosses m -> kdfbounds (kein Speicher-DoS beim Import)');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>{o.kdf.m=262144;o.kdf.t=16;}))))==='kdfbounds', 'Budget m*t begrenzt die Arbeit');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.kdf.salt=bufToB64(new Uint8Array(8))))))==='format', 'zu kurzer Salt -> format');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.wrap.ct=bufToB64(new Uint8Array(32))))))==='format', 'falsche Wrap-Laenge -> format');
+  ok((await thrown(()=>V.parseFile(mut(fileA,o=>o.body.iv='!!nicht base64!!'))))==='format', 'kaputtes base64 -> format');
+  ok((await thrown(()=>V.parseFile('x'.repeat(V.MAX_FILE_BYTES+1))))==='toolarge', 'uebergrosse Datei wird abgewiesen, bevor sie geparst wird');
+  ok((await thrown(()=>V.parseFile('kein json')))==='format', 'Klartext-Muell -> format');
+
+  // --- AAD: der Header ist mitauthentifiziert ---
+  ok(await thrown(async()=>{ const bad=JSON.parse(fileA); bad.kdf.salt=bufToB64(V.rand(16));
+      const p2=V.parseFile(JSON.stringify(bad));
+      const kek2=await V.deriveKek(V.passBytes('meine passphrase'), p2.kdf);
+      await V.unwrapDek(p2.wrap, kek2, p2.kdf, false, 'wrap'); }), 'vertauschter Salt im Header macht den Wrap-Slot unbrauchbar');
+  ok(await thrown(async()=>{ const kdfB={...parsedA.kdf, t:2};
+      await V.decryptBody(parsedA.body, sessA2, kdfB); }), 'veraenderte KDF-Parameter machen den Body unlesbar (AAD bindet den Header)');
+
+  // --- Rollentrennung wrap | bio ---
+  ok(await thrown(()=>V.unwrapDek(parsedA.wrap, kekA2, parsedA.kdf, false, 'bio')),
+     'ein wrap-Slot laesst sich nicht als bio-Slot oeffnen');
+  const secret=V.rand(32);
+  const bk=await V.bioKey(secret);
+  const dekX=await V.unwrapDek(wrapA, kekA, kdfA, true, 'wrap');     // der einzige extrahierbare Handle
+  const bioWrap=await V.wrapDek(dekX, bk, kdfA, 'bio');
+  ok(await thrown(()=>V.unwrapDek(bioWrap, bk, kdfA, false, 'wrap')), 'ein bio-Slot laesst sich nicht als wrap-Slot oeffnen');
+  const bioBack=await V.unwrapDek(bioWrap, bk, kdfA, false, 'bio');
+  const bodyBio=await V.encryptBody({x:1}, bioBack, kdfA);
+  ok((await V.decryptBody(bodyBio, sessA, kdfA)).x===1, 'bio-Slot liefert denselben Datenschluessel');
+  ok(await thrown(()=>V.bioKey(V.rand(16))), 'bioKey verlangt genau 32 Byte');
+
+  // --- Der Sitzungs-DEK ist nicht extrahierbar: deshalb braucht Aktivieren die Passphrase ---
+  ok(await thrown(()=>V.wrapDek(sessA, bk, kdfA, 'bio')),
+     'ein nicht extrahierbarer Sitzungsschluessel laesst sich nicht erneut verpacken');
+
+  // --- Bio-Blob-Serialisierung ---
+  const blobStr=V.serializeBioBlob(bioWrap, wrapA.ct);
+  const blobBack=V.parseBioBlob(blobStr);
+  ok(blobBack && blobBack.w===bufToB64(wrapA.ct), 'Bio-Blob bindet den Passphrase-Wrap ueber w');
+  ok(V.parseBioBlob('{"iv":"AAAA","ct":"AAAA","w":"AAAA"}')===null, 'Bio-Blob mit falschen Laengen wird verworfen');
+  ok(V.parseBioBlob('x'.repeat(600))===null, 'uebergrosser Bio-Blob wird verworfen');
+  ok(V.parseBioBlob(null)===null && V.parseBioBlob('kein json')===null, 'Muell im Bio-Slot wird verworfen');
+
+  // --- NFKC: gleich getippte Passphrase ergibt denselben Schluessel ---
+  ok(bufToB64(V.passBytes('Käse'))===bufToB64(V.passBytes('Ka\u0308se')), 'Passphrasen werden NFKC-normalisiert');
+
+  // --- Eingecheckte Fixtures: beide Lesepfade bleiben fuer alle Zukunft nachweisbar ---
+  const fixV2=readFileSync('test-fixtures/aisv2-known.json','utf8');
+  const pf=V.parseFile(fixV2);
+  const kekF=await V.deriveKek(V.passBytes(FIXPASS), pf.kdf);
+  const dekF=await V.unwrapDek(pf.wrap, kekF, pf.kdf, false, 'wrap');
+  const vaultF=await V.decryptBody(pf.body, dekF, pf.kdf);
+  ok(vaultF.entries.length===2 && vaultF.entries[0].id==='a1b2c3d4', 'eingecheckte AISV2-Fixture ist weiterhin lesbar');
+  ok(vaultF.priceHistory[0].d==='2025-06-01', 'Preisstaende ueberleben den Fixture-Roundtrip');
+
+  const fixV1raw=readFileSync('test-fixtures/legacy-aisv1.json','utf8');
+  const fixV1=JSON.parse(fixV1raw);
+  ok(V.looksLegacy(fixV1), 'Alt-Blob wird als Alt-Format erkannt');
+  ok((await thrown(()=>V.parseFile(fixV1raw)))==='format', 'parseFile weist den Alt-Blob ab — die Legacy-Weiche muss ihn fangen');
+  const kLeg=await deriveKey(FIXPASS, new Uint8Array(b64ToBuf(fixV1.salt)));
+  const vaultLeg=await decryptBlob(fixV1, kLeg);
+  ok(vaultLeg.entries.length===2 && vaultLeg.entries[1].type==='gold',
+     'eingecheckte AISV1-Fixture ist mit dem Alt-Lesepfad weiterhin lesbar (NIE entfernen)');
+
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);
 }
