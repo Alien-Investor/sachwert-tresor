@@ -60,6 +60,12 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 - **Übersicht**: **Netto-Bestand** je Anlageklasse (Käufe − Verkäufe − Entnahmen),
   investierter Einstand, realisierte Erlöse. Optional aktuelle Preise manuell eintragen
   (bewusst **keine Netz-Abfrage**, OpSec) → aktueller Wert & G/V ggü. netto investiert.
+- **Vermögensentwicklung** (seit v2.12): Jeder Preis, den du in der Übersicht einträgst, wird
+  mit Datum gemerkt (ein Stand je Tag). Daraus zeichnet der Verlauf den **Wert deiner Bestände**
+  neben dem gestrichelten **Einstand** — mit Zeitraum-Umschaltern (YTD/1J/3J/5J/MAX) und einem
+  Tooltip, der zu jedem Tag Wert, Einstand und Differenz nennt. Weiterhin **keine Netz-Abfrage**:
+  bewertet wird ausschließlich mit den selbst eingetragenen Ständen, und vor dem ersten Stand
+  gibt es bewusst keine Wertlinie statt erfundener Zahlen.
 - **Steuertool-Export**: `manual_buys.csv` (Käufe) und `manual_sales.csv` (Verkäufe) exakt
   im Format des BTC-Steuertools. Entnahmen sind keine Verkäufe und bleiben tresor-intern.
   Das Steuertool rechnet in EUR: USD/CHF-Buchungen sind nur mit erfasstem EUR-Gegenwert

@@ -26,6 +26,10 @@ description: |
   - Multi-currency entries (EUR / USD / CHF), totals kept separate per currency —
     still zero network lookups (v2.1)
   - Manual current-value calculation — you enter prices yourself, nothing is fetched
+  - Wealth over time (v2.12): every price you enter is remembered with its date, and the
+    history tab draws the value of your holdings next to your cost basis — period switches
+    (YTD/1Y/3Y/5Y/MAX) and a tap-to-read tooltip. Still zero network lookups: only your own
+    price points are used, and before the first one there is deliberately no value line
   - Encrypted .vault backup, peer-to-peer sync via Syncthing (no cloud)
   - CSV export compatible with the BTC tax tool (KYC / noKYC kept separate)
   - Fully bilingual (German / English), offline in-app manual included
