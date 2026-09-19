@@ -68,6 +68,13 @@ const I18N = {
   "set.themeTitle":"Appearance","set.themeDark":"Black (Neon)","set.themeSoft":"Soft (Navy)",
   "set.secTitle":"Security","set.autolock":"Auto-lock after inactivity",
   "set.al0":"Off","set.al1":"1 minute","set.al5":"5 minutes","set.al15":"15 minutes","set.al30":"30 minutes",
+  "lock.bio":"Unlock with fingerprint",
+  "set.bioTitle":"Fingerprint unlock (Android)",
+  "set.bioOffIntro":"Unlocks the vault with the device fingerprint instead of the passphrase. <strong>Honestly:</strong> a fingerprint is convenient, but it can be forced — at a border, or by someone holding your hand. Android binds the key to every strong biometric of the device: where a strong face unlock is enrolled (some stock Pixels; not on GrapheneOS), that opens the vault too, after a confirmation tap. The passphrase remains the real protection: it is required after every restart of the phone, after a passphrase change and as soon as a new fingerprint is enrolled in the system. Technically, a random key held by the Android Keystore unlocks the data key; none of it ends up in backups.",
+  "set.bioPass":"Passphrase to confirm",
+  "set.bioEnable":"Enable fingerprint",
+  "set.bioOnText":"Active. The fingerprint is enough to unlock — until the next restart, passphrase change or new fingerprint in the system. 'Lock now' is the deliberate bolt: the next start then requires the passphrase, afterwards the fingerprint works again. Applies to this device only.",
+  "set.bioDisable":"Disable fingerprint",
   "set.lockNow":"Lock now","set.wipe":"Delete local data",
   "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
   "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
@@ -255,6 +262,29 @@ const T = {
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
   "err.noArgon2":{de:"Die Verschlüsselung (Argon2id) lässt sich in diesem Browser nicht starten. Am Tresor wurde nichts verändert.",en:"The encryption (Argon2id) cannot start in this browser. Nothing in the vault was changed."},
+  "bio.promptTitle":{de:"Sachwert-Tresor",en:"Sachwert-Tresor"},
+  "bio.promptUnlock":{de:"Tresor entsperren",en:"Unlock vault"},
+  "bio.promptEnroll":{de:"Fingerabdruck-Entsperren aktivieren",en:"Enable fingerprint unlock"},
+  "bio.promptRearm":{de:"Nach dem Neustart: Fingerabdruck neu bestätigen",en:"After restart: confirm fingerprint again"},
+  "bio.usePass":{de:"Passphrase",en:"Passphrase"},
+  "bio.afterReboot":{de:"Nach dem Neustart einmal die Passphrase eingeben — danach gilt der Fingerabdruck wieder.",en:"After the restart, enter the passphrase once — the fingerprint works again afterwards."},
+  "bio.reset":{de:"Fingerabdruck-Entsperren wurde zurückgesetzt (neuer Fingerabdruck im System oder Schlüssel ungültig). In den Einstellungen neu aktivieren.",en:"Fingerprint unlock was reset (new fingerprint enrolled or key invalid). Re-enable it in Settings."},
+  "bio.lockout":{de:"Zu viele Fehlversuche — der Sensor ist vorübergehend gesperrt. Bitte Passphrase.",en:"Too many attempts — the sensor is temporarily locked. Use the passphrase."},
+  "bio.cancelled":{de:"Fingerabdruck abgebrochen — Entsperren bleibt bei der Passphrase",en:"Fingerprint cancelled — unlocking stays with the passphrase"},
+  "bio.failed":{de:"Fingerabdruck nicht eingerichtet (Fehler im Keystore)",en:"Fingerprint not set up (keystore error)"},
+  "bio.on":{de:"Fingerabdruck-Entsperren aktiv",en:"Fingerprint unlock active"},
+  "bio.off":{de:"Fingerabdruck-Entsperren deaktiviert",en:"Fingerprint unlock disabled"},
+  "bio.rearmed":{de:"Fingerabdruck wieder aktiv",en:"Fingerprint active again"},
+  "bio.naEnrolled":{de:"Im System ist kein Fingerabdruck eingerichtet (Android-Einstellungen → Sicherheit).",en:"No fingerprint enrolled in the system (Android settings → Security)."},
+  "bio.naHardware":{de:"Dieses Gerät hat keinen Fingerabdrucksensor der Klasse „stark“ (Android-Einstufung).",en:"This device has no fingerprint sensor of Android's 'strong' class."},
+  "bio.naNow":{de:"Fingerabdrucksensor derzeit nicht verfügbar.",en:"Fingerprint sensor currently unavailable."},
+  "bio.wrapMismatch":{de:"Der Passphrase-Schlüssel der Tresordatei wurde verändert — Fingerabdruck verweigert. Bitte Passphrase; falls sie nicht mehr passt, das letzte Backup zurückspielen.",en:"The vault file's passphrase key was altered — fingerprint refused. Use the passphrase; if it no longer works, restore the last backup."},
+  "bio.aborted":{de:"Fingerabdruck nicht aktiviert — Vorgang durch Sperre oder Passphrase-Wechsel abgebrochen",en:"Fingerprint not enabled — interrupted by lock or passphrase change"},
+  "bio.busy":{de:"Bitte erst den laufenden Fingerabdruck-Vorgang abschließen.",en:"Finish the pending fingerprint step first."},
+  "bio.held":{de:"Bewusst gesperrt: Diesmal ist die Passphrase nötig — danach gilt der Fingerabdruck wieder.",en:"Locked deliberately: the passphrase is required this time — the fingerprint works again afterwards."},
+  "confirm.bioDisable":{de:"Fingerabdruck-Entsperren wirklich deaktivieren?",en:"Really disable fingerprint unlock?"},
+  "toast.passChangedBio":{de:"Passphrase geändert, Datenschlüssel erneuert — Fingerabdruck deaktiviert, in den Einstellungen neu aktivieren",en:"Passphrase changed, data key rotated — fingerprint disabled, re-enable it in Settings"},
+  "busy.checking":{de:"Prüfe…",en:"Checking…"},
   "err.wait":{de:"Zu viele Fehlversuche — bitte {s} s warten.",en:"Too many failed attempts — please wait {s} s."},
   "err.kdfFailed":{de:"Die Schlüsselableitung (Argon2id) ist gescheitert — vermutlich reicht der Speicher nicht. Am Tresor wurde nichts verändert.",en:"Key derivation (Argon2id) failed — probably not enough memory. Nothing in the vault was changed."},
   "err.setupFailed":{de:"Tresor konnte nicht angelegt werden.",en:"Could not create the vault."},
@@ -481,7 +511,7 @@ const App = (function(){
   // Tresor-Text öffnen (lokaler Speicher wie importierte .vault). Struktur + Grenzen werden VOR jeder KDF-Arbeit geprüft.
   // AISV2 → {vault, dek, kdf, wrap}. Alt-Format (AISV1/PBKDF2, auch frühe Backups) → {legacy:true, vault}.
   // Wirft Error(FILE_ERRS) bei kaputter/fremder Datei, sonst den Entschlüsselungsfehler (= falsche Passphrase).
-  async function openVaultText(raw, pass){
+  async function openVaultText(raw, pass, wantX){
     let f;
     try{ f=parseFile(raw); }
     catch(e){
@@ -494,7 +524,8 @@ const App = (function(){
     }
     const kek=await deriveKek(passBytes(pass), f.kdf);
     const dek=await unwrapDek(f.wrap, kek, f.kdf, false);   // Sitzungsschlüssel nicht extrahierbar
-    return {legacy:false, vault:await decryptBody(f.body, dek, f.kdf), dek, kdf:f.kdf, wrap:f.wrap};
+    const dekX=wantX?await unwrapDek(f.wrap, kek, f.kdf, true):null;   // nur zum Neu-Bewaffnen des Fingerabdruck-Slots nach Neustart
+    return {legacy:false, vault:await decryptBody(f.body, dek, f.kdf), dek, kdf:f.kdf, wrap:f.wrap, dekX};
   }
   // Umstellung Alt-Format → AISV2 (einmalig, nach dem Aegis-Gate). Der alte Blob ist der einzige lesbare Ciphertext:
   // erst komplett bauen, dann aus dem SERIALISIERTEN Text zurücklesen und vergleichen, erst dann überschreiben.
@@ -551,8 +582,8 @@ const App = (function(){
   /* ---------- boot ---------- */
   function boot(){
     const raw = localStorage.getItem(LS_KEY);
-    if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); }
-    else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); }
+    if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); bioDrop(true); }   // ohne Tresor kein Fingerabdruck-Slot
+    else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); bioProbe(bioAuto); }   // bioAuto setzt erst afterGate() wieder (nach „Jetzt sperren“ kein Auto-Prompt)
     loadLockState();
     argonCheck().then(ok=>{ if(!ok) err(raw?'lock-err':'setup-err', tr('err.noArgon2')); });
     // theme buttons reflect current
@@ -593,26 +624,33 @@ const App = (function(){
     if(!raw) return boot();
     const wait=waitMsg(); if(wait){ $('lock-pass').value=''; maskInputs(); return err('lock-err',wait); }   // Bremse VOR jeder KDF-Arbeit
     const btn=$('unlock-btn'), orig=btn.textContent;
-    doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
+    doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting'); renderBioGate();   // Fingerabdruck-Knopf solange aus
+    const gen=bioGen;                              // gewinnt zwischendurch der Fingerabdruck, verfällt dieses Ergebnis (Alien Pass Audit run-3 #1)
     try{
       if(!await argonCheck()) return err('lock-err',tr('err.noArgon2'));   // ohne Argon2 nichts anfassen (auch kein Alt-Tresor)
       const pass=$('lock-pass').value;
-      const r=await openVaultText(raw, pass);
+      const r=await openVaultText(raw, pass, bioNeedsRearm&&!!BIO&&bioMarker());
       if(r.legacy){
         // Alt-Format: den neuen KEK schon jetzt ableiten (frischer Salt), solange die Passphrase da ist.
         // Geschrieben wird erst nach dem Aegis-Gate in openSession() — mit Passphrase allein nichts umschreiben.
         r.kdf={m:KDF_DEFAULT.m, t:KDF_DEFAULT.t, p:KDF_DEFAULT.p, salt:rand(16)};
         r.kek=await deriveKek(passBytes(pass), r.kdf); r.raw=raw;
       }
-      if(DEK||pendingUnlock){ $('lock-pass').value=''; maskInputs(); return; }
+      if(gen!==bioGen||DEK||pendingUnlock){ $('lock-pass').value=''; maskInputs(); return; }   // eine andere Pforte hat die Sitzung schon geöffnet
+      bioRearmDek=r.dekX||null; delete r.dekX;
       pendingUnlock=r;
-    }catch(e){ $('lock-pass').value=''; maskInputs(); if(isWrongPass(e)) noteFail(); return err('lock-err', openErrMsg(e,'err.wrongPass')); }   // Eingabe nie stehen lassen (Audit run-4 #2); nur echte Fehlversuche bremsen
-    finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
+    }catch(e){
+      $('lock-pass').value=''; maskInputs();                                     // Eingabe nie stehen lassen (Audit run-4 #2)
+      if(gen!==bioGen||DEK||pendingUnlock) return;                               // verspäteter Fehlversuch darf keine offene Sitzung stören
+      if(isWrongPass(e)) noteFail();                                             // nur echte Fehlversuche bremsen
+      return err('lock-err', openErrMsg(e,'err.wrongPass'));
+    }
+    finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; renderBioGate(); }
     afterGate();
   }
   // Nach bestandener Passphrase: Aegis-Wartestellung oder direkt in die Sitzung
   function afterGate(){
-    $('lock-pass').value='';
+    $('lock-pass').value=''; bioMsg(''); bioAuto=true; setBioHold(false);   // Passphrase/Fingerabdruck bestanden: Riegel gelöst
     const v=pendingUnlock&&pendingUnlock.vault; if(!v) return;
     if((v.version||1)>VAULT_VERSION) setTimeout(()=>toast(tr('err.vaultNewer')),600);   // nur warnen, nicht blockieren
     if(v.totp && v.totp.enabled){ screen('totp'); $('totp-code').value=''; err('totp-err'); resetIdle(); setTimeout(()=>$('totp-code').focus(),100); return; }   // Idle-Sperre gilt auch in der Wartestellung
@@ -665,7 +703,8 @@ const App = (function(){
   }
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
-  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); }
+  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices();
+    if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP.ct, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); renderSettings(); }); } }   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
   // entstuende erst beim naechsten Anfassen eines Preisfelds. Der heutige Stand ist keine Erfindung:
@@ -690,16 +729,23 @@ const App = (function(){
      'nl-fassung','price-btc','price-gold','price-silver'].forEach(i=>{const el=$(i);if(el)el.value='';});
     $('totp-secret').textContent=''; App._otpauth='';
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
-    pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
+    pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup'); err('bio-err');
   }
-  function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null; clearRendered(); maskInputs(); boot(); }
+  function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
+    bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
+    clearRendered(); maskInputs(); boot(); }
+  // „Jetzt sperren“ = die EINZIGE bewusste Nutzer-Sperre: setzt den Riegel (nächster Start nur mit Passphrase). Idle-Timer,
+  // Hintergrund und interne Aufrufe bleiben bei lock() und setzen nie einen Riegel.
+  function lockNow(){ if(BIO&&(bioArmed||bioBlob())) setBioHold(true); bioAuto=false; lock(); }
+  // Abbruch am Aegis-Gate: kein Riegel, aber auch kein Auto-Prompt (sonst Schleife Fingerabdruck → Gate → Abbruch → Fingerabdruck)
+  function cancelTotp(){ bioAuto=false; lock(); }
   // Auge im Passwortfeld (statt „anzeigen“-Kästchen, Muster Alien Pass): Knopf mit data-showpass=<Feld-ID>, Zustand in aria-pressed
   function setEye(b,on){ b.setAttribute('aria-pressed',on?'true':'false'); b.dataset.showpass.split(',').forEach(id=>{ const f=$(id); if(f) f.type=on?'text':'password'; }); }
   function togglePass(_,b){ if(b) setEye(b,b.getAttribute('aria-pressed')!=='true'); }
   function maskInputs(){ document.querySelectorAll('[data-showpass]').forEach(b=>setEye(b,false)); }
   // Getippte Passphrasen und Codes nie stehen lassen, wenn die App in den Hintergrund geht — auch im gesperrten Zustand
   // (Audit run-4 #2, Port von Alien Pass run-2 F1). Nebenwirkung wie dort: halb ausgefüllte Formulare sind danach leer.
-  function clearGateInputs(){ ['lock-pass','setup-pass1','setup-pass2','import-pass','totp-code','cp-cur','cp1','cp2'].forEach(id=>{ const n=$(id); if(n) n.value=''; }); maskInputs(); }
+  function clearGateInputs(){ ['lock-pass','setup-pass1','setup-pass2','import-pass','totp-code','cp-cur','cp1','cp2','bio-pass'].forEach(id=>{ const n=$(id); if(n) n.value=''; }); maskInputs(); }
   function enhancePassFields(){ document.querySelectorAll('input[type=password]').forEach(inp=>{ if(!inp.id||inp.closest('.pw-wrap')) return;
     const w=document.createElement('div'), b=document.createElement('button'); w.className='pw-wrap'; b.className='pw-eye'; b.type='button';
     b.dataset.showpass=inp.id; b.setAttribute('aria-pressed','false'); b.title=tr('pw.toggle'); inp.parentNode.insertBefore(w,inp); w.append(inp,b); }); }
@@ -710,6 +756,7 @@ const App = (function(){
   let hiddenAt=0;
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden) clearGateInputs();           // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
+    if(!document.hidden&&!DEK&&!pendingUnlock){ if(bioArmed&&bioAuto&&!$('screen-lock').classList.contains('hidden')) doBio(); return; }   // zurück auf dem Sperrbildschirm
     const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
     if(!v) return;
     const mins = v.autolock==null?5:v.autolock;
@@ -1622,12 +1669,103 @@ const App = (function(){
   }
   function totpCancel(){pendingSecret=null;renderSettings();}
   async function totpDisable(){if(!confirm(tr('confirm.totpDisable')))return;VAULT.totp=null;await persist();renderSettings();toast(tr('toast.totpOff'));}
+  /* ---------- Fingerabdruck-Entsperren (nur Android-App, seit v3.0 — Port aus Alien Pass v1.2 inkl. Audit run-3) ----------
+     Der DEK wird zusätzlich unter einem 32-Byte-Zufallsschlüssel verpackt (Rolle 'bio', Blob in localStorage, nie in der .vault).
+     Den Zufallsschlüssel verwahrt der Android-Keystore, gebunden an einen starken Fingerabdruck (Freigabe pro Nutzung; ein neu
+     eingerichteter Fingerabdruck macht ihn ungültig). Nach einem Neustart verweigert das Plugin den Keystore-Teil: Passphrase-Pflicht,
+     danach wird der Slot mit frischem Zufall neu bewaffnet. Ehrlich: Regel im Code, keine kryptografische Garantie — siehe Hilfe.
+     Invarianten: BIO-INVARIANTEN.md. Fingerabdruck-Fehlversuche zählen NICHT in die Passphrase-Bremse (Android sperrt selbst). */
+  const BIO = (isNative && CAP.Plugins && CAP.Plugins.Biometric) ? CAP.Plugins.Biometric : null;   // Plugin aus patch-hardening.mjs; Web: kein Slot
+  const BIO_KEY='ai-sachwert-bio', BIO_REARM_KEY='ai-sachwert-bio-rearm', BIO_HOLD_KEY='ai-sachwert-bio-hold';   // Marker (keine Geheimnisse)
+  let bioArmed=false, bioNeedsRearm=false, bioRearmDek=null, bioGen=0, bioAuto=true;
+  function bioBlob(){ try{ return parseBioBlob(localStorage.getItem(BIO_KEY)); }catch(_){ return null; } }
+  function bioMarker(){ try{ return localStorage.getItem(BIO_REARM_KEY)==='1'; }catch(_){ return false; } }
+  function setBioMarker(on){ try{ if(on) localStorage.setItem(BIO_REARM_KEY,'1'); else localStorage.removeItem(BIO_REARM_KEY); }catch(_){} }
+  // Riegel: „Jetzt sperren“ = bewusst gesperrt → beim nächsten Start nur die Passphrase (kein Knopf, kein Prompt); Schlüsselmaterial bleibt,
+  // nach der Passphrase gilt der Fingerabdruck ohne Neu-Aktivierung wieder. Überlebt App-Neustart (localStorage).
+  function bioHold(){ try{ return localStorage.getItem(BIO_HOLD_KEY)==='1'; }catch(_){ return false; } }
+  function setBioHold(on){ try{ if(on) localStorage.setItem(BIO_HOLD_KEY,'1'); else localStorage.removeItem(BIO_HOLD_KEY); }catch(_){} }
+  function bioMsg(t){ const n=$('bio-msg'); if(!n) return; n.textContent=t||''; n.classList.toggle('hidden',!t); }
+  function renderBioGate(){ const b=$('bio-btn'); if(b){ b.classList.toggle('hidden',!bioArmed||bioHold()); b.disabled=!!doUnlock._busy; } }   // Riegel: Knopf verborgen
+  // Slot verwerfen: JS-Blob + Marker immer, Keystore-Teil auf Wunsch (bei ungültigem Schlüssel hat das Plugin ihn schon selbst gelöscht).
+  // bioGen++ lässt laufende enroll/unlock-Vorgänge verfallen
+  function bioDrop(native){ try{ localStorage.removeItem(BIO_KEY); }catch(_){} setBioMarker(false); setBioHold(false); bioArmed=false; bioNeedsRearm=false; bioRearmDek=null; bioGen++; if(native&&BIO){ try{ BIO.disable().catch(()=>{}); }catch(_){} } renderBioGate(); }
+  // Sperrbildschirm: nativen Zustand abgleichen. auto = Prompt sofort zeigen (nicht nach manuellem Sperren, nie im Hintergrund)
+  async function bioProbe(auto){
+    bioArmed=false; renderBioGate();
+    if(!BIO){ if(bioBlob()||bioMarker()) bioDrop(false); return; }                     // Web-Build: kein Slot, Reste wegräumen
+    const gen=bioGen, blob=bioBlob(), marker=bioMarker();
+    let st; try{ st=await BIO.status(); }catch(_){ st={enabled:false,reason:'error'}; }
+    if(gen!==bioGen||DEK||pendingUnlock) return;
+    const reason=st&&st.reason;
+    if(reason==='reboot'||(!blob&&marker&&reason==='none')){                             // Neustart: Slot JETZT verwerfen (Keystore + Blob), nur der Marker bleibt
+      if(blob||reason==='reboot') bioDrop(true); setBioMarker(true); bioNeedsRearm=true; bioMsg(tr('bio.afterReboot')); return; }
+    if(!blob){ if(st&&st.enabled){ try{ BIO.disable().catch(()=>{}); }catch(_){} } setBioMarker(false); setBioHold(false); return; }   // Keystore-Rest ohne JS-Blob: aufräumen
+    if(st&&st.enabled&&bioHold()){ bioArmed=true; bioNeedsRearm=false; setBioMarker(false); renderBioGate(); bioMsg(tr('bio.held')); return; }   // Riegel: Slot gilt, aber kein Knopf, kein Prompt
+    if(st&&st.enabled){ bioArmed=true; bioNeedsRearm=false; setBioMarker(false); renderBioGate(); if(auto&&!document.hidden) doBio(); return; }
+    if(reason==='unavailable'||reason==='error'){ bioMsg(tr('bio.naNow')); return; }     // vorübergehend (Keystore beschäftigt): Slot behalten, Passphrase
+    bioDrop(false); bioMsg(tr('bio.reset'));                                              // neuer Fingerabdruck / Schlüssel weg: bewusst neu aktivieren
+  }
+  // Slot (neu) bewaffnen: braucht einen EXTRAHIERBAREN DEK-Handle (WebCrypto-Objekt, nie Rohbytes), der danach fallen gelassen wird;
+  // wrapCt bindet den Slot an den Passphrase-Slot der Datei
+  async function bioArm(dekX, kdf, wrapCt, rearm){
+    const gen=bioGen, secret=rand(32);
+    try{
+      const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrapCt);
+      await BIO.enroll({secret:bufToB64(secret), title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
+      if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen
+      localStorage.setItem(BIO_KEY, ser); setBioMarker(false); bioArmed=true; bioNeedsRearm=false; return true;
+    }catch(e){ const c=e&&e.message; bioDrop(true); toast(tr(c==='cancel'?'bio.cancelled':c==='lockout'?'bio.lockout':'bio.failed')); return false; }
+    finally{ secret.fill(0); }
+  }
+  // Sperrbildschirm: Fingerabdruck → Keystore gibt den Zufallsschlüssel heraus → DEK auspacken → gleicher Abschluss wie die Passphrase
+  // (afterGate: Aegis-Hürde bleibt davor). Die Passphrase-Bremse blockiert den Fingerabdruck nicht und zählt ihn nicht.
+  async function doBio(){
+    if(doBio._busy||doUnlock._busy||openSession._busy||!BIO||!bioArmed||bioHold()||DEK||pendingUnlock) return; err('lock-err');   // Riegel: Passphrase-Pflicht
+    const raw=localStorage.getItem(LS_KEY); if(!raw) return boot();
+    let f; try{ f=parseFile(raw); }catch(e){ return err('lock-err',fileErrMsg(e)); }
+    const blob=bioBlob(); if(!blob){ bioDrop(true); return; }
+    if(blob.w!==bufToB64(f.wrap.ct)){ bioArmed=false; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot: nie übernehmen, Blob behalten (Backup-Restore heilt)
+    const gen=bioGen; doBio._busy=true; let secret=null;
+    try{
+      const r=await BIO.unlock({title:tr('bio.promptTitle'), subtitle:tr('bio.promptUnlock'), negative:tr('bio.usePass')});
+      secret=b64Bytes(r&&r.secret); if(!secret||secret.length!==32) throw new Error('invalid');
+      const key=await bioKey(secret); secret.fill(0);
+      const dek=await unwrapDek(blob, key, f.kdf, false, 'bio');
+      const v=await decryptBody(f.body, dek, f.kdf);
+      if(gen!==bioGen||DEK||pendingUnlock) return;                        // zwischendurch gesperrt oder anders entsperrt
+      pendingUnlock={legacy:false, vault:v, dek, kdf:f.kdf, wrap:f.wrap};
+    }catch(e){
+      const c=e&&e.message; if(gen!==bioGen) return;
+      if(c==='cancel') return; if(c==='lockout') return err('lock-err',tr('bio.lockout'));
+      if(c==='reboot'){ bioDrop(true); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }
+      bioDrop(c!=='invalidated'&&c!=='none'); return bioMsg(tr('bio.reset'));   // ungültiger Schlüssel, alter/fremder Blob, Manipulation
+    }finally{ doBio._busy=false; if(secret) secret.fill(0); }
+    afterGate();
+  }
+  // Einstellungen: aktivieren (Passphrase bestätigen → extrahierbarer DEK-Handle nur für das Verpacken) / deaktivieren
+  async function bioEnable(){
+    if(bioEnable._busy||!VAULT||!BIO) return; err('bio-err');
+    if(changePass._busy) return err('bio-err',tr('bio.busy'));
+    const btn=$('bio-btn-on'), orig=btn.textContent; bioEnable._busy=true; btn.disabled=true; btn.textContent=tr('busy.checking');   // Guard VOR dem ersten await
+    try{
+      let av; try{ av=await BIO.available(); }catch(_){ av={ok:false,reason:'error'}; }
+      if(!av||!av.ok) return err('bio-err',tr(av&&av.reason==='noneEnrolled'?'bio.naEnrolled':(av&&(av.reason==='noHardware'||av.reason==='noStrong'))?'bio.naHardware':'bio.naNow'));
+      const pass=$('bio-pass').value; if(!pass) return err('bio-err',tr('err.cpWrong'));
+      let dekX; try{ const kek=await deriveKek(passBytes(pass), KDF); dekX=await unwrapDek(WRAP, kek, KDF, true); }catch(e){ return err('bio-err',openErrMsg(e,'err.cpWrong')); }
+      if(!VAULT||!DEK) return; $('bio-pass').value='';
+      if(await bioArm(dekX, KDF, WRAP.ct, false)) toast(tr('bio.on'));
+    }finally{ bioEnable._busy=false; btn.disabled=false; btn.textContent=orig; $('bio-pass').value=''; maskInputs(); if(VAULT) renderSettings(); }
+  }
+  function bioDisable(){ if(!VAULT||!bioArmed||!confirm(tr('confirm.bioDisable'))) return; bioDrop(true); toast(tr('bio.off')); renderSettings(); }
+
   function renderSettings(){
     const on=VAULT.totp&&VAULT.totp.enabled;
     $('totp-off').classList.toggle('hidden',on);$('totp-on').classList.toggle('hidden',!on);hide('totp-setup');
     const soft=document.documentElement.getAttribute('data-theme')==='soft';
     $('th-dark').classList.toggle('on',!soft);$('th-soft').classList.toggle('on',soft);
     $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock); syncCombo('set-autolock');
+    const bc=$('bio-card'); if(bc){ bc.classList.toggle('hidden',!BIO); $('bio-off').classList.toggle('hidden',bioArmed); $('bio-on').classList.toggle('hidden',!bioArmed); }
     $('about-line').textContent=tr('about').replace('{v}',APP_VERSION);   // Versionszeile ganz unten (einheitlich mit Alien Pass)
   }
 
@@ -1635,6 +1773,7 @@ const App = (function(){
   async function changePass(){
     if(changePass._busy) return;
     err('cp-err');
+    if(bioEnable._busy) return err('cp-err',tr('bio.busy'));        // nicht parallel zum Fingerabdruck-Aktivieren (Alien Pass Audit run-3 #5)
     const cur=$('cp-cur').value, p1=$('cp1').value, p2=$('cp2').value;
     if(p1.length<12)return err('cp-err',tr('err.cpShort'));
     if(p1!==p2)return err('cp-err',tr('err.cpMismatch'));
@@ -1661,15 +1800,16 @@ const App = (function(){
       try{ await persist(); }
       catch(e){ if(!(e&&e.locked)){ DEK=old.DEK; KDF=old.KDF; WRAP=old.WRAP; } return; }   // Speicher hält weiter die alte Passphrase — RAM passend zurück
       dropPre3();                        // Sicherungskopie trüge noch die alte Passphrase
+      const hadBio=bioArmed||!!bioBlob()||bioMarker(); if(hadBio) bioDrop(true); bioGen++;   // neuer DEK/Salt: alter Slot passt nicht mehr; bioGen++ lässt einen laufenden enroll verfallen
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
-      toast(tr('toast.passChanged'));
+      toast(tr(hadBio?'toast.passChangedBio':'toast.passChanged')); renderSettings();
     }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
   }
 
   /* ---------- misc ---------- */
   function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
   function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
-  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;localStorage.removeItem(LS_KEY);dropPre3();lock();}
+  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;bioDrop(true);localStorage.removeItem(LS_KEY);dropPre3();lock();}
   function pickFile(id){const el=$(id);if(el)el.click();}
   function copySecret(){copy($('totp-secret').textContent,tr('msg.keyCopied'));}
   function copyOtpauth(){copy(App._otpauth,tr('msg.otpauthCopied'));}
@@ -1780,7 +1920,7 @@ const App = (function(){
   function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
-  return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
+  return {boot,doSetup,doUnlock,doTotp,lock,lockNow,cancelTotp,doBio,bioEnable,bioDisable,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
