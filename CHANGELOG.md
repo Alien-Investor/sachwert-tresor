@@ -19,6 +19,8 @@ Vermögensentwicklung im Verlauf-Tab deutlich ausgebaut:
   Wert heute samt Gewinn/Verlust absolut und in Prozent.
 - Preisstände werden beim Import einer `.vault` zusammengeführt (dein eigener Stand gewinnt), damit
   die Wertlinie einen Gerätewechsel überlebt.
+- Nach dem ersten Preisstand sagt der Tresor ehrlich, dass die Wertlinie erst mit dem nächsten
+  geänderten Preis entsteht, statt eine Linie anzukündigen, die noch nicht gezeichnet werden kann.
 
 Datenformat additiv erweitert (`priceHistory`), Verschlüsselung und Exporte unverändert. Ältere
 Tresore öffnen wie bisher, ohne Migration.

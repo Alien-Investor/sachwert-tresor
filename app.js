@@ -118,6 +118,7 @@ const T = {
   "ov.now":{de:"jetzt",en:"now"},
   "ov.peak":{de:"Höchststand",en:"Peak"},
   "ov.datapoints":{de:"Datenpunkte",en:"data points"},
+  "ov.datapoint":{de:"Datenpunkt",en:"data point"},
   "ov.value":{de:"Wert heute",en:"Value today"},
   "ov.invested":{de:"Einstand",en:"Cost basis"},
   "ov.diff":{de:"Differenz",en:"Difference"},
@@ -165,6 +166,7 @@ const T = {
   "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
   "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
   "verlauf.priceHint":{de:"Wertlinie aus {n} selbst eingetragenen Preisständen seit {d} — keine Netzabfrage. Die Kurve ist so dicht, wie du Preise pflegst.",en:"Value line from {n} self-entered price points since {d} — no network lookup. The curve is as dense as your price keeping."},
+  "verlauf.priceFirst":{de:"Erster Preisstand gemerkt ({d}). Die Wertlinie entsteht, sobald du einen geänderten Preis einträgst — der Tresor rechnet nur mit deinen eigenen Ständen.",en:"First price point saved ({d}). The value line appears once you enter a changed price — the vault only uses your own entries."},
   "verlauf.priceNone":{de:"Noch keine Wertlinie: Trage in der Übersicht Preise ein — jede Änderung merkt sich der Tresor mit Datum.",en:"No value line yet: enter prices in the overview — the vault remembers every change with its date."},
   "verlauf.priceMissing":{de:"{n} Bestand/Bestände ohne Preis fehlen in der Wertlinie.",en:"{n} holdings without a price are missing from the value line."},
   "verlauf.noBaseHint":{de:"{n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert nicht enthalten (Eintrag bearbeiten → EUR-Gegenwert ergänzen).",en:"{n} foreign-currency entries without an EUR equivalent are not included (edit the entry to add one)."},
@@ -1003,7 +1005,7 @@ const App = (function(){
     updateRangeButtons(pts.concat(vs.pts));
 
     const cur = cp.length? cp[cp.length-1].val : 0;
-    const peakPts = (withValue && cv.length) ? cv : cp;                 // Höchststand der Reihe, die vorne steht
+    const peakPts = (withValue && cv.length>1) ? cv : cp;               // Höchststand der Reihe, die auch gezeichnet wird
     const peak = peakPts.length? Math.max(...peakPts.map(p=>p.val)) : 0;
     let cards=`<div class="stat"><div class="k">${withValue?tr('ov.invested'):m.label+' '+tr('ov.now')}</div><div class="v" style="color:${withValue&&cv.length?'var(--text-mid)':m.color}">${m.fmt(cur)}</div></div>`;
     if(withValue && cv.length){
@@ -1011,13 +1013,14 @@ const App = (function(){
       const pct=cur>0?' ('+sg+fmtNum(pl/cur*100,1)+' %)':'';
       cards+=`<div class="stat total"><div class="k">${tr('ov.value')}</div><div class="v" style="color:var(--neon)">${fmtEur(val)}</div><div class="sub" style="color:${col}">${sg}${fmtEur(pl)}${pct}</div></div>`;
     }
-    cards+=`<div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${peakPts.length} ${tr('ov.datapoints')}</div></div>`;
+    cards+=`<div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${peakPts.length} ${tr(peakPts.length===1?'ov.datapoint':'ov.datapoints')}</div></div>`;
     head.innerHTML=cards;
 
     let hint='';
     if(chartSeries==='invested'&&skippedFx>0) hint+=note(tr('verlauf.noBaseHint').replace('{n}',skippedFx));
     if(withValue){
       if(!vs.pts.length) hint+=note(tr('verlauf.priceNone'));
+      else if(cv.length<2) hint+=note(tr('verlauf.priceFirst').replace('{d}',fmtDay(dayT(vs.first))));
       else{
         hint+=note(tr('verlauf.priceHint').replace('{n}',priceSnaps().length).replace('{d}',fmtDay(dayT(vs.first))));
         if(vs.missing>0) hint+=note(tr('verlauf.priceMissing').replace('{n}',vs.missing));
