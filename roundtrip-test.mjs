@@ -68,6 +68,26 @@ function mergeEntries(local, incoming){
   for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
   return {entries:Array.from(byId.values()), added};
 }
+// sanitizeSnaps + mergeSnaps: 1:1 wie in app.js (Preisstände aus fremden .vault-Dateien, v2.12)
+const PRICE_HIST_MAX=2000;
+function sanitizeSnaps(arr){
+  if(!Array.isArray(arr)) return [];
+  const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)&&n>0?String(n):'';};
+  const out=[];
+  for(const r of arr){
+    if(!r||typeof r!=='object') continue;
+    if(typeof r.d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
+    const sn={d:r.d, btc:num(r.btc), gold:num(r.gold), silver:num(r.silver)};
+    if(!sn.btc&&!sn.gold&&!sn.silver) continue;
+    out.push(sn);
+  }
+  return out;
+}
+function mergeSnaps(local, incoming){
+  const byDay=new Map(sanitizeSnaps(local).map(sn=>[sn.d,sn]));
+  for(const sn of sanitizeSnaps(incoming)) if(!byDay.has(sn.d)) byDay.set(sn.d,sn);
+  return Array.from(byDay.values()).sort((a,b)=>a.d.localeCompare(b.d)).slice(-PRICE_HIST_MAX);
+}
 
 let pass=0, fail=0;
 const ok=(c,m)=>{ if(c){pass++;console.log('  ✓',m);} else {fail++;console.log('  ✗ FEHLER:',m);} };
@@ -162,6 +182,28 @@ async function main(){
   const legacyCur={id:'cc07', type:'btc', dir:'buy', date:'2024-01-01', eur:100, btc:0.001};              // Altdaten ohne cur
   const rLC=mergeEntries([], [legacyCur]);
   ok(rLC.entries[0].cur==='EUR', 'Altdaten ohne cur werden als EUR übernommen');
+
+  console.log('\n[8] Preisstände aus einer importierten .vault (sanitizeSnaps/mergeSnaps, v2.12)');
+  const snaps=mergeSnaps([], [
+    {d:'2026-01-02', btc:'58000', gold:'82.5', silver:'0.95'},   // gültig
+    {d:'2026-01-03', btc:58000},                                  // Zahl statt String ist erlaubt
+    {d:'02.01.2026', btc:'58000'},                                // falsches Datumsformat
+    {d:'2026-01-04'},                                             // kein einziger Preis
+    {d:'2026-01-05', btc:'-5', gold:'abc'},                       // unbrauchbare Zahlen
+    {d:'2026-01-06', btc:'<script>alert(1)</script>'},            // Injection statt Zahl
+    'kaputt', null, 42,                                           // gar keine Objekte
+  ]);
+  ok(snaps.length===2, `nur die zwei brauchbaren Stände übernommen (sind ${snaps.length})`);
+  ok(snaps[0].d==='2026-01-02' && snaps[0].btc==='58000' && snaps[0].gold==='82.5', 'gültiger Stand bleibt vollständig');
+  ok(snaps[1].btc==='58000' && typeof snaps[1].btc==='string', 'Zahl wird als String normalisiert');
+  ok(!snaps.some(s=>/script/.test(s.btc+s.gold+s.silver)), 'kein Injection-String überlebt die Whitelist');
+  const mine=[{d:'2026-01-02', btc:'60000', gold:'', silver:''}];
+  const merged=mergeSnaps(mine, [{d:'2026-01-02', btc:'58000'}, {d:'2026-01-09', btc:'61000'}]);
+  ok(merged.length===2 && merged[0].btc==='60000', 'bei gleichem Tag gewinnt der lokale Stand');
+  ok(merged[1].d==='2026-01-09', 'neuer Tag aus der Fremddatei kommt dazu');
+  ok(merged[0].d < merged[1].d, 'Ergebnis ist nach Datum sortiert');
+  const many=Array.from({length:PRICE_HIST_MAX+50},(_,i)=>({d:'20'+String(10+Math.floor(i/365)).padStart(2,'0')+'-01-01', btc:String(1000+i)}));
+  ok(mergeSnaps([], many).length<=PRICE_HIST_MAX, 'Deckel PRICE_HIST_MAX greift');
 
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);

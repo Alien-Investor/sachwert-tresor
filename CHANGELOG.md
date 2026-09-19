@@ -3,6 +3,26 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v2.12 — 2026-09-19
+
+Vermögensentwicklung im Verlauf-Tab deutlich ausgebaut:
+
+- **Wertlinie neben der Einstandslinie.** Sobald du in der Übersicht Preise pflegst, merkt sich der
+  Tresor jede Änderung mit Datum (ein Stand je Tag) und zeichnet daraus den Wert deines Bestands
+  über die Zeit — bewertet wird jeder Tag mit dem letzten Preis, den du davor eingetragen hast.
+  Die Einstandslinie läuft gestrichelt daneben. **Weiterhin keine Netzabfrage**: die App holt sich
+  keinen Kurs, die Kurve ist so dicht wie deine eigene Pflege, und vor deinem ersten Preisstand gibt
+  es bewusst keine Wertlinie statt erfundener Zahlen.
+- **Zeitraum-Umschalter** YTD · 1J · 3J · 5J · MAX. Der erste Punkt eines Fensters ist der Stand zu
+  dessen Beginn, nicht die erste Buchung darin. Zeiträume ohne genug Daten sind ausgegraut.
+- **Tooltip beim Antippen** mit Datum, Wert, Einstand und Differenz; auf der Karte oben zusätzlich
+  Wert heute samt Gewinn/Verlust absolut und in Prozent.
+- Preisstände werden beim Import einer `.vault` zusammengeführt (dein eigener Stand gewinnt), damit
+  die Wertlinie einen Gerätewechsel überlebt.
+
+Datenformat additiv erweitert (`priceHistory`), Verschlüsselung und Exporte unverändert. Ältere
+Tresore öffnen wie bisher, ohne Migration.
+
 ## v2.11 — 2026-09-16
 
 Auge im Passwortfeld (wie Alien Pass v1.5.1): Statt des Kästchens „Passphrase anzeigen“ (weiß mit blauem Haken im Android-Standard) sitzt jetzt rechts in jedem Passphrase-Feld ein Auge — beim Einrichten, Entsperren, Backup-Import und Passphrase-Wechsel. Jedes Auge zeigt nur sein eigenes Feld, Tastatur und Cursor bleiben beim Antippen im Feld. Neu: Beim Sperren gehen alle Felder wieder zu, bisher blieb ein angehaktes Kästchen stehen.

@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '2.11';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '2.12';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -40,9 +40,10 @@ const I18N = {
   "list.title":"Holdings","list.fAll":"All","list.fBtc":"Bitcoin","list.fGold":"Gold","list.fSilver":"Silver",
   "list.empty":"No entries yet. Get started in the “Add” tab.",
   "verlauf.title":"Wealth development",
-  "verlauf.intro":"Calculated from your entries — <strong>no market prices, no network lookup</strong>. Shows how your invested capital or holdings have grown over time.",
+  "verlauf.intro":"Calculated from your entries — <strong>no network lookup</strong>. Shows your invested capital and, as soon as you keep prices, the value calculated from them over time.",
   "verlauf.sInvested":"Net invested","verlauf.sBtc":"Bitcoin","verlauf.sGold":"Gold","verlauf.sSilver":"Silver",
   "verlauf.empty":"At least two entries are needed to show a history.",
+  "verlauf.r1":"1Y","verlauf.r3":"3Y","verlauf.r5":"5Y",
   "exp.taxTitle":"Tax-tool export (BTC)",
   "exp.taxIntro":"Generates CSVs in the format of your BTC tax tool — you just import them there. <code>manual_buys.csv</code> = all BTC buys (KYC flag), <code>manual_sales.csv</code> = all BTC sells (noKYC flag). Withdrawals are not sales and stay vault-internal. Entries in USD/CHF are only included if an EUR equivalent is recorded in the entry (edit entry) — the tax tool calculates in EUR.",
   "exp.metalTitle":"Precious-metal inventory (CSV)",
@@ -117,6 +118,9 @@ const T = {
   "ov.now":{de:"jetzt",en:"now"},
   "ov.peak":{de:"Höchststand",en:"Peak"},
   "ov.datapoints":{de:"Datenpunkte",en:"data points"},
+  "ov.value":{de:"Wert heute",en:"Value today"},
+  "ov.invested":{de:"Einstand",en:"Cost basis"},
+  "ov.diff":{de:"Differenz",en:"Difference"},
   "add.eurBuy":{de:"Bezahlt ({cur}, gesamt inkl. Gebühr)",en:"Paid ({cur}, total incl. fee)"},
   "add.eurSell":{de:"Erhalten ({cur}, netto)",en:"Received ({cur}, net)"},
   "add.amtBtc":{de:"Menge BTC",en:"BTC amount"},
@@ -160,6 +164,9 @@ const T = {
   "err.dateMissing":{de:"Datum fehlt.",en:"Date is missing."},
   "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
   "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
+  "verlauf.priceHint":{de:"Wertlinie aus {n} selbst eingetragenen Preisständen seit {d} — keine Netzabfrage. Die Kurve ist so dicht, wie du Preise pflegst.",en:"Value line from {n} self-entered price points since {d} — no network lookup. The curve is as dense as your price keeping."},
+  "verlauf.priceNone":{de:"Noch keine Wertlinie: Trage in der Übersicht Preise ein — jede Änderung merkt sich der Tresor mit Datum.",en:"No value line yet: enter prices in the overview — the vault remembers every change with its date."},
+  "verlauf.priceMissing":{de:"{n} Bestand/Bestände ohne Preis fehlen in der Wertlinie.",en:"{n} holdings without a price are missing from the value line."},
   "verlauf.noBaseHint":{de:"{n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert nicht enthalten (Eintrag bearbeiten → EUR-Gegenwert ergänzen).",en:"{n} foreign-currency entries without an EUR equivalent are not included (edit the entry to add one)."},
   "exp.fxSkipped":{de:"{n} USD/CHF-Buchung(en) ohne EUR-Gegenwert nicht im Export enthalten — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"{n} USD/CHF entries without an EUR equivalent were left out — edit the entry and add the EUR value."},
   "err.btcMissing":{de:"BTC-Menge fehlt.",en:"BTC amount is missing."},
@@ -188,6 +195,7 @@ const T = {
   "pill.dupQ":{de:"Dublette?",en:"Duplicate?"},
   "pill.dupTitle":{de:"Gleicher Vorgang, Datum und Menge existiert mehrfach",en:"Same action, date and amount exists more than once"},
   "series.invested":{de:"Netto investiert",en:"Net invested"},
+  "series.value":{de:"Wert",en:"Value"},
   "series.btc":{de:"Bitcoin-Bestand",en:"Bitcoin holdings"},
   "series.gold":{de:"Gold-Bestand",en:"Gold holdings"},
   "series.silver":{de:"Silber-Bestand",en:"Silver holdings"},
@@ -339,7 +347,7 @@ const App = (function(){
   let KEY_ITER = ITER;   // PBKDF2-Iterationen, mit denen KEY abgeleitet wurde — persist() schreibt genau diese (KDF-Agilität symmetrisch)
   let SALT = null;       // Uint8Array
   let VAULT = null;      // decrypted object
-  let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', editId = null;
+  let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', chartRange = 'max', editId = null;
   let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
 
   const $ = id => document.getElementById(id);
@@ -350,7 +358,8 @@ const App = (function(){
   function err(id,msg){const e=$(id);if(!msg){e.classList.add('hidden');return;}e.textContent=msg;e.classList.remove('hidden');}
 
   const VAULT_VERSION=1;   // Schema-Version dieser App — Vaults aus neueren Versionen lösen eine Warnung aus
-  function emptyVault(){return {version:VAULT_VERSION, entries:[], totp:null, prices:{btc:'',gold:'',silver:''}, unit:'oz', btcUnit:'btc', autolock:5};}
+  function emptyVault(){return {version:VAULT_VERSION, entries:[], totp:null, prices:{btc:'',gold:'',silver:''}, priceHistory:[], unit:'oz', btcUnit:'btc', autolock:5};}
+  const PRICE_HIST_MAX=2000;   // Deckel fuer VAULT.priceHistory (~5 Jahre taeglich)
   const OZ_G = 31.1034768;  // Troy-Unze in Gramm
   const SATS = 1e8;         // Anzeige/Eingabe wahlweise in Sats — Datenmodell + Exporte bleiben BTC
   function btcUnit(){return VAULT&&VAULT.btcUnit==='sat'?'sat':'btc';}
@@ -750,7 +759,24 @@ const App = (function(){
     const u=VAULT.unit||'oz';
     const toG=v=>{v=(v||'').trim();if(v==='')return '';const n=parseFloat(v);if(isNaN(n))return '';return String(u==='oz'?n/OZ_G:n);};
     VAULT.prices={btc:$('price-btc').value,gold:toG($('price-gold').value),silver:toG($('price-silver').value)};
-    persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(renderDash,400);
+    persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(()=>{if(!VAULT)return;snapPrices();renderDash();},400);
+  }
+  // Datierter Preisstand fuer die Wertlinie. Laeuft NUR aus dem entprellten Timer von savePrices —
+  // sonst landete jeder Tastendruck ("5", "58", "580") als eigener Stand in der Historie.
+  // Ein Eintrag je Kalendertag, der letzte des Tages gewinnt; unveraenderte Preise erzeugen keinen Punkt.
+  function snapPrices(){
+    if(!VAULT) return;
+    const p=VAULT.prices||{};
+    if(!p.btc && !p.gold && !p.silver) return;
+    if(!Array.isArray(VAULT.priceHistory)) VAULT.priceHistory=[];
+    const h=VAULT.priceHistory, d=todayStr();
+    const snap={d, btc:p.btc||'', gold:p.gold||'', silver:p.silver||''};
+    const last=h.length?h[h.length-1]:null;
+    const same=a=>a&&a.btc===snap.btc&&a.gold===snap.gold&&a.silver===snap.silver;
+    if(same(last)) return;                                   // Preise unveraendert -> kein neuer Punkt
+    if(last && last.d===d) h[h.length-1]=snap; else h.push(snap);
+    if(h.length>PRICE_HIST_MAX) h.splice(0,h.length-PRICE_HIST_MAX);
+    persist().catch(()=>{});
   }
   function setMetalUnit(u){VAULT.unit=u;persist();renderDash();}
   function setBtcUnit(u){VAULT.btcUnit=(u==='sat'?'sat':'btc');addBtcUnit=VAULT.btcUnit;persist();renderDash();}
@@ -790,8 +816,16 @@ const App = (function(){
   }
   function escapeHtml(s){return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-  /* ---------- Verlauf / Vermögensentwicklung (reines SVG, keine Marktpreise) ---------- */
+  /* ---------- Verlauf / Vermögensentwicklung (reines SVG, keine Netzabfrage) ---------- */
+  // Zwei Reihen: der Einstand (kumuliertes Netto-Kapital aus den Buchungen) und — sobald Preisstände
+  // vorliegen — der Wert (Bestand × selbst eingetragener Preis aus VAULT.priceHistory). Die App fragt
+  // NIE einen Kurs ab (CSP connect-src 'none'); die Wertlinie ist so dicht wie die eigene Preispflege.
+  const dayT = d => Date.parse(d+'T12:00:00Z');
+  const isoOf = ts => new Date(ts).toISOString().slice(0,10);
+  let chartState=null;                     // Zeichen-Geometrie für den Tooltip (Pointer -> Datenpunkt)
+
   function setChartSeries(s){chartSeries=s;document.querySelectorAll('#chart-series button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));renderVerlauf();}
+  function setChartRange(r){chartRange=r;renderVerlauf();}
   function seriesMeta(){
     const u=VAULT.unit||'oz', uL=u==='oz'?'oz':'g';
     return {
@@ -815,61 +849,199 @@ const App = (function(){
         const amt = e.type==='btc'? e.btc : e.grams*((e.fineness||1000)/1000);
         delta = signedAmt(e, amt);
       }
-      cum+=delta; pts.push({t:Date.parse(e.date+'T12:00:00Z'), val:cum, date:e.date});
+      cum+=delta; pts.push({t:dayT(e.date), val:cum, date:e.date});
     }
     // bei mehreren Buchungen am selben Tag nur den letzten Kumulwert je Tag behalten
     const byDay=new Map(); for(const p of pts) byDay.set(p.date,p);
     return {pts:Array.from(byDay.values()).sort((a,b)=>a.t-b.t), skippedFx};
   }
+  function holdSeries(){
+    // kumulierte Netto-Bestände je Buchungstag über alle drei Typen (Metalle in Feingramm)
+    const evs=VAULT.entries.slice().sort((a,b)=>a.date.localeCompare(b.date));
+    const acc={btc:0,gold:0,silver:0}; const byDay=new Map();
+    for(const e of evs){
+      const amt = e.type==='btc'? e.btc : e.grams*((e.fineness||1000)/1000);
+      acc[e.type]+=signedAmt(e, amt);
+      byDay.set(e.date,{t:dayT(e.date), date:e.date, btc:acc.btc, gold:acc.gold, silver:acc.silver});
+    }
+    return Array.from(byDay.values()).sort((a,b)=>a.t-b.t);
+  }
+  function priceSnaps(){
+    const h=Array.isArray(VAULT.priceHistory)?VAULT.priceHistory:[];
+    return h.filter(s=>s&&typeof s.d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s.d))
+            .slice().sort((a,b)=>a.d.localeCompare(b.d));
+  }
+  function valueSeries(){
+    // Stichtage = Preisstände + Buchungstage ab dem ersten Preisstand + heute.
+    // Bewertet wird mit dem letzten bekannten Preis vor oder an diesem Tag (der Preis hält).
+    const snaps=priceSnaps();
+    if(!snaps.length) return {pts:[], missing:0, first:''};
+    const hold=holdSeries();
+    const days=new Set(snaps.map(s=>s.d));
+    for(const h of hold) if(h.date>=snaps[0].d) days.add(h.date);
+    days.add(todayStr());
+    let hi=-1, si=-1, cur={btc:0,gold:0,silver:0}; const pts=[];
+    for(const d of Array.from(days).sort()){
+      while(hi+1<hold.length && hold[hi+1].date<=d){ hi++; cur=hold[hi]; }
+      while(si+1<snaps.length && snaps[si+1].d<=d) si++;
+      if(si<0) continue;                                   // Tag liegt vor dem ersten Preisstand
+      const sn=snaps[si];
+      const pb=parseFloat(sn.btc)||0, pg=parseFloat(sn.gold)||0, ps=parseFloat(sn.silver)||0;
+      pts.push({t:dayT(d), date:d, val:(cur.btc||0)*pb+(cur.gold||0)*pg+(cur.silver||0)*ps});
+    }
+    // Bestände ohne Preis fehlen still in der Summe -> zählen und darunter ehrlich ausweisen
+    const lastSnap=snaps[snaps.length-1], lastHold=hold.length?hold[hold.length-1]:null;
+    let missing=0;
+    if(lastHold) for(const k of ['btc','gold','silver'])
+      if((lastHold[k]||0)>0.0000001 && !(parseFloat(lastSnap[k])>0)) missing++;
+    return {pts, missing, first:snaps[0].d};
+  }
+  function rangeFrom(r){
+    const n=new Date();
+    if(r==='ytd') return Date.UTC(n.getFullYear(),0,1);
+    const y={y1:1,y3:3,y5:5}[r];
+    return y?Date.UTC(n.getFullYear()-y, n.getMonth(), n.getDate()):null;   // 'max' = alles
+  }
+  function clipPts(pts, from){
+    // Der erste Punkt eines Fensters ist der Stand ZU BEGINN des Fensters, nicht die erste Buchung
+    // darin — sonst startet der Verlauf fälschlich bei null.
+    if(from==null || !pts.length) return pts;
+    const inside=pts.filter(p=>p.t>=from);
+    let before=null; for(const p of pts) if(p.t<from) before=p;
+    if(before) inside.unshift({t:from, date:isoOf(from), val:before.val, edge:true});
+    return inside;
+  }
+  function updateRangeButtons(pts){
+    document.querySelectorAll('#chart-range button').forEach(b=>{
+      const f=rangeFrom(b.dataset.r);
+      const n=f==null?pts.length:clipPts(pts,f).length;
+      b.disabled = n<2 && b.dataset.r!=='max';
+      b.classList.toggle('on', b.dataset.r===chartRange);
+    });
+  }
   function renderVerlauf(){
     const m=seriesMeta(), {pts,skippedFx}=cumSeries();
+    const withValue = chartSeries==='invested';
+    const vs = withValue ? valueSeries() : {pts:[], missing:0, first:''};
     const head=$('chart-head'), wrap=$('chart-wrap'), empty=$('chart-empty');
-    const cur = pts.length? pts[pts.length-1].val : 0;
-    const peak = pts.length? Math.max(...pts.map(p=>p.val)) : 0;
-    head.innerHTML=`
-      <div class="stat"><div class="k">${m.label} ${tr('ov.now')}</div><div class="v" style="color:${m.color}">${m.fmt(cur)}</div></div>
-      <div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${pts.length} ${tr('ov.datapoints')}</div></div>`;
-    const fxHint=(chartSeries==='invested'&&skippedFx>0)?`<p class="muted" style="font-size:.78rem;margin-top:6px">${tr('verlauf.noBaseHint').replace('{n}',skippedFx)}</p>`:'';
-    if(pts.length<2){ wrap.innerHTML=fxHint; empty.classList.remove('hidden'); return; }
+    let from=rangeFrom(chartRange);
+    let cp=clipPts(pts,from), cv=clipPts(vs.pts,from);
+    if(from!=null && cp.length<2 && cv.length<2){ chartRange='max'; from=null; cp=pts; cv=vs.pts; }
+    updateRangeButtons(pts.concat(vs.pts));
+
+    const cur = cp.length? cp[cp.length-1].val : 0;
+    const peakPts = (withValue && cv.length) ? cv : cp;                 // Höchststand der Reihe, die vorne steht
+    const peak = peakPts.length? Math.max(...peakPts.map(p=>p.val)) : 0;
+    let cards=`<div class="stat"><div class="k">${withValue?tr('ov.invested'):m.label+' '+tr('ov.now')}</div><div class="v" style="color:${withValue&&cv.length?'var(--text-mid)':m.color}">${m.fmt(cur)}</div></div>`;
+    if(withValue && cv.length){
+      const val=cv[cv.length-1].val, pl=val-cur, sg=pl>=0?'+':'', col=pl>=0?'var(--neon)':'var(--red)';
+      const pct=cur>0?' ('+sg+fmtNum(pl/cur*100,1)+' %)':'';
+      cards+=`<div class="stat total"><div class="k">${tr('ov.value')}</div><div class="v" style="color:var(--neon)">${fmtEur(val)}</div><div class="sub" style="color:${col}">${sg}${fmtEur(pl)}${pct}</div></div>`;
+    }
+    cards+=`<div class="stat"><div class="k">${tr('ov.peak')}</div><div class="v">${m.fmt(peak)}</div><div class="sub">${peakPts.length} ${tr('ov.datapoints')}</div></div>`;
+    head.innerHTML=cards;
+
+    let hint='';
+    if(chartSeries==='invested'&&skippedFx>0) hint+=note(tr('verlauf.noBaseHint').replace('{n}',skippedFx));
+    if(withValue){
+      if(!vs.pts.length) hint+=note(tr('verlauf.priceNone'));
+      else{
+        hint+=note(tr('verlauf.priceHint').replace('{n}',priceSnaps().length).replace('{d}',fmtDay(dayT(vs.first))));
+        if(vs.missing>0) hint+=note(tr('verlauf.priceMissing').replace('{n}',vs.missing));
+      }
+    }
+    if(cp.length<2 && cv.length<2){ chartState=null; wrap.innerHTML=hint; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
-    wrap.innerHTML = buildChartSVG(pts, m)+fxHint;
+    const lines=[];
+    if(cv.length>1) lines.push({pts:cv, color:'var(--neon)', fill:true,  key:'value'});
+    lines.push({pts:cp, color:cv.length>1?'var(--text-mid)':m.color, fill:cv.length<=1, dash:cv.length>1, key:'invested'});
+    wrap.innerHTML = buildChartSVG(lines, m) + '<div id="chart-tip" class="chart-tip hidden"></div>' + hint;
   }
-  function buildChartSVG(pts, m){
+  const note = t => `<p class="muted" style="font-size:.78rem;margin-top:6px">${t}</p>`;
+  const fmtDay = ts => {const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
+  function buildChartSVG(lines, m){
     const W=600,H=240, pad={l:64,r:14,t:14,b:26};
-    const tMin=pts[0].t, tMax=pts[pts.length-1].t, tSpan=(tMax-tMin)||1;
-    let vMin=Math.min(0,...pts.map(p=>p.val)), vMax=Math.max(...pts.map(p=>p.val));
+    const all=lines.reduce((a,l)=>a.concat(l.pts),[]);
+    const tMin=Math.min(...all.map(p=>p.t)), tMax=Math.max(...all.map(p=>p.t)), tSpan=(tMax-tMin)||1;
+    let vMin=Math.min(0,...all.map(p=>p.val)), vMax=Math.max(...all.map(p=>p.val));
     if(vMax===vMin) vMax=vMin+1;
     const vSpan=vMax-vMin;
     const X=t=>pad.l+(t-tMin)/tSpan*(W-pad.l-pad.r);
     const Y=v=>pad.t+(1-(v-vMin)/vSpan)*(H-pad.t-pad.b);
-    // Stufen-Pfad (Wert hält bis zur nächsten Buchung)
-    let line=`M ${X(pts[0].t).toFixed(1)} ${Y(pts[0].val).toFixed(1)}`;
-    for(let i=1;i<pts.length;i++){ line+=` L ${X(pts[i].t).toFixed(1)} ${Y(pts[i-1].val).toFixed(1)} L ${X(pts[i].t).toFixed(1)} ${Y(pts[i].val).toFixed(1)}`; }
-    const area=`${line} L ${X(tMax).toFixed(1)} ${Y(vMin).toFixed(1)} L ${X(tMin).toFixed(1)} ${Y(vMin).toFixed(1)} Z`;
+    chartState={W,H,pad,tMin,tMax,tSpan,lines:lines.map(l=>({key:l.key,pts:l.pts}))};
     // Gridlines + Y-Labels (0, Mitte, Max)
     const yVals=[vMin, vMin+vSpan/2, vMax].filter((v,i,a)=>a.indexOf(v)===i);
     if(vMin<0 && vMax>0 && !yVals.includes(0)) yVals.push(0);
+    const eur = chartSeries==='invested';
     let grid='', ylab='';
     for(const v of yVals){ const y=Y(v).toFixed(1);
       grid+=`<line class="chart-grid" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>`;
-      ylab+=`<text class="chart-lbl" x="${pad.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">${chartSeries==='invested'?Math.round(v).toLocaleString('de-DE'):shortNum(chartSeries==='btc'?(btcUnit()==='sat'?v*SATS:v):( (VAULT.unit||'oz')==='oz'? v/OZ_G : v))}</text>`;
+      ylab+=`<text class="chart-lbl" x="${pad.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">${eur?Math.round(v).toLocaleString('de-DE'):shortNum(chartSeries==='btc'?(btcUnit()==='sat'?v*SATS:v):((VAULT.unit||'oz')==='oz'? v/OZ_G : v))}</text>`;
     }
-    const fmtDay=ts=>{const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
-    const cid='cg'+chartSeries;
-    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${m.label} Verlauf">
-      <defs><linearGradient id="${cid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${m.color}" stop-opacity="0.18"/><stop offset="100%" stop-color="${m.color}" stop-opacity="0"/>
-      </linearGradient></defs>
+    let paths='';
+    lines.forEach((l,i)=>{
+      const p=l.pts;
+      // Stufen-Pfad (Wert hält bis zur nächsten Buchung bzw. zum nächsten Preisstand)
+      let d=`M ${X(p[0].t).toFixed(1)} ${Y(p[0].val).toFixed(1)}`;
+      for(let k=1;k<p.length;k++){ d+=` L ${X(p[k].t).toFixed(1)} ${Y(p[k-1].val).toFixed(1)} L ${X(p[k].t).toFixed(1)} ${Y(p[k].val).toFixed(1)}`; }
+      const lastP=p[p.length-1];
+      // Die Stufe hält bis zum rechten Rand: eine Reihe ohne neue Buchung endet sonst mitten im Bild,
+      // obwohl der Einstand bis heute unverändert gilt.
+      if(lastP.t<tMax) d+=` L ${X(tMax).toFixed(1)} ${Y(lastP.val).toFixed(1)}`;
+      if(l.fill){
+        const cid='cg'+chartSeries+i;
+        paths+=`<defs><linearGradient id="${cid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${l.color}" stop-opacity="0.18"/><stop offset="100%" stop-color="${l.color}" stop-opacity="0"/></linearGradient></defs>`;
+        paths+=`<path d="${d} L ${X(Math.max(lastP.t,tMax)).toFixed(1)} ${Y(vMin).toFixed(1)} L ${X(p[0].t).toFixed(1)} ${Y(vMin).toFixed(1)} Z" fill="url(#${cid})" stroke="none"/>`;
+      }
+      paths+=`<path d="${d}" fill="none" stroke="${l.color}" stroke-width="2" stroke-linejoin="round"${l.dash?' stroke-dasharray="5 4"':''} style="filter:drop-shadow(0 0 4px ${l.color})"/>`;
+      paths+=`<circle cx="${X(lastP.t).toFixed(1)}" cy="${Y(lastP.val).toFixed(1)}" r="3.2" fill="${l.color}"/>`;
+    });
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${m.label}">
       ${grid}
       <line class="chart-axis" x1="${pad.l}" y1="${pad.t}" x2="${pad.l}" y2="${H-pad.b}"/>
       <line class="chart-axis" x1="${pad.l}" y1="${H-pad.b}" x2="${W-pad.r}" y2="${H-pad.b}"/>
-      <path d="${area}" fill="url(#${cid})" stroke="none"/>
-      <path d="${line}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px ${m.color})"/>
-      <circle cx="${X(pts[pts.length-1].t).toFixed(1)}" cy="${Y(pts[pts.length-1].val).toFixed(1)}" r="3.2" fill="${m.color}"/>
+      ${paths}
+      <line id="chart-cursor" class="chart-cursor hidden" x1="0" y1="${pad.t}" x2="0" y2="${H-pad.b}"/>
       ${ylab}
       <text class="chart-lbl" x="${pad.l}" y="${H-8}" text-anchor="start">${fmtDay(tMin)}</text>
       <text class="chart-lbl" x="${W-pad.r}" y="${H-8}" text-anchor="end">${fmtDay(tMax)}</text>
     </svg>`;
+  }
+  // Tooltip: der SVG skaliert mit preserveAspectRatio="none", X und Y werden also unterschiedlich
+  // gestreckt. Für die Rückrechnung reicht die X-Achse — gesucht ist der Punkt zum angetippten Tag.
+  function chartPoint(ev){
+    if(!chartState || !VAULT) return;
+    const wrap=$('chart-wrap'), tip=$('chart-tip'), svg=wrap&&wrap.querySelector('svg');
+    if(!wrap||!tip||!svg) return;
+    const r=svg.getBoundingClientRect(); if(!r.width) return;
+    const st=chartState, ux=(ev.clientX-r.left)/r.width*st.W;
+    const frac=(ux-st.pad.l)/(st.W-st.pad.l-st.pad.r);
+    const t=st.tMin+Math.min(1,Math.max(0,frac))*st.tSpan;
+    const vals=[];
+    for(const l of st.lines){
+      let hit=null; for(const p of l.pts) if(p.t<=t+43200000) hit=p;    // letzter Punkt bis zu diesem Tag
+      if(hit) vals.push({key:l.key, p:hit});
+    }
+    if(!vals.length) return;
+    const day=vals.reduce((a,b)=>a.p.t>b.p.t?a:b).p;
+    const m=seriesMeta();
+    const inv=vals.find(v=>v.key==='invested'), val=vals.find(v=>v.key==='value');
+    let html=`<b>${fmtDay(day.t)}</b>`;
+    if(val){
+      const pl=val.p.val-(inv?inv.p.val:0), sg=pl>=0?'+':'', col=pl>=0?'var(--neon)':'var(--red)';
+      html+=`<span>${tr('series.value')}: ${fmtEur(val.p.val)}</span>`;
+      if(inv) html+=`<span>${tr('ov.invested')}: ${fmtEur(inv.p.val)}</span><span style="color:${col}">${tr('ov.diff')}: ${sg}${fmtEur(pl)}</span>`;
+    } else if(inv) html+=`<span>${m.label}: ${m.fmt(inv.p.val)}</span>`;
+    tip.innerHTML=html; tip.classList.remove('hidden');
+    const cur=svg.querySelector('#chart-cursor');
+    if(cur){ const cx=st.pad.l+(day.t-st.tMin)/st.tSpan*(st.W-st.pad.l-st.pad.r); cur.setAttribute('x1',cx); cur.setAttribute('x2',cx); cur.classList.remove('hidden'); }
+    const wr=wrap.getBoundingClientRect();
+    const left=Math.min(Math.max(8, ev.clientX-wr.left-tip.offsetWidth/2), Math.max(8, wr.width-tip.offsetWidth-8));
+    tip.style.left=left+'px';
+  }
+  function chartHideTip(){
+    const tip=$('chart-tip'); if(tip) tip.classList.add('hidden');
+    const cur=document.getElementById('chart-cursor'); if(cur) cur.classList.add('hidden');
   }
   function shortNum(v){const a=Math.abs(v);if(a>=1e6)return (v/1e6).toFixed(1).replace('.',',')+'M';if(a>=1000)return (v/1000).toFixed(1).replace('.',',')+'k';if(a>=1)return v.toFixed(a<10?2:1).replace('.',',');return v.toFixed(3).replace('.',',');}
 
@@ -1044,6 +1216,26 @@ const App = (function(){
     }
     return out;
   }
+  // Preisstände aus einer importierten .vault übernehmen — Feld-Whitelist und Typprüfung wie in
+  // sanitizeEntry. Ohne das ginge die Wertlinie beim Umzug auf ein neues Gerät verloren.
+  function sanitizeSnaps(arr){
+    if(!Array.isArray(arr)) return [];
+    const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)&&n>0?String(n):'';};
+    const out=[];
+    for(const r of arr){
+      if(!r||typeof r!=='object') continue;
+      if(typeof r.d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
+      const sn={d:r.d, btc:num(r.btc), gold:num(r.gold), silver:num(r.silver)};
+      if(!sn.btc&&!sn.gold&&!sn.silver) continue;
+      out.push(sn);
+    }
+    return out;
+  }
+  function mergeSnaps(local, incoming){
+    const byDay=new Map(sanitizeSnaps(local).map(sn=>[sn.d,sn]));
+    for(const sn of sanitizeSnaps(incoming)) if(!byDay.has(sn.d)) byDay.set(sn.d,sn);   // lokaler Stand gewinnt
+    return Array.from(byDay.values()).sort((a,b)=>a.d.localeCompare(b.d)).slice(-PRICE_HIST_MAX);
+  }
   // Einträge zusammenführen: Vereinigung über die eindeutige id (keine Daten gehen verloren)
   function mergeEntries(local, incoming){
     const byId=new Map(local.map(e=>[e.id,e]));
@@ -1085,6 +1277,7 @@ const App = (function(){
       // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
+      VAULT.priceHistory=mergeSnaps(VAULT.priceHistory, v.priceHistory);
       // 2FA aus einem Import NUR nach ausdrücklicher Bestätigung übernehmen (Secret Base32-validiert).
       // Sonst könnte eine fremde .vault still ein Aegis-Gate mit unbekanntem Secret aktivieren und
       // dich nach dem nächsten Entsperren aus dem eigenen Tresor aussperren.
@@ -1312,7 +1505,7 @@ const App = (function(){
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
-    exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,
+    exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
     pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,_otpauth:''};
@@ -1343,8 +1536,11 @@ document.addEventListener('input',ev=>{
   const el=ev.target.closest('[data-input]'); if(!el) return;
   const fn=App[el.dataset.input]; if(typeof fn==='function') fn();
 });
+// Verlauf-Tooltip: Antippen/Ziehen zeigt den Stand des Tages, Verlassen blendet ihn aus
+document.addEventListener('pointerdown',ev=>{ if(ev.target.closest('#chart-wrap')) App.chartPoint(ev); else App.chartHideTip(); });
+document.addEventListener('pointermove',ev=>{ if(ev.target.closest('#chart-wrap')) App.chartPoint(ev); });
 document.addEventListener('keydown',ev=>{
-  if(ev.key==='Escape'){ App.closeMenus(); return; }
+  if(ev.key==='Escape'){ App.closeMenus(); App.chartHideTip(); return; }
   if(ev.key!=='Enter') return;
   const el=ev.target.closest('[data-enter]'); if(!el) return;
   const fn=App[el.dataset.enter]; if(typeof fn==='function') fn();
@@ -1352,6 +1548,8 @@ document.addEventListener('keydown',ev=>{
 
 window.addEventListener('DOMContentLoaded',()=>{
   if(!window.crypto||!crypto.subtle){document.body.innerHTML='<div class="container"><div class="card warn">Dieser Browser unterstützt kein WebCrypto (oder läuft nicht im sicheren Kontext). Öffne die Datei über https:// oder file:// in Vanadium/Brave/Firefox.</div></div>';return;}
+  const cw=document.getElementById('chart-wrap');
+  if(cw) cw.addEventListener('pointerleave',()=>App.chartHideTip());   // bubbelt nicht: feuert nur beim Verlassen des Containers
   App.enhancePassFields();   // vor applyI18n: setzt die Augen-Beschriftung
   applyI18n();
   App.boot();
