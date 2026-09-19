@@ -38,8 +38,8 @@ Stärkere Verschlüsselung, Fingerabdruck-Entsperren, Fehlversuchs-Bremse:
 - Nach einem Fehlversuch oder beim Wechsel in den Hintergrund bleibt keine getippte Passphrase mehr
   im Eingabefeld stehen.
 
-Geprüft durch zwei Security-Audits (davon eines über die gesamte Version) und Gerätetests auf
-GrapheneOS.
+Geprüft durch zwei interne Security-Audits (davon eines über die gesamte Version) und Gerätetests
+auf GrapheneOS.
 
 ## v2.12 — 2026-09-19
 
