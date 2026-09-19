@@ -21,6 +21,10 @@ Vermögensentwicklung im Verlauf-Tab deutlich ausgebaut:
   die Wertlinie einen Gerätewechsel überlebt.
 - Nach dem ersten Preisstand sagt der Tresor ehrlich, dass die Wertlinie erst mit dem nächsten
   geänderten Preis entsteht, statt eine Linie anzukündigen, die noch nicht gezeichnet werden kann.
+- Wer den Tresor aktualisiert, dessen bereits gepflegte Preise werden beim ersten Entsperren als
+  Stand des heutigen Tages übernommen — sonst stünde im Verlauf „trage Preise ein", obwohl welche
+  eingetragen sind. Die Hinweise sagen jetzt außerdem dazu, dass die sichtbare Linie der Einstand
+  ist und der Wert als zweite Linie dazukommt.
 
 Datenformat additiv erweitert (`priceHistory`), Verschlüsselung und Exporte unverändert. Ältere
 Tresore öffnen wie bisher, ohne Migration.

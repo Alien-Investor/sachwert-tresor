@@ -166,8 +166,8 @@ const T = {
   "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
   "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
   "verlauf.priceHint":{de:"Wertlinie aus {n} selbst eingetragenen Preisständen seit {d} — keine Netzabfrage. Die Kurve ist so dicht, wie du Preise pflegst.",en:"Value line from {n} self-entered price points since {d} — no network lookup. The curve is as dense as your price keeping."},
-  "verlauf.priceFirst":{de:"Erster Preisstand gemerkt ({d}). Die Wertlinie entsteht, sobald du einen geänderten Preis einträgst — der Tresor rechnet nur mit deinen eigenen Ständen.",en:"First price point saved ({d}). The value line appears once you enter a changed price — the vault only uses your own entries."},
-  "verlauf.priceNone":{de:"Noch keine Wertlinie: Trage in der Übersicht Preise ein — jede Änderung merkt sich der Tresor mit Datum.",en:"No value line yet: enter prices in the overview — the vault remembers every change with its date."},
+  "verlauf.priceFirst":{de:"Die Linie zeigt deinen Einstand. Erster Preisstand gemerkt ({d}) — die zweite Linie mit dem Wert kommt dazu, sobald du einen geänderten Preis einträgst. Der Tresor rechnet nur mit deinen eigenen Ständen.",en:"The line shows your cost basis. First price point saved ({d}) — the second line with the value appears once you enter a changed price. The vault only uses your own entries."},
+  "verlauf.priceNone":{de:"Die Linie zeigt deinen Einstand. Für eine zweite Linie mit dem Wert trage in der Übersicht Preise ein — jede Änderung merkt sich der Tresor mit Datum.",en:"The line shows your cost basis. For a second line with the value, enter prices in the overview — the vault remembers every change with its date."},
   "verlauf.priceMissing":{de:"{n} Bestand/Bestände ohne Preis fehlen in der Wertlinie.",en:"{n} holdings without a price are missing from the value line."},
   "verlauf.noBaseHint":{de:"{n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert nicht enthalten (Eintrag bearbeiten → EUR-Gegenwert ergänzen).",en:"{n} foreign-currency entries without an EUR equivalent are not included (edit the entry to add one)."},
   "exp.fxSkipped":{de:"{n} USD/CHF-Buchung(en) ohne EUR-Gegenwert nicht im Export enthalten — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"{n} USD/CHF entries without an EUR equivalent were left out — edit the entry and add the EUR value."},
@@ -454,7 +454,17 @@ const App = (function(){
   }
   function activity(){ if(!KEY) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
-  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); }
+  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); }
+  // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
+  // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
+  // entstuende erst beim naechsten Anfassen eines Preisfelds. Der heutige Stand ist keine Erfindung:
+  // es sind die selbst eingetragenen Preise, datiert auf den Tag, an dem wir sie erstmals sehen.
+  function adoptPrices(){
+    if(!VAULT) return;
+    const h=VAULT.priceHistory;
+    if(Array.isArray(h) && h.length) return;             // Historie laeuft schon
+    snapPrices();                                        // prueft selbst auf leere Preise und auf die Uhr
+  }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
     ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
