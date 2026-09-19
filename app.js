@@ -255,6 +255,7 @@ const T = {
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
   "err.noArgon2":{de:"Die Verschlüsselung (Argon2id) lässt sich in diesem Browser nicht starten. Am Tresor wurde nichts verändert.",en:"The encryption (Argon2id) cannot start in this browser. Nothing in the vault was changed."},
+  "err.wait":{de:"Zu viele Fehlversuche — bitte {s} s warten.",en:"Too many failed attempts — please wait {s} s."},
   "err.kdfFailed":{de:"Die Schlüsselableitung (Argon2id) ist gescheitert — vermutlich reicht der Speicher nicht. Am Tresor wurde nichts verändert.",en:"Key derivation (Argon2id) failed — probably not enough memory. Nothing in the vault was changed."},
   "err.setupFailed":{de:"Tresor konnte nicht angelegt werden.",en:"Could not create the vault."},
   "err.migrateFailed":{de:"Umstellung der Verschlüsselung fehlgeschlagen — der Tresor ist unverändert im alten Format erhalten.",en:"Switching the encryption failed — the vault is preserved unchanged in the old format."},
@@ -519,6 +520,21 @@ const App = (function(){
   }
   function dropPre3(){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } }
 
+  /* ---------- Fehlversuchs-Bremse (seit v3.0, Muster Alien Pass) ----------
+     Ab dem 3. Fehlversuch min(30,(n-2)*2) s Wartezeit, geprüft VOR jeder KDF-Arbeit. Überlebt einen Neustart unter
+     'ai-sachwert-lock' (nichts Geheimes darin). Ein Komfort-Riegel gegen Tipp-Hämmern, KEIN Krypto-Schutz — wer die
+     App-Daten löscht, löscht ihn mit; die Kostenbremse gegen Durchprobieren ist Argon2id. Es zählen nur echte
+     Fehlversuche (falsche Passphrase, falscher 2FA-Code), keine kaputten Dateien und keine Argon2-Speicherfehler. */
+  const LOCK_KEY='ai-sachwert-lock';
+  let failCount=0, lockedUntil=0;
+  function saveLockState(){ try{ if(failCount>=3&&lockedUntil>Date.now()) localStorage.setItem(LOCK_KEY, JSON.stringify({f:failCount,u:lockedUntil})); else localStorage.removeItem(LOCK_KEY); }catch(_){ } }
+  // Nur übernehmen, was plausibel ist: Wartezeit läuft noch und liegt höchstens eine Minute voraus (weist Uhr-Tricks und Müll ab)
+  function loadLockState(){ try{ const o=JSON.parse(localStorage.getItem(LOCK_KEY)||'null'); const n=Date.now();
+    if(o&&Number.isInteger(o.f)&&Number.isFinite(o.u)&&o.u>n&&o.u<n+60000){ failCount=o.f; lockedUntil=o.u; } }catch(_){ } }
+  function noteFail(){ failCount++; if(failCount>=3) lockedUntil=Date.now()+Math.min(30,(failCount-2)*2)*1000; saveLockState(); }
+  function clearFails(){ failCount=0; lockedUntil=0; saveLockState(); }
+  function waitMsg(){ const now=Date.now(); return now<lockedUntil ? tr('err.wait').replace('{s}',Math.ceil((lockedUntil-now)/1000)) : ''; }
+
   /* ---------- Argon2-Vorabprüfung ----------
      Known-Answer-Test mit kleinen Parametern (~10 ms). Fehlt hash-wasm oder rechnet es falsch, wird NICHTS am Tresor
      angefasst und der Sperrbildschirm sagt warum — statt eines „falsche Passphrase“, das nach Datenverlust aussieht. */
@@ -537,6 +553,7 @@ const App = (function(){
     const raw = localStorage.getItem(LS_KEY);
     if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); }
     else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); }
+    loadLockState();
     argonCheck().then(ok=>{ if(!ok) err(raw?'lock-err':'setup-err', tr('err.noArgon2')); });
     // theme buttons reflect current
     const soft = document.documentElement.getAttribute('data-theme')==='soft';
@@ -574,6 +591,7 @@ const App = (function(){
     if(DEK||pendingUnlock) return;
     const raw = localStorage.getItem(LS_KEY);
     if(!raw) return boot();
+    const wait=waitMsg(); if(wait){ $('lock-pass').value=''; maskInputs(); return err('lock-err',wait); }   // Bremse VOR jeder KDF-Arbeit
     const btn=$('unlock-btn'), orig=btn.textContent;
     doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting');
     try{
@@ -588,7 +606,7 @@ const App = (function(){
       }
       if(DEK||pendingUnlock){ $('lock-pass').value=''; maskInputs(); return; }
       pendingUnlock=r;
-    }catch(e){ $('lock-pass').value=''; maskInputs(); return err('lock-err', openErrMsg(e,'err.wrongPass')); }   // Eingabe nie stehen lassen (Audit run-4 #2)
+    }catch(e){ $('lock-pass').value=''; maskInputs(); if(isWrongPass(e)) noteFail(); return err('lock-err', openErrMsg(e,'err.wrongPass')); }   // Eingabe nie stehen lassen (Audit run-4 #2); nur echte Fehlversuche bremsen
     finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
     afterGate();
   }
@@ -604,9 +622,10 @@ const App = (function(){
     const p=pendingUnlock; if(!p||doTotp._busy||openSession._busy) return;
     err('totp-err');
     const code = $('totp-code').value.trim();
+    const wait=waitMsg(); if(wait){ $('totp-code').value=''; return err('totp-err',wait); }
     if(!/^\d{6}$/.test(code)) return err('totp-err',tr('err.totp6'));
     doTotp._busy=true;
-    try{ if(!await totpValid(p.vault.totp.secret, code)) return err('totp-err',tr('err.totpBad')); }
+    try{ if(!await totpValid(p.vault.totp.secret, code)){ $('totp-code').value=''; noteFail(); return err('totp-err',tr('err.totpBad')); } }
     finally{ doTotp._busy=false; }
     if(pendingUnlock!==p) return;                    // zwischendurch gesperrt
     $('totp-code').value='';
@@ -624,11 +643,11 @@ const App = (function(){
       catch(e){ if(!(e&&e.locked)){ toast(tr('err.migrateFailed')); lock(); } return; }
       finally{ openSession._busy=false; btns.forEach((b,i)=>{ b.disabled=false; b.textContent=labels[i]; }); }
       if(pendingUnlock!==p) return;                  // nach dem Schreiben gesperrt: Datei ist umgestellt, Sitzung bleibt zu
-      DEK=g.dek; KDF=g.kdf; WRAP=g.wrap; VAULT=p.vault; pendingUnlock=null;
+      DEK=g.dek; KDF=g.kdf; WRAP=g.wrap; VAULT=p.vault; pendingUnlock=null; clearFails();
       enterApp(); setTimeout(()=>toast(tr('toast.migrated')),300);
       return;
     }
-    DEK=p.dek; KDF=p.kdf; WRAP=p.wrap; VAULT=p.vault; pendingUnlock=null;
+    DEK=p.dek; KDF=p.kdf; WRAP=p.wrap; VAULT=p.vault; pendingUnlock=null; clearFails();
     dropPre3();                                      // AISV2 lässt sich öffnen: die Sicherungskopie des Alt-Blobs wird nicht mehr gebraucht
     enterApp();
   }
