@@ -38,7 +38,8 @@ und mit dem Doppelpunkt-Wert oben vergleichen.
 ## Erster Start
 
 Beim ersten Öffnen vergibst du deine **Passphrase** — danach entsperrt nur sie den Tresor.
-Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
+Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde. In der Android-App lässt sich
+zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit](#sicherheit)).
 
 > ⚠️ **Es gibt keinen Reset und kein Backdoor.** Passphrase vergessen = Daten weg.
 > Lege ein Backup an (verschlüsselte `.vault`-Datei) und bewahre die Passphrase sicher auf.
@@ -85,21 +86,47 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 
 ## Sicherheit
 
-- Verschlüsselung: **AES-256-GCM**, Schlüssel via **PBKDF2-SHA256 (600.000 Iterationen)**
-  aus deiner Passphrase — alles native **WebCrypto**, kein Fremd-Krypto-Code.
-- **Keine INTERNET-Permission** (ab v2.0): Die Android-App fordert **keine einzige
-  Berechtigung** an. Dass sie nicht nach Hause funken *kann*, erzwingt das Betriebssystem —
-  im Manifest der APK selbst nachprüfbar, kein Vertrauensvorschuss nötig.
+- Verschlüsselung: **AES-256-GCM** über native **WebCrypto**. Den Schlüssel leitet seit v3.0
+  **Argon2id** aus deiner Passphrase ab (64 MiB Speicher, 3 Durchgänge): Jeder Rateversuch
+  kostet Arbeitsspeicher, das macht Durchprobieren auf Grafikkarten und Spezialchips deutlich
+  teurer als mit dem früheren PBKDF2. Argon2id stammt aus der quelloffenen Bibliothek
+  [hash-wasm](https://www.npmjs.com/package/hash-wasm) (MIT, Version 4.12.0), liegt fest unter
+  `vendor/hash-wasm/` und wird beim Build per SHA-256 geprüft.
+- **Schlüsselhierarchie** (v3.0): Die Daten verschlüsselt ein zufälliger Datenschlüssel; die
+  Passphrase schützt nur diesen. Ein Passphrase-Wechsel erneuert beide.
+- **Umstellung** (v3.0): Tresore aus älteren Versionen werden beim ersten Entsperren automatisch
+  umgestellt — geschrieben wird erst, nachdem die neue Datei zur Probe entschlüsselt wurde. Alte
+  `.vault`-Backups bleiben dauerhaft importierbar.
+- **Keine INTERNET-Berechtigung** (ab v2.0): Dass die Android-App nicht nach Hause funken *kann*,
+  erzwingt das Betriebssystem — im Manifest der APK selbst nachprüfbar. Ihre **einzige
+  System-Berechtigung** ist seit v3.0 `USE_BIOMETRIC` für das optionale Fingerabdruck-Entsperren,
+  dazu `USE_FINGERPRINT`, das androidx.biometric mitbringt und die App auf Android bis 8.1
+  beschränkt. Die im Manifest zusätzlich gelistete `…DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` ist
+  eine app-interne Signatur-Berechtigung von AndroidX ohne Systemzugriff. Der Build bricht ab,
+  sobald die fertige APK eine andere Berechtigung anfordert.
+- **Fingerabdruck** (optional, v3.0): Ein vom Android-Keystore verwahrter Zufallsschlüssel schließt
+  den Datenschlüssel auf, freigegeben nur nach starker Biometrie. **Ehrlich eingeordnet:** bequem,
+  aber erzwingbar, und kein zusätzlicher Faktor. Die Passphrase bleibt Pflicht nach jedem Neustart,
+  nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden),
+  nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck
+  registriert wird — dann schaltet die App den Fingerabdruck ab und warnt. Die Neustart-Regel ist
+  Programmcode, keine kryptografische Garantie; Android bindet den Schlüssel an jede starke
+  Biometrie des Geräts.
 - **FLAG_SECURE** (ab v2.0): keine Screenshots, kein Screen-Recording, keine
-  Bestands-Vorschau im App-Switcher. **allowBackup=false**: Tresor-Daten landen in
-  keinem ADB-/Cloud-Backup — Backups machst nur du selbst (`.vault`).
+  Bestands-Vorschau im App-Switcher. **allowBackup=false** plus Regeln gegen die
+  Gerät-zu-Gerät-Übertragung (v3.0): Tresor-Daten landen in keinem ADB-/Cloud-Backup und werden
+  beim Handywechsel nicht mitkopiert — Backups machst nur du selbst (`.vault`).
 - **Content-Security-Policy** mit `connect-src 'none'`: Auch die Web-Version kann
   keinerlei Netz-Verbindung aufbauen. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
   (`script-src 'self'`): Inline-Script ist komplett verboten — selbst eingeschleustes
-  Markup hätte keine Ausführungsfläche.
+  Markup hätte keine Ausführungsfläche. Seit v3.0 steht dort zusätzlich `'wasm-unsafe-eval'`:
+  Browser (auch die Android-WebView) brauchen es, um das Argon2-WebAssembly zu übersetzen; es erlaubt weder `eval` noch
+  Inline-Script.
 - **2FA (Aegis)**: optionaler TOTP-Zweitfaktor (RFC 6238) als zweite Hürde beim
   Entsperren auf dem Gerät. Die Verschlüsselung selbst schützt allein die Passphrase —
   wähle sie entsprechend stark.
+- **Fehlversuchs-Bremse** (v3.0): Nach 3 falschen Versuchen wächst eine Wartezeit bis 30 Sekunden
+  — ein Riegel gegen Durchprobieren am Gerät, kein Krypto-Schutz.
 - Daten liegen nur **verschlüsselt** auf dem Gerät und in der `.vault`-Backup-Datei.
   Im Klartext verlässt nichts das Gerät. **Kein Reset, kein Backdoor.**
 - Importierte `.vault`-Dateien werden **schema-validiert** (nur bekannte Felder und
@@ -110,11 +137,13 @@ Optional aktivierst du einen **2FA-Code** (Aegis/TOTP) als zweite Hürde.
 ## Open Source & selbst prüfen
 
 Der komplette **Client-Code ist offen** ([MIT](LICENSE)) — du musst niemandem vertrauen, du kannst
-nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`. Schnell-Audit:
+nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`, `vendor/hash-wasm/` (Argon2id). Schnell-Audit:
 
 - **Kein Nach-Hause-Telefonieren:** keine `fetch`/`XMLHttpRequest`/WebSocket-Aufrufe, keine externen
   Skripte, keine CDNs, kein Analytics. Die einzige externe URL ist der Spenden-Link.
-- **Krypto:** ausschließlich native `crypto.subtle` (WebCrypto) — AES-256-GCM + PBKDF2-SHA256 (600k).
+- **Krypto:** AES-256-GCM über native `crypto.subtle` (WebCrypto); Argon2id aus `vendor/hash-wasm/`
+  (MIT, Version 4.12.0, beim Build per SHA-256 geprüft). Den alten PBKDF2-Lesepfad behält die App, damit
+  frühere Backups importierbar bleiben — geschrieben wird nur noch das neue Format.
 - **Schriften** liegen lokal unter `vendor/` (kein Google-Fonts-Abruf).
 - `roundtrip-test.mjs` belegt: Export → `.vault` → Import auf einem Zweitgerät ist verlustfrei.
 

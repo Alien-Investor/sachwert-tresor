@@ -240,7 +240,7 @@ tr:hover td{color:var(--neon);}
     <div class="card">
       <div class="lockicon"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="11" cy="12" r="4"/><path d="M11 8.4v1.4M11 14.2v1.4M7.4 12h1.4M13.2 12h1.4"/><circle cx="11" cy="12" r="1"/><path d="M19 9.5v5"/></svg></div>
       <h2 data-i18n="setup.title">Tresor einrichten</h2>
-      <p class="muted" data-i18n-html="setup.intro">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via PBKDF2). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
+      <p class="muted" data-i18n-html="setup.intro">Vergib eine starke Passphrase. Sie verschlüsselt alle Daten direkt auf diesem Gerät (AES-256-GCM, Schlüssel via Argon2id). <strong>Es gibt kein Backdoor und kein Reset</strong> — vergisst du die Passphrase, sind die Daten weg.</p>
       <label data-i18n="lbl.passphrase">Passphrase</label>
       <input id="setup-pass1" type="password" autocomplete="new-password" placeholder="mind. 12 Zeichen, besser eine Wortfolge" data-i18n-ph="setup.ph1" data-input="meterSetup">
       <div id="setup-meter" style="margin-top:4px;font-size:.78rem"></div>
@@ -598,7 +598,7 @@ tr:hover td{color:var(--neon);}
 
   <div class="foot">
     <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
-    <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238</span><br>
+    <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238</span><br>
     <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
   </div>
 </div>
@@ -653,10 +653,15 @@ tr:hover td{color:var(--neon);}
 
     <h2 data-i18n="help.h9">Sicherheit</h2>
     <ul data-i18n-html="help.l9">
-      <li>AES-256-GCM, Schlüssel via PBKDF2-SHA256 (600.000 Iterationen), native WebCrypto — kein Fremd-Krypto.</li>
-      <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline.</li>
+      <li>AES-256-GCM über native WebCrypto. Den Schlüssel leitet <strong>Argon2id</strong> aus deiner Passphrase ab (64 MiB Speicher, 3 Durchgänge): Jeder Rateversuch kostet Arbeitsspeicher, das macht Durchprobieren auf Grafikkarten und Spezialchips teuer. Argon2id stammt aus der quelloffenen Bibliothek hash-wasm (MIT), fest eingebunden und beim Build per SHA-256 geprüft.</li>
+      <li>Tresore und <code>.vault</code>-Backups aus Versionen vor 3.0 öffnen weiter. Der Tresor auf dem Gerät wird beim ersten Entsperren automatisch umgestellt.</li>
+      <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline. Die Android-App hat keine INTERNET-Berechtigung; ihre einzige System-Berechtigung gilt dem Fingerabdruck.</li>
+      <li>Nach 3 falschen Versuchen wächst eine Wartezeit (bis 30 Sekunden) — ein Riegel gegen Durchprobieren am Gerät, kein Krypto-Schutz.</li>
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>
+
+    <h2 data-i18n="help.h10">Fingerabdruck (Android-App)</h2>
+    <p data-i18n-html="help.p10">Unter Einstellungen lässt sich das Entsperren per Fingerabdruck einschalten (mit der Passphrase als Bestätigung). <strong>Ehrlich eingeordnet:</strong> Das ist bequem, aber erzwingbar, und kein zusätzlicher Schutz — nur ein zweiter Weg zum selben Schlüssel. Die Passphrase wird wieder verlangt nach jedem Neustart des Handys, nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden), nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck registriert wird. Im letzten Fall schaltet die App den Fingerabdruck ab und zeigt eine Warnung — warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Die Neustart-Regel ist Programmcode, keine kryptografische Garantie. Ist Aegis-2FA aktiv, wird der Code auch nach dem Fingerabdruck verlangt.</p>
 
     <div style="text-align:center;margin-top:32px"><button class="btn ghost" data-action="closeHelp" data-i18n="help.close">Schließen</button></div>
   </div>

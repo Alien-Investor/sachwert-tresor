@@ -16,7 +16,7 @@ const I18N = {
   "tagline":"Bitcoin · Gold · Silver — local & encrypted",
   "lbl.passphrase":"Passphrase","lbl.date":"Date","lbl.unit":"Unit",
   "setup.title":"Set up your vault",
-  "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via PBKDF2). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
+  "setup.intro":"Choose a strong passphrase. It encrypts all data directly on this device (AES-256-GCM, key via Argon2id). <strong>There is no backdoor and no reset</strong> — if you forget the passphrase, the data is gone.",
   "setup.repeat":"Repeat passphrase","setup.ph1":"min. 12 characters, better a word sequence",
   "setup.create":"Create vault",
   "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
@@ -78,7 +78,7 @@ const I18N = {
   "set.lockNow":"Lock now","set.wipe":"Delete local data",
   "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
   "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
-  "foot.line2":"Encryption: AES-256-GCM · PBKDF2-SHA256 (600k) · WebCrypto · TOTP RFC 6238",
+  "foot.line2":"Encryption: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238",
   "foot.donate":"Charge energy · Donate",
   "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
   "exp.nlTitle":"Estate appendix (holdings sheet for the heir package)",
@@ -109,7 +109,9 @@ const I18N = {
   "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
   "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
   "help.h9":"Security",
-  "help.l9":"<li>AES-256-GCM, key via PBKDF2-SHA256 (600,000 iterations), native WebCrypto — no third-party crypto.</li><li>No network requests, no trackers, no external CDNs. Everything offline.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>"
+  "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
+  "help.h10":"Fingerprint (Android app)",
+  "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone, after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint."
 };
 // Dynamische JS-Strings (beide Sprachen)
 const T = {
@@ -308,7 +310,7 @@ const T = {
   "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
   "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
   "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"},
-  "about":{de:"Sachwert-Tresor v{v} · AES-256-GCM · PBKDF2-SHA256 (600k) · 100 % lokal",en:"Sachwert-Tresor v{v} · AES-256-GCM · PBKDF2-SHA256 (600k) · 100 % local"},
+  "about":{de:"Sachwert-Tresor v{v} · AES-256-GCM · Argon2id · 100 % lokal",en:"Sachwert-Tresor v{v} · AES-256-GCM · Argon2id · 100 % local"},
   "err.vaultNewer":{de:"Hinweis: Dieser Tresor stammt aus einer neueren App-Version — bitte App aktualisieren.",en:"Note: this vault was created by a newer app version — please update the app."},
   "bk.never":{de:"⚠ Noch kein Backup erstellt — geht dieses Gerät verloren, ist der Tresor weg. Export & Sync → Backup erstellen.",en:"⚠ No backup yet — if this device is lost, the vault is gone. Export & Sync → Create backup."},
   "bk.stale":{de:"⚠ Letztes Backup vor {d} Tagen — seitdem {n} neue Buchung(en). Export & Sync → Backup erstellen.",en:"⚠ Last backup {d} days ago — {n} new entries since. Export & Sync → Create backup."},
