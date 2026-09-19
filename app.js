@@ -281,6 +281,7 @@ const T = {
   "bio.wrapMismatch":{de:"Der Passphrase-Schlüssel der Tresordatei wurde verändert — Fingerabdruck verweigert. Bitte Passphrase; falls sie nicht mehr passt, das letzte Backup zurückspielen.",en:"The vault file's passphrase key was altered — fingerprint refused. Use the passphrase; if it no longer works, restore the last backup."},
   "bio.aborted":{de:"Fingerabdruck nicht aktiviert — Vorgang durch Sperre oder Passphrase-Wechsel abgebrochen",en:"Fingerprint not enabled — interrupted by lock or passphrase change"},
   "bio.busy":{de:"Bitte erst den laufenden Fingerabdruck-Vorgang abschließen.",en:"Finish the pending fingerprint step first."},
+  "bio.rearmRefused":{de:"Fingerabdruck NICHT wieder aktiviert: Seit dem Einrichten wurde im System ein Fingerabdruck registriert. Warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Neu aktivieren geht in den Einstellungen.",en:"Fingerprint NOT re-enabled: a fingerprint was enrolled in the system since setup. If that was not you, check the fingerprints in Android settings. You can re-enable it in Settings."},
   "bio.held":{de:"Bewusst gesperrt: Diesmal ist die Passphrase nötig — danach gilt der Fingerabdruck wieder.",en:"Locked deliberately: the passphrase is required this time — the fingerprint works again afterwards."},
   "confirm.bioDisable":{de:"Fingerabdruck-Entsperren wirklich deaktivieren?",en:"Really disable fingerprint unlock?"},
   "toast.passChangedBio":{de:"Passphrase geändert, Datenschlüssel erneuert — Fingerabdruck deaktiviert, in den Einstellungen neu aktivieren",en:"Passphrase changed, data key rotated — fingerprint disabled, re-enable it in Settings"},
@@ -1705,8 +1706,11 @@ const App = (function(){
     let st; try{ st=await BIO.status(); }catch(_){ st={enabled:false,reason:'error'}; }
     if(gen!==bioGen||DEK||pendingUnlock) return;
     const reason=st&&st.reason;
+    // Neue Registrierung im System schlägt Neustart (Audit run-5 #1): das Plugin prüft den Kanarien-Schlüssel VOR der Boot-Kennung.
+    // Kein automatisches Neu-Bewaffnen — der Nutzer aktiviert bewusst neu (und sieht, dass sich etwas geändert hat).
+    if(reason==='invalidated'){ bioDrop(false); bioMsg(tr('bio.reset')); return; }
     if(reason==='reboot'||(!blob&&marker&&reason==='none')){                             // Neustart: Slot JETZT verwerfen (Keystore + Blob), nur der Marker bleibt
-      if(blob||reason==='reboot') bioDrop(true); setBioMarker(true); bioNeedsRearm=true; bioMsg(tr('bio.afterReboot')); return; }
+      if(blob||reason==='reboot') bioDrop(false); setBioMarker(true); bioNeedsRearm=true; bioMsg(tr('bio.afterReboot')); return; }   // nativ hat status() den Slot schon gelöscht; disable() würde auch die Kanarie löschen (run-5 #1)
     if(!blob){ if(st&&st.enabled){ try{ BIO.disable().catch(()=>{}); }catch(_){} } setBioMarker(false); setBioHold(false); return; }   // Keystore-Rest ohne JS-Blob: aufräumen
     if(st&&st.enabled&&bioHold()){ bioArmed=true; bioNeedsRearm=false; setBioMarker(false); renderBioGate(); bioMsg(tr('bio.held')); return; }   // Riegel: Slot gilt, aber kein Knopf, kein Prompt
     if(st&&st.enabled){ bioArmed=true; bioNeedsRearm=false; setBioMarker(false); renderBioGate(); if(auto&&!document.hidden) doBio(); return; }
@@ -1719,10 +1723,11 @@ const App = (function(){
     const gen=bioGen, secret=rand(32);
     try{
       const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrapCt);
-      await BIO.enroll({secret:bufToB64(secret), title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
+      // rearm:true → das Plugin richtet nur mit gültigem Kanarien-Schlüssel neu ein (sonst 'invalidated', Audit run-5 #1)
+      await BIO.enroll({secret:bufToB64(secret), rearm:!!rearm, title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
       if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen
       localStorage.setItem(BIO_KEY, ser); setBioMarker(false); bioArmed=true; bioNeedsRearm=false; return true;
-    }catch(e){ const c=e&&e.message; bioDrop(true); toast(tr(c==='cancel'?'bio.cancelled':c==='lockout'?'bio.lockout':'bio.failed')); return false; }
+    }catch(e){ const c=e&&e.message; bioDrop(true); toast(tr(c==='invalidated'?'bio.rearmRefused':c==='cancel'?'bio.cancelled':c==='lockout'?'bio.lockout':'bio.failed')); return false; }
     finally{ secret.fill(0); }
   }
   // Sperrbildschirm: Fingerabdruck → Keystore gibt den Zufallsschlüssel heraus → DEK auspacken → gleicher Abschluss wie die Passphrase
@@ -1745,7 +1750,7 @@ const App = (function(){
     }catch(e){
       const c=e&&e.message; if(gen!==bioGen) return;
       if(c==='cancel') return; if(c==='lockout') return err('lock-err',tr('bio.lockout'));
-      if(c==='reboot'){ bioDrop(true); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }
+      if(c==='reboot'){ bioDrop(false); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }   // Slot hat unlock() selbst gelöscht, Kanarie bleiben lassen
       bioDrop(c!=='invalidated'&&c!=='none'); return bioMsg(tr('bio.reset'));   // ungültiger Schlüssel, alter/fremder Blob, Manipulation
     }finally{ doBio._busy=false; if(secret) secret.fill(0); }
     afterGate();
