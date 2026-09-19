@@ -25,6 +25,27 @@ Vermögensentwicklung im Verlauf-Tab deutlich ausgebaut:
 Datenformat additiv erweitert (`priceHistory`), Verschlüsselung und Exporte unverändert. Ältere
 Tresore öffnen wie bisher, ohne Migration.
 
+**Sicherheitsrelevante Korrekturen aus dem Audit zu dieser Version:**
+
+- **Sperren räumt jetzt auch die Overlays weg.** Bisher blieb ein geöffneter Nachlass-Anhang nach dem
+  Sperren auf dem Schirm stehen — samt Netto-Beständen und dem Vermerk „Klasse B – vertraulich". Weil
+  das Druck-CSS beim Drucken alles außer diesem Blatt ausblendet, ließ es sich am gesperrten Tresor
+  vorbei sogar ausdrucken. Auslöser war der Normalfall, für den es die Auto-Sperre gibt: Blatt offen,
+  Gerät weggelegt. Mit dem Sperren verschwinden jetzt Blatt, Fassungsnummer, Hilfe-Overlay und die
+  eingetragenen Preise aus dem Fenster; im gesperrten Zustand ist nichts mehr druckbar.
+- **Preisstände werden auf Plausibilität geprüft.** Ein Datum musste bisher nur die Form `JJJJ-MM-TT`
+  haben — `9999-99-99` kam durch und zog unbrauchbare Werte durch den ganzen Verlauf, ein Datum in der
+  Zukunft blieb für immer der letzte Punkt der Wertlinie und war über die Oberfläche nicht mehr zu
+  entfernen. Beide Wege sind dicht: beim Eintragen (falsch gehende Geräteuhr), beim Import und beim
+  Anzeigen — Letzteres heilt auch Tresore, in denen schon ein solcher Stand liegt.
+- **Der Verlauf stürzt nicht mehr ab, wenn Preise ohne Buchungen gepflegt werden.** Wer zuerst Kurse
+  einträgt und erst später bucht, bekam beim Öffnen des Verlaufs eine leere Fläche statt des Charts,
+  dauerhaft bis zur ersten Buchung.
+- **Ein gescheitertes Speichern beim `.vault`-Import wird zurückgerollt.** Bisher blieben die fremden
+  Buchungen im Speicher stehen, während die App „Import fehlgeschlagen (falsche Passphrase oder
+  Datei?)" meldete — die nächste beliebige Aktion hätte sie dauerhaft festgeschrieben. Jetzt wird
+  zurückgerollt und der Speicherfehler beim Namen genannt.
+
 ## v2.11 — 2026-09-16
 
 Auge im Passwortfeld (wie Alien Pass v1.5.1): Statt des Kästchens „Passphrase anzeigen“ (weiß mit blauem Haken im Android-Standard) sitzt jetzt rechts in jedem Passphrase-Feld ein Auge — beim Einrichten, Entsperren, Backup-Import und Passphrase-Wechsel. Jedes Auge zeigt nur sein eigenes Feld, Tastatur und Cursor bleiben beim Antippen im Feld. Neu: Beim Sperren gehen alle Felder wieder zu, bisher blieb ein angehaktes Kästchen stehen.

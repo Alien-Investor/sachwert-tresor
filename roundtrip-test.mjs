@@ -70,13 +70,22 @@ function mergeEntries(local, incoming){
 }
 // sanitizeSnaps + mergeSnaps: 1:1 wie in app.js (Preisstände aus fremden .vault-Dateien, v2.12)
 const PRICE_HIST_MAX=2000;
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const dayT = d => Date.parse(d+'T12:00:00Z');
+const isoOf = ts => new Date(ts).toISOString().slice(0,10);
+function validDay(d){
+  if(typeof d!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const t=dayT(d);
+  return isFinite(t) && isoOf(t)===d;
+}
+const notFuture = d => validDay(d) && d<=todayStr();
 function sanitizeSnaps(arr){
   if(!Array.isArray(arr)) return [];
   const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)&&n>0?String(n):'';};
   const out=[];
   for(const r of arr){
     if(!r||typeof r!=='object') continue;
-    if(typeof r.d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
+    if(!notFuture(r.d)) continue;
     const sn={d:r.d, btc:num(r.btc), gold:num(r.gold), silver:num(r.silver)};
     if(!sn.btc&&!sn.gold&&!sn.silver) continue;
     out.push(sn);
@@ -184,6 +193,13 @@ async function main(){
   ok(rLC.entries[0].cur==='EUR', 'Altdaten ohne cur werden als EUR übernommen');
 
   console.log('\n[8] Preisstände aus einer importierten .vault (sanitizeSnaps/mergeSnaps, v2.12)');
+  const badDays=mergeSnaps([], [
+    {d:'9999-99-99', btc:'1'},                                    // Form stimmt, Datum existiert nicht -> NaN im Chart
+    {d:'2026-02-30', btc:'1'},                                    // 30. Februar
+    {d:'9999-12-31', btc:'5000000'},                              // gültig, aber Zukunft -> bliebe fuer immer der letzte Punkt
+    {d:'0000-00-00', btc:'1'},
+  ]);
+  ok(badDays.length===0, `unsinnige und zukuenftige Datumsangaben werden verworfen (sind ${badDays.length})`);
   const snaps=mergeSnaps([], [
     {d:'2026-01-02', btc:'58000', gold:'82.5', silver:'0.95'},   // gültig
     {d:'2026-01-03', btc:58000},                                  // Zahl statt String ist erlaubt

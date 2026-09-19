@@ -205,6 +205,7 @@ const T = {
   "dash.pricesHint":{de:"Trage oben Preise ein, um den aktuellen Wert zu sehen.",en:"Enter prices above to see the current value."},
   "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
   "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
+  "msg.importSaveFailed":{de:"Entschlüsselt, aber Speichern fehlgeschlagen — nichts übernommen. Speicher voll?",en:"Decrypted, but saving failed — nothing was imported. Storage full?"},
   "copy.manual":{de:"Manuell kopieren",en:"Copy manually"},
   "tip.edit":{de:"Bearbeiten",en:"Edit"},"tip.del":{de:"Löschen",en:"Delete"},
   "stat.investedLbl":{de:"Investiert",en:"Invested"},"stat.realizedLbl":{de:"Realisiert",en:"Realized"},
@@ -459,7 +460,13 @@ const App = (function(){
     ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
-    ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2'].forEach(i=>{const el=$(i);if(el)el.value='';});
+    // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
+    // Ohne das blieb das Nachlass-Blatt (Klasse B) nach dem Sperren auf dem Schirm stehen — und weil das
+    // Druck-CSS alles ausser #nachlass-overlay ausblendet, war es am gesperrten Tresor vorbei druckbar.
+    closeNachlass(); closeHelp();
+    chartState=null;                                     // aus Klartext abgeleitete Zeitreihe nicht im Heap lassen
+    ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2',
+     'nl-fassung','price-btc','price-gold','price-silver'].forEach(i=>{const el=$(i);if(el)el.value='';});
     $('totp-secret').textContent=''; App._otpauth='';
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup');
@@ -714,12 +721,12 @@ const App = (function(){
       noBaseTotal:noBase.btc+noBase.gold+noBase.silver};
   }
   const CUR_SYM={EUR:'€',USD:'$',CHF:'CHF'};
-  const fmtMoney=(n,cur)=>(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
+  const fmtMoney=(n,cur)=>(Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
   const fmtEur = n => fmtMoney(n,'EUR');
   // Beträge je Währung als Liste ("1.200,00 € · 500,00 $") — Währungen ohne Betrag entfallen
   const fmtByCur=o=>{const p=CURS.filter(c=>o&&Math.abs(o[c])>0.004).map(c=>fmtMoney(o[c],c));return p.length?p.join(' · '):fmtEur(0);};
   const anyCur=o=>CURS.some(c=>o&&o[c]>0);
-  const fmtNum = (n,d)=> (n||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+  const fmtNum = (n,d)=> (Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
 
   /* ---------- render dashboard ---------- */
   function renderDash(){
@@ -772,11 +779,15 @@ const App = (function(){
     if(!p.btc && !p.gold && !p.silver) return;
     if(!Array.isArray(VAULT.priceHistory)) VAULT.priceHistory=[];
     const h=VAULT.priceHistory, d=todayStr();
+    if(!validDay(d)) return;                                 // unbrauchbare Geraeteuhr -> lieber kein Stand
     const snap={d, btc:p.btc||'', gold:p.gold||'', silver:p.silver||''};
-    const last=h.length?h[h.length-1]:null;
+    // Den Stand DES TAGES suchen, nicht das letzte Array-Element: nach einem Import steht dort nicht
+    // zwingend heute, und die Zusicherung "ein Eintrag je Kalendertag" broeckelte (Audit run-3).
+    const i=h.findIndex(x=>x&&x.d===d), last=i>=0?h[i]:(h.length?h[h.length-1]:null);
     const same=a=>a&&a.btc===snap.btc&&a.gold===snap.gold&&a.silver===snap.silver;
     if(same(last)) return;                                   // Preise unveraendert -> kein neuer Punkt
-    if(last && last.d===d) h[h.length-1]=snap; else h.push(snap);
+    if(i>=0) h[i]=snap; else h.push(snap);
+    h.sort((a,b)=>String(a&&a.d).localeCompare(String(b&&b.d)));
     if(h.length>PRICE_HIST_MAX) h.splice(0,h.length-PRICE_HIST_MAX);
     persist().catch(()=>{});
   }
@@ -824,6 +835,16 @@ const App = (function(){
   // NIE einen Kurs ab (CSP connect-src 'none'); die Wertlinie ist so dicht wie die eigene Preispflege.
   const dayT = d => Date.parse(d+'T12:00:00Z');
   const isoOf = ts => new Date(ts).toISOString().slice(0,10);
+  // Ein Datum muss nicht nur die FORM stimmen, sondern auch existieren: '9999-99-99' passt auf die
+  // Regex, ergibt aber NaN und zieht NaN-Koordinaten durch den ganzen Chart. Und ein Preisstand aus
+  // der Zukunft ergibt fachlich nie Sinn — er bliebe fuer immer der letzte Punkt der Wertreihe
+  // (Audit run-3, Fund B-2/C-1: falsch gehende Geraeteuhr oder praeparierte .vault).
+  function validDay(d){
+    if(typeof d!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    const t=dayT(d);
+    return isFinite(t) && isoOf(t)===d;
+  }
+  const notFuture = d => validDay(d) && d<=todayStr();
   let chartState=null;                     // Zeichen-Geometrie für den Tooltip (Pointer -> Datenpunkt)
 
   function setChartSeries(s){chartSeries=s;document.querySelectorAll('#chart-series button').forEach(b=>b.classList.toggle('on',b.dataset.s===s));renderVerlauf();}
@@ -869,9 +890,9 @@ const App = (function(){
     return Array.from(byDay.values()).sort((a,b)=>a.t-b.t);
   }
   function priceSnaps(){
+    // Lesepfad-Riegel: heilt auch Tresore, in denen schon ein unsinniger Stand liegt.
     const h=Array.isArray(VAULT.priceHistory)?VAULT.priceHistory:[];
-    return h.filter(s=>s&&typeof s.d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s.d))
-            .slice().sort((a,b)=>a.d.localeCompare(b.d));
+    return h.filter(s=>s&&notFuture(s.d)).slice().sort((a,b)=>a.d.localeCompare(b.d));
   }
   function valueSeries(){
     // Stichtage = Preisstände + Buchungstage ab dem ersten Preisstand + heute.
@@ -879,6 +900,7 @@ const App = (function(){
     const snaps=priceSnaps();
     if(!snaps.length) return {pts:[], missing:0, first:''};
     const hold=holdSeries();
+    if(!hold.length) return {pts:[], missing:0, first:''};   // ohne Buchungen gibt es keinen Bestand und damit keinen Wert
     const days=new Set(snaps.map(s=>s.d));
     for(const h of hold) if(h.date>=snaps[0].d) days.add(h.date);
     days.add(todayStr());
@@ -957,12 +979,16 @@ const App = (function(){
     empty.classList.add('hidden');
     const lines=[];
     if(cv.length>1) lines.push({pts:cv, color:'var(--neon)', fill:true,  key:'value'});
-    lines.push({pts:cp, color:cv.length>1?'var(--text-mid)':m.color, fill:cv.length<=1, dash:cv.length>1, key:'invested'});
+    // Nur nicht-leere Reihen zeichnen: eine Reihe ohne Punkte liess buildChartSVG auf p[0] laufen
+    // und riss den ganzen Verlauf-Tab mit (Audit run-3, Fund A-1).
+    if(cp.length) lines.push({pts:cp, color:cv.length>1?'var(--text-mid)':m.color, fill:cv.length<=1, dash:cv.length>1, key:'invested'});
+    if(!lines.length){ chartState=null; wrap.innerHTML=hint; empty.classList.remove('hidden'); return; }
     wrap.innerHTML = buildChartSVG(lines, m) + '<div id="chart-tip" class="chart-tip hidden"></div>' + hint;
   }
   const note = t => `<p class="muted" style="font-size:.78rem;margin-top:6px">${t}</p>`;
   const fmtDay = ts => {const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
   function buildChartSVG(lines, m){
+    lines=lines.filter(l=>l&&l.pts&&l.pts.length);        // Riegel gegen jede kuenftige leere Reihe
     const W=600,H=240, pad={l:64,r:14,t:14,b:26};
     const all=lines.reduce((a,l)=>a.concat(l.pts),[]);
     const tMin=Math.min(...all.map(p=>p.t)), tMax=Math.max(...all.map(p=>p.t)), tSpan=(tMax-tMin)||1;
@@ -1227,7 +1253,7 @@ const App = (function(){
     const out=[];
     for(const r of arr){
       if(!r||typeof r!=='object') continue;
-      if(typeof r.d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.d)) continue;
+      if(!notFuture(r.d)) continue;                        // existierendes Datum, nicht in der Zukunft
       const sn={d:r.d, btc:num(r.btc), gold:num(r.gold), silver:num(r.silver)};
       if(!sn.btc&&!sn.gold&&!sn.silver) continue;
       out.push(sn);
@@ -1278,6 +1304,10 @@ const App = (function(){
       const k=await deriveKey(pass,salt,blob.iter);
       const v=await decryptBlob(blob,k);   // entschlüsselt = Passphrase korrekt
       // Zusammenführen statt ersetzen — deine lokale Passphrase (KEY/SALT) bleibt unverändert
+      // Zustand vor dem Zusammenfuehren merken: scheitert persist(), darf die Anzeige nicht fremde
+      // Buchungen zeigen, die nie gespeichert wurden — der naechste persist() schriebe sie sonst
+      // dauerhaft fest (Audit run-3, Fund B-3; gleiches Muster wie importCsv seit run-2).
+      const beforeEntries=VAULT.entries, beforeSnaps=VAULT.priceHistory, beforeTotp=VAULT.totp;
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
       VAULT.priceHistory=mergeSnaps(VAULT.priceHistory, v.priceHistory);
@@ -1290,7 +1320,12 @@ const App = (function(){
          && confirm(tr('confirm.importTotp'))){
         VAULT.totp={enabled:true, secret:v.totp.secret.toUpperCase()}; totpAdopted=true;
       }
-      await persist();
+      try{ await persist(); }
+      catch(ex){
+        if(!(ex&&ex.locked)){ VAULT.entries=beforeEntries; VAULT.priceHistory=beforeSnaps; VAULT.totp=beforeTotp; renderAll(); }
+        $('export-msg').textContent=tr('msg.importSaveFailed');
+        return;
+      }
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
