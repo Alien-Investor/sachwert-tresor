@@ -205,6 +205,34 @@ async function main(){
   const many=Array.from({length:PRICE_HIST_MAX+50},(_,i)=>({d:'20'+String(10+Math.floor(i/365)).padStart(2,'0')+'-01-01', btc:String(1000+i)}));
   ok(mergeSnaps([], many).length<=PRICE_HIST_MAX, 'Deckel PRICE_HIST_MAX greift');
 
+  console.log('\n[9] Argon2id + CSP-Zusicherungen (v3.0-Vorbereitung)');
+  const { readFileSync } = await import('node:fs');
+  // Known-Answer-Test gegen den offiziellen Vektor der Referenzimplementierung phc-winner-argon2
+  // (argon2id v1.3, t=2, m=65536, p=1, password/somesalt). Beweist, dass der gebuendelte WASM-Build
+  // spec-konform rechnet — nicht nur reproduzierbar mit sich selbst.
+  const hashwasm = (await import('./vendor/hash-wasm/argon2.umd.min.js')).default
+                 ?? (await import('./vendor/hash-wasm/argon2.umd.min.js'));
+  const kat = await hashwasm.argon2id({password:'password', salt:enc.encode('somesalt'),
+    parallelism:1, iterations:2, memorySize:65536, hashLength:32, outputType:'hex'});
+  ok(kat==='09316115d5cf24ed5a15a31a3ba326e5cf32edc24702987c02b6566f61913cf7',
+     'Argon2id trifft den Referenzvektor der phc-winner-argon2-Testsuite');
+
+  // CSP wird STATISCH geprueft: page.evaluate laeuft ueber CDP und umgeht die Seiten-CSP
+  // grundsaetzlich (auch ohne jedes eval-Token) — ein eval()-Test im Browser beweist NICHTS.
+  // Aussagekraeftig sind nur diese Textpruefung und die DOM-Injektion in verify-v22.mjs.
+  const html = readFileSync('index.html','utf8');
+  const csp = (html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)||[])[1]||'';
+  const scriptSrc = (csp.match(/script-src ([^;]+)/)||[])[1]||'';
+  ok(/connect-src 'none'/.test(csp), "connect-src 'none' steht unveraendert in der CSP");
+  ok(/'wasm-unsafe-eval'/.test(scriptSrc), "script-src erlaubt 'wasm-unsafe-eval' (Argon2-WASM)");
+  ok(!/(^|[^-])'unsafe-eval'/.test(scriptSrc), "script-src erlaubt KEIN allgemeines 'unsafe-eval'");
+  ok(!/'unsafe-inline'/.test(scriptSrc), "script-src erlaubt KEIN 'unsafe-inline'");
+  ok(/object-src 'none'/.test(csp) && /base-uri 'none'/.test(csp), "object-src und base-uri bleiben 'none'");
+  ok(html.indexOf('vendor/hash-wasm/argon2.umd.min.js') < html.indexOf('src="app.js"'),
+     'Argon2 wird vor app.js geladen');
+  const sw = readFileSync('sw.js','utf8');
+  ok(/hash-wasm\/argon2\.umd\.min\.js/.test(sw), 'Argon2 steht im Service-Worker-CORE (sonst waere die Web-PWA offline tot)');
+
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);
 }

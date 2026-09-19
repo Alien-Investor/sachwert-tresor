@@ -8,8 +8,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#000000">
-<!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js).
+     'wasm-unsafe-eval' ist die EINZIGE Erweiterung (seit v3.0): Chromium verlangt den Token für jede
+     WebAssembly-Kompilierung, auch aus eingebettetem Base64 (Argon2id aus vendor/hash-wasm). Er erlaubt
+     ausschließlich WASM — KEIN String-eval, KEIN Inline-Script. connect-src 'none' bleibt unangetastet. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<script src="vendor/hash-wasm/argon2.umd.min.js"></script>
 <script src="qr.js"></script>
 <script src="app.js"></script>
 <link href="vendor/fonts/fonts.css" rel="stylesheet">
