@@ -255,6 +255,7 @@ const T = {
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
   "err.noArgon2":{de:"Die Verschlüsselung (Argon2id) lässt sich in diesem Browser nicht starten. Am Tresor wurde nichts verändert.",en:"The encryption (Argon2id) cannot start in this browser. Nothing in the vault was changed."},
+  "err.kdfFailed":{de:"Die Schlüsselableitung (Argon2id) ist gescheitert — vermutlich reicht der Speicher nicht. Am Tresor wurde nichts verändert.",en:"Key derivation (Argon2id) failed — probably not enough memory. Nothing in the vault was changed."},
   "err.setupFailed":{de:"Tresor konnte nicht angelegt werden.",en:"Could not create the vault."},
   "err.migrateFailed":{de:"Umstellung der Verschlüsselung fehlgeschlagen — der Tresor ist unverändert im alten Format erhalten.",en:"Switching the encryption failed — the vault is preserved unchanged in the old format."},
   "toast.migrated":{de:"Verschlüsselung auf Argon2id umgestellt",en:"Encryption switched to Argon2id"},
@@ -471,6 +472,11 @@ const App = (function(){
   }
   function fileErrMsg(e){ const c=e&&e.message; return tr(c==='newer'?'err.fileNewer':c==='kdfbounds'?'err.fileBounds':c==='toolarge'?'err.fileLarge':c==='noargon2'?'err.noArgon2':'err.fileFormat'); }
   const FILE_ERRS=['format','newer','kdfbounds','toolarge','noargon2'];
+  // Nur ein fehlgeschlagenes AES-GCM-Auspacken/Entschlüsseln (OperationError) heißt „falsche Passphrase“. Alles andere —
+  // vor allem Argon2 ohne genug Speicher (RangeError/RuntimeError) — bekommt eine eigene Meldung, sonst glaubt der Nutzer
+  // bei richtiger Passphrase an Datenverlust und die Fehlversuchs-Bremse zählt falsch (Audit run-4, Hinweis 1).
+  const isWrongPass=e=>!!e&&e.name==='OperationError';
+  function openErrMsg(e, wrongKey){ return e&&FILE_ERRS.includes(e.message)?fileErrMsg(e):isWrongPass(e)?tr(wrongKey):e&&e.name==='InvalidCharacterError'?tr('err.fileFormat'):tr('err.kdfFailed'); }
   // Tresor-Text öffnen (lokaler Speicher wie importierte .vault). Struktur + Grenzen werden VOR jeder KDF-Arbeit geprüft.
   // AISV2 → {vault, dek, kdf, wrap}. Alt-Format (AISV1/PBKDF2, auch frühe Backups) → {legacy:true, vault}.
   // Wirft Error(FILE_ERRS) bei kaputter/fremder Datei, sonst den Entschlüsselungsfehler (= falsche Passphrase).
@@ -502,8 +508,13 @@ const App = (function(){
     if(JSON.stringify(back)!==JSON.stringify(p.vault)) throw new Error('readback');
     if(pendingUnlock!==p) throw lockedErr();                       // zwischendurch gesperrt: nichts schreiben
     if(localStorage.getItem(LS_KEY)!==p.raw) throw new Error('changed');   // Speicher hat sich unter uns geändert
-    try{ localStorage.setItem(PRE3_KEY, p.raw); localStorage.setItem(LS_KEY, s); }
-    catch(e){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } throw e; }   // setItem ist atomar: der Alt-Blob steht unverändert
+    // pre3 nur, wenn Platz ist (Audit run-4 #1): Alt-Blob + Kopie brauchen kurz 2N — ab etwa dem halben Speicherlimit
+    // scheiterte sonst JEDE Umstellung und der Tresor ging in v3.0 nie mehr auf. Der Read-back oben hat die neue Datei
+    // bereits bewiesen; setItem ersetzt atomar, bei jedem Fehler steht der Alt-Blob unverändert.
+    try{ localStorage.setItem(PRE3_KEY, p.raw); }catch(_){ dropPre3(); }
+    try{ localStorage.setItem(LS_KEY, s); }
+    catch(e){ dropPre3();                                          // Grenzfall: pre3 passte, blockiert aber den etwas größeren AISV2-Blob
+      localStorage.setItem(LS_KEY, s); }                          // zweiter Fehlschlag wirft: Alt-Blob steht unverändert
     return {dek, kdf:p.kdf, wrap};
   }
   function dropPre3(){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } }
@@ -575,9 +586,9 @@ const App = (function(){
         r.kdf={m:KDF_DEFAULT.m, t:KDF_DEFAULT.t, p:KDF_DEFAULT.p, salt:rand(16)};
         r.kek=await deriveKek(passBytes(pass), r.kdf); r.raw=raw;
       }
-      if(DEK||pendingUnlock) return;
+      if(DEK||pendingUnlock){ $('lock-pass').value=''; maskInputs(); return; }
       pendingUnlock=r;
-    }catch(e){ return err('lock-err', e&&FILE_ERRS.includes(e.message)?fileErrMsg(e):tr('err.wrongPass')); }
+    }catch(e){ $('lock-pass').value=''; maskInputs(); return err('lock-err', openErrMsg(e,'err.wrongPass')); }   // Eingabe nie stehen lassen (Audit run-4 #2)
     finally{ doUnlock._busy=false; btn.disabled=false; btn.textContent=orig; }
     afterGate();
   }
@@ -667,6 +678,9 @@ const App = (function(){
   function setEye(b,on){ b.setAttribute('aria-pressed',on?'true':'false'); b.dataset.showpass.split(',').forEach(id=>{ const f=$(id); if(f) f.type=on?'text':'password'; }); }
   function togglePass(_,b){ if(b) setEye(b,b.getAttribute('aria-pressed')!=='true'); }
   function maskInputs(){ document.querySelectorAll('[data-showpass]').forEach(b=>setEye(b,false)); }
+  // Getippte Passphrasen und Codes nie stehen lassen, wenn die App in den Hintergrund geht — auch im gesperrten Zustand
+  // (Audit run-4 #2, Port von Alien Pass run-2 F1). Nebenwirkung wie dort: halb ausgefüllte Formulare sind danach leer.
+  function clearGateInputs(){ ['lock-pass','setup-pass1','setup-pass2','import-pass','totp-code','cp-cur','cp1','cp2'].forEach(id=>{ const n=$(id); if(n) n.value=''; }); maskInputs(); }
   function enhancePassFields(){ document.querySelectorAll('input[type=password]').forEach(inp=>{ if(!inp.id||inp.closest('.pw-wrap')) return;
     const w=document.createElement('div'), b=document.createElement('button'); w.className='pw-wrap'; b.className='pw-eye'; b.type='button';
     b.dataset.showpass=inp.id; b.setAttribute('aria-pressed','false'); b.title=tr('pw.toggle'); inp.parentNode.insertBefore(w,inp); w.append(inp,b); }); }
@@ -676,6 +690,7 @@ const App = (function(){
   // die tatsächlich verstrichene Zeit prüfen und ggf. sofort sperren.
   let hiddenAt=0;
   document.addEventListener('visibilitychange',()=>{
+    if(document.hidden) clearGateInputs();           // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
     const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
     if(!v) return;
     const mins = v.autolock==null?5:v.autolock;
@@ -1494,10 +1509,11 @@ const App = (function(){
     const pass=$('import-pass').value;
     if(!pass){$('export-msg').textContent=tr('msg.enterPass');return;}
     if(btn){btn.disabled=true;btn.textContent=tr('busy.decrypting');}
+    const session=VAULT;                   // Import gehört zu DIESER Sitzung (Audit run-4, Hinweis 4)
     try{
       if(!await argonCheck()){ $('export-msg').textContent=tr('err.noArgon2'); return; }
       const v=(await openVaultText(pendingImportBlob, pass)).vault;   // entschlüsselt = Passphrase korrekt (AISV2 oder Alt-Format)
-      if(!VAULT) return;                   // während der Ableitung gesperrt
+      if(!VAULT||VAULT!==session) return;  // während der Ableitung gesperrt (auch: gesperrt und neu entsperrt)
       // Zusammenführen statt ersetzen — deine lokale Passphrase (DEK/KDF/WRAP) bleibt unverändert
       // Zustand vor dem Zusammenfuehren merken: scheitert persist(), darf die Anzeige nicht fremde
       // Buchungen zeigen, die nie gespeichert wurden — der naechste persist() schriebe sie sonst
@@ -1524,7 +1540,7 @@ const App = (function(){
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
-    }catch(e){ if(!(e&&e.locked)) $('export-msg').textContent=e&&FILE_ERRS.includes(e.message)?fileErrMsg(e):tr('msg.importBad'); }
+    }catch(e){ if(!(e&&e.locked)&&VAULT===session) $('export-msg').textContent=openErrMsg(e,'msg.importBad'); }
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
   }
 
@@ -1610,13 +1626,17 @@ const App = (function(){
       const vault=VAULT, old={DEK, KDF, WRAP};
       if(!vault) return;
       try{ const kOld=await deriveKek(passBytes(cur), old.KDF); await unwrapDek(old.WRAP, kOld, old.KDF, false); }
-      catch(e){ return err('cp-err',tr('err.cpWrong')); }
+      catch(e){ return err('cp-err',openErrMsg(e,'err.cpWrong')); }
       // 2) DEK-Rotation unter neuer Passphrase (frischer Salt, frischer DEK). Alles erst LOKAL bauen, dann DEK/KDF/WRAP
       //    in einem synchronen Schritt tauschen: ein persist() während Argon2 schriebe sonst einen gemischten Stand.
-      const kdf={m:old.KDF.m, t:old.KDF.t, p:old.KDF.p, salt:rand(16)};
-      const kNew=await deriveKek(passBytes(p1), kdf);
-      const wrap=await wrapDek(await newDek(), kNew, kdf);
-      const dek=await unwrapDek(wrap, kNew, kdf, false);
+      // Parameter der geöffneten Datei nur übernehmen, wenn sie mindestens dem Standard entsprechen — eine selbstgebaute
+      // Datei mit m=8192/t=1 trüge sonst schwache Parameter in jede neue Passphrase weiter (Audit run-4, Hinweis 3).
+      const strong=old.KDF.m>=KDF_DEFAULT.m&&old.KDF.t>=KDF_DEFAULT.t;
+      const kdf={m:strong?old.KDF.m:KDF_DEFAULT.m, t:strong?old.KDF.t:KDF_DEFAULT.t, p:strong?old.KDF.p:KDF_DEFAULT.p, salt:rand(16)};
+      let wrap, dek;
+      try{ const kNew=await deriveKek(passBytes(p1), kdf);
+        wrap=await wrapDek(await newDek(), kNew, kdf); dek=await unwrapDek(wrap, kNew, kdf, false); }
+      catch(e){ return err('cp-err',tr('err.kdfFailed')); }
       if(!DEK||VAULT!==vault) return;   // während der Ableitung gesperrt: neuen Schlüssel nicht zurück in den RAM holen
       DEK=dek; KDF=kdf; WRAP=wrap;
       try{ await persist(); }
