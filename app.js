@@ -558,10 +558,15 @@ const App = (function(){
      Fehlversuche (falsche Passphrase, falscher 2FA-Code), keine kaputten Dateien und keine Argon2-Speicherfehler. */
   const LOCK_KEY='ai-sachwert-lock';
   let failCount=0, lockedUntil=0;
-  function saveLockState(){ try{ if(failCount>=3&&lockedUntil>Date.now()) localStorage.setItem(LOCK_KEY, JSON.stringify({f:failCount,u:lockedUntil})); else localStorage.removeItem(LOCK_KEY); }catch(_){ } }
-  // Nur übernehmen, was plausibel ist: Wartezeit läuft noch und liegt höchstens eine Minute voraus (weist Uhr-Tricks und Müll ab)
+  // Der Zähler wird bei JEDEM Fehlversuch gespeichert und nur durch einen Erfolg (clearFails) gelöscht — kein Ablauf nach Zeit:
+  // am entsperrten Handy kontrolliert ein Angreifer die Uhr. Vorher galt der Eintrag nur während einer laufenden Wartezeit, und
+  // jeder App-Neustart danach begann wieder bei 0 — die Wartezeit wuchs nie über 2 s (Audit run-5 #2).
+  function saveLockState(){ try{ if(failCount>0) localStorage.setItem(LOCK_KEY, JSON.stringify({f:failCount,u:lockedUntil})); else localStorage.removeItem(LOCK_KEY); }catch(_){ } }
+  // Übernehmen: Zähler als Maximum aus RAM und Speicher (auch nach abgelaufener Wartezeit; zweiter Tab), Wartezeit höchstens
+  // 30 s voraus — ein Eintrag weit in der Zukunft (Uhr zurückgestellt, Müll) wird gekappt statt verworfen. Unplausibles → ignoriert.
   function loadLockState(){ try{ const o=JSON.parse(localStorage.getItem(LOCK_KEY)||'null'); const n=Date.now();
-    if(o&&Number.isInteger(o.f)&&Number.isFinite(o.u)&&o.u>n&&o.u<n+60000){ failCount=o.f; lockedUntil=o.u; } }catch(_){ } }
+    if(o&&Number.isInteger(o.f)&&o.f>0&&o.f<100000){ failCount=Math.max(failCount,o.f);
+      if(Number.isFinite(o.u)&&o.u>n) lockedUntil=Math.max(lockedUntil,Math.min(o.u,n+30000)); } }catch(_){ } }
   function noteFail(){ failCount++; if(failCount>=3) lockedUntil=Date.now()+Math.min(30,(failCount-2)*2)*1000; saveLockState(); }
   function clearFails(){ failCount=0; lockedUntil=0; saveLockState(); }
   function waitMsg(){ const now=Date.now(); return now<lockedUntil ? tr('err.wait').replace('{s}',Math.ceil((lockedUntil-now)/1000)) : ''; }
@@ -622,6 +627,7 @@ const App = (function(){
     if(DEK||pendingUnlock) return;
     const raw = localStorage.getItem(LS_KEY);
     if(!raw) return boot();
+    loadLockState();                               // Stand eines anderen Tabs übernehmen
     const wait=waitMsg(); if(wait){ $('lock-pass').value=''; maskInputs(); return err('lock-err',wait); }   // Bremse VOR jeder KDF-Arbeit
     const btn=$('unlock-btn'), orig=btn.textContent;
     doUnlock._busy=true; btn.disabled=true; btn.textContent=tr('busy.decrypting'); renderBioGate();   // Fingerabdruck-Knopf solange aus
@@ -660,6 +666,7 @@ const App = (function(){
     const p=pendingUnlock; if(!p||doTotp._busy||openSession._busy) return;
     err('totp-err');
     const code = $('totp-code').value.trim();
+    loadLockState();
     const wait=waitMsg(); if(wait){ $('totp-code').value=''; return err('totp-err',wait); }
     if(!/^\d{6}$/.test(code)) return err('totp-err',tr('err.totp6'));
     doTotp._busy=true;
