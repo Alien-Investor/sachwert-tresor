@@ -321,6 +321,79 @@ async function decryptBlob(blob, key){
   return JSON.parse(dec.decode(pt));
 }
 
+/* === VAULT-FORMAT BEGIN === */
+/* Dateiformat AISV2 + Schlüsselhierarchie (seit v3.0). Alles hier ist top-level und steht
+   ZWISCHEN den Sentinels: roundtrip-test.mjs wertet genau diese Region aus, statt die Krypto
+   ein zweites Mal nachzubauen (eine Kopie driftet, diese Region nicht). Nicht in den App-IIFE
+   verschieben und die Sentinel-Kommentare nicht umbenennen.
+
+   KEK = Argon2id(Passphrase) verpackt den zufälligen DEK (AES-GCM wrapKey mit AAD).
+   Die AAD bindet magic/ver/KDF-Parameter/Salt + Rolle (wrap|body|bio), kanonisch aus den
+   DEKODIERTEN Werten erzeugt, auf Lese- UND Schreibpfad dieselbe Funktion. Folge: ein
+   veränderter Header oder eine vertauschte Rolle macht die Entschlüsselung unmöglich. */
+const MAGIC='AISV2', FILE_VER=1;
+const KDF_DEFAULT={m:65536,t:3,p:1};                                   // 64 MiB, 3 Durchgänge — Parität zu Alien Pass
+const KDF_BOUNDS={mMin:8192,mMax:262144,tMin:1,tMax:16,pMin:1,pMax:4,budget:786432};
+const MAX_FILE_BYTES=20*1024*1024;
+function rand(n){ return crypto.getRandomValues(new Uint8Array(n)); }
+function b64Bytes(s){ if(typeof s!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(s)) return null; try{ return new Uint8Array(b64ToBuf(s)); }catch(_){ return null; } }
+function passBytes(p){ return enc.encode(String(p).normalize('NFKC')); }   // NFKC: dieselbe Passphrase, gleich getippt, ergibt denselben Schlüssel
+function kdfOk(k){ const B=KDF_BOUNDS; return !!k && Number.isInteger(k.m)&&Number.isInteger(k.t)&&Number.isInteger(k.p)
+  && k.m>=B.mMin&&k.m<=B.mMax && k.t>=B.tMin&&k.t<=B.tMax && k.p>=B.pMin&&k.p<=B.pMax && k.m*k.t<=B.budget; }
+function aad(kdf, role){ return enc.encode(`${MAGIC}|${FILE_VER}|argon2id|${kdf.m}|${kdf.t}|${kdf.p}|${bufToB64(kdf.salt)}|${role}`); }
+async function argon2Raw(pass, kdf){
+  if(!kdfOk(kdf)) throw new Error('kdfbounds');
+  if(!globalThis.hashwasm||typeof globalThis.hashwasm.argon2id!=='function') throw new Error('noargon2');
+  const raw=await globalThis.hashwasm.argon2id({password:pass, salt:kdf.salt, parallelism:kdf.p, iterations:kdf.t, memorySize:kdf.m, hashLength:32, outputType:'binary'});
+  if(pass instanceof Uint8Array) pass.fill(0);
+  return raw;
+}
+async function deriveKek(pass, kdf){
+  const raw=await argon2Raw(pass, kdf);
+  const key=await crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['wrapKey','unwrapKey']);
+  raw.fill(0); return key;
+}
+function newDek(){ return crypto.subtle.generateKey({name:'AES-GCM',length:256}, true, ['encrypt','decrypt']); }
+// Rolle 'wrap' = Passphrase-Slot in der Datei; 'bio' = Fingerabdruck-Slot (liegt außerhalb der Datei,
+// hängt aber am selben Header). Die Rollentrennung erzwingt die AAD, nicht eine Konvention.
+async function wrapDek(dek, kek, kdf, role){ const iv=rand(12); const ct=new Uint8Array(await crypto.subtle.wrapKey('raw', dek, kek, {name:'AES-GCM', iv, additionalData:aad(kdf,role||'wrap')})); return {iv, ct}; }
+function unwrapDek(wrap, kek, kdf, extractable, role){ return crypto.subtle.unwrapKey('raw', wrap.ct, kek, {name:'AES-GCM', iv:wrap.iv, additionalData:aad(kdf,role||'wrap')}, {name:'AES-GCM',length:256}, !!extractable, ['encrypt','decrypt']); }
+/* Fingerabdruck-Slot: 32 Byte Zufall (nur der Android-Keystore gibt sie nach Fingerabdruck heraus) werden als nicht
+   extrahierbarer Wrap-Schlüssel importiert; der Blob {iv,ct,w} liegt unter 'ai-sachwert-bio' und wird NIE exportiert. */
+function bioKey(raw){ if(!(raw instanceof Uint8Array)||raw.length!==32) throw new Error('biokey'); return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['wrapKey','unwrapKey']); }
+// `w` = b64 des Passphrase-Wrap-Ciphertexts, für den der Slot erzeugt wurde: doBio übernimmt f.wrap nur, wenn es dazu passt —
+// sonst könnte ein manipulierter wrap per Fingerabdruck-Sitzung stillschweigend weitergeschrieben werden (Alien-Pass-Audit run-3 #3)
+function parseBioBlob(raw){ if(typeof raw!=='string'||raw.length>512) return null; let o; try{ o=JSON.parse(raw); }catch(_){ return null; } if(!o||typeof o!=='object') return null; const iv=b64Bytes(o.iv), ct=b64Bytes(o.ct), w=b64Bytes(o.w); return (iv&&iv.length===12&&ct&&ct.length===48&&w&&w.length===48)?{iv,ct,w:o.w}:null; }
+function serializeBioBlob(blob, wrapCt){ if(!(wrapCt instanceof Uint8Array)||wrapCt.length!==48) throw new Error('bioblob'); return JSON.stringify({iv:bufToB64(blob.iv), ct:bufToB64(blob.ct), w:bufToB64(wrapCt)}); }
+async function encryptBody(obj, dek, kdf){ const iv=rand(12); const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad(kdf,'body')}, dek, enc.encode(JSON.stringify(obj)))); return {iv,ct}; }
+async function decryptBody(body, dek, kdf){ const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:body.iv,additionalData:aad(kdf,'body')}, dek, body.ct); return JSON.parse(dec.decode(pt)); }
+function serializeFile(kdf, wrap, body){
+  return JSON.stringify({magic:MAGIC, ver:FILE_VER,
+    kdf:{name:'argon2id', m:kdf.m, t:kdf.t, p:kdf.p, salt:bufToB64(kdf.salt)},
+    wrap:{iv:bufToB64(wrap.iv), ct:bufToB64(wrap.ct)},
+    body:{iv:bufToB64(body.iv), ct:bufToB64(body.ct)}});
+}
+// Prüft Struktur + Grenzen VOR jeder KDF-Arbeit. Wirft Error('format'|'newer'|'kdfbounds'|'toolarge').
+function parseFile(raw){
+  if(typeof raw!=='string') throw new Error('format');
+  if(raw.length>MAX_FILE_BYTES) throw new Error('toolarge');
+  let f; try{ f=JSON.parse(raw); }catch(_){ throw new Error('format'); }
+  if(!f||typeof f!=='object'||f.magic!==MAGIC) throw new Error('format');
+  if(f.ver!==FILE_VER) throw new Error((Number.isInteger(f.ver)&&f.ver>FILE_VER)?'newer':'format');
+  const k=f.kdf; if(!k||typeof k!=='object'||k.name!=='argon2id') throw new Error('format');
+  const kdf={m:k.m, t:k.t, p:k.p, salt:b64Bytes(k.salt)};
+  if(!kdf.salt||kdf.salt.length!==16) throw new Error('format');
+  if(!kdfOk(kdf)) throw new Error('kdfbounds');
+  const wrap={iv:b64Bytes(f.wrap&&f.wrap.iv), ct:b64Bytes(f.wrap&&f.wrap.ct)};
+  const body={iv:b64Bytes(f.body&&f.body.iv), ct:b64Bytes(f.body&&f.body.ct)};
+  if(!wrap.iv||wrap.iv.length!==12||!wrap.ct||wrap.ct.length!==48) throw new Error('format');
+  if(!body.iv||body.iv.length!==12||!body.ct||body.ct.length<16) throw new Error('format');
+  return {kdf, wrap, body};
+}
+// Sieht ein Blob wie eine Datei aus der Zeit vor AISV2 aus? (Lesepfad Alt-Format — nie entfernen.)
+function looksLegacy(o){ return !!o && typeof o==='object' && typeof o.ct==='string' && typeof o.salt==='string' && typeof o.iv==='string'; }
+/* === VAULT-FORMAT END === */
+
 /* ---------- TOTP (RFC 6238, HMAC-SHA1) ---------- */
 async function totp(secretB32, forTime){
   const key = base32Decode(secretB32);
