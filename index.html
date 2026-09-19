@@ -546,6 +546,7 @@ tr:hover td{color:var(--neon);}
       </div>
       <div class="card hidden" id="bio-card">
         <h2 data-i18n="set.bioTitle">Fingerabdruck-Entsperren (Android)</h2>
+        <div id="bio-alert" class="warn hidden" style="margin-bottom:12px"></div>
         <div id="bio-off">
           <p class="muted" data-i18n-html="set.bioOffIntro">Entsperrt den Tresor mit dem Fingerabdruck des Geräts statt mit der Passphrase. <strong>Ehrlich gesagt:</strong> Ein Fingerabdruck ist bequem, aber erzwingbar — an einer Grenze oder von jemandem, der deine Hand führt. Android bindet den Schlüssel an jede starke Biometrie des Geräts: Wo eine starke Gesichtserkennung eingerichtet ist (manche Stock-Pixel; auf GrapheneOS nicht), öffnet auch sie den Tresor, nach einem Bestätigungs-Tipp. Die Passphrase bleibt der eigentliche Schutz: Sie wird nach jedem Neustart des Handys verlangt, nach einem Passphrase-Wechsel und sobald ein neuer Fingerabdruck im System eingerichtet wird. Technisch schließt ein vom Android-Keystore verwahrter Zufallsschlüssel den Datenschlüssel auf; nichts davon gelangt in Backups.</p>
           <label data-i18n="set.bioPass">Passphrase zur Bestätigung</label><input id="bio-pass" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" data-enter="bioEnable">
