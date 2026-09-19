@@ -714,7 +714,7 @@ const App = (function(){
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
   function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices();
-    if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP.ct, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); renderSettings(); }); } }   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
+    if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP.ct, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
   // entstuende erst beim naechsten Anfassen eines Preisfelds. Der heutige Stand ist keine Erfindung:
@@ -1718,7 +1718,7 @@ const App = (function(){
     // Neue Registrierung im System schlägt Neustart (Audit run-5 #1): das Plugin prüft den Kanarien-Schlüssel VOR der Boot-Kennung.
     // Kein automatisches Neu-Bewaffnen — der Nutzer aktiviert bewusst neu (und sieht, dass sich etwas geändert hat).
     if(reason==='invalidated'){ bioDrop(false); bioMsg(tr('bio.reset')); setBioAlert(true); return; }
-    if(reason==='reboot'||(!blob&&marker&&reason==='none')){                             // Neustart: Slot JETZT verwerfen (Keystore + Blob), nur der Marker bleibt
+    if(reason==='reboot'||(!blob&&marker&&reason==='none')){                             // Neustart: nativ ist der Slot schon weg; JS-Blob verwerfen, Marker + Kanarie bleiben
       if(blob||reason==='reboot') bioDrop(false); setBioMarker(true); bioNeedsRearm=true; bioMsg(tr('bio.afterReboot')); return; }   // nativ hat status() den Slot schon gelöscht; disable() würde auch die Kanarie löschen (run-5 #1)
     if(!blob){ if(st&&st.enabled){ try{ BIO.disable().catch(()=>{}); }catch(_){} } setBioMarker(false); setBioHold(false); return; }   // Keystore-Rest ohne JS-Blob: aufräumen
     if(st&&st.enabled&&bioHold()){ bioArmed=true; bioNeedsRearm=false; setBioMarker(false); renderBioGate(); bioMsg(tr('bio.held')); return; }   // Riegel: Slot gilt, aber kein Knopf, kein Prompt
@@ -1734,9 +1734,13 @@ const App = (function(){
       const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrapCt);
       // rearm:true → das Plugin richtet nur mit gültigem Kanarien-Schlüssel neu ein (sonst 'invalidated', Audit run-5 #1)
       await BIO.enroll({secret:bufToB64(secret), rearm:!!rearm, title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
-      if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen
+      if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} setBioMarker(false); toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen — auch keinen Marker, sonst meldet die nächste Neu-Einrichtung ohne Kanarie fälschlich einen fremden Finger (Kurz-Review B)
       localStorage.setItem(BIO_KEY, ser); setBioMarker(false); bioArmed=true; bioNeedsRearm=false; if(!rearm) setBioAlert(false); return true;   // bewusst neu aktiviert: Warnung erledigt
-    }catch(e){ const c=e&&e.message; bioDrop(true); if(c==='invalidated') setBioAlert(true); toast(tr(c==='invalidated'?'bio.rearmRefused':c==='cancel'?'bio.cancelled':c==='lockout'?'bio.lockout':'bio.failed')); return false; }
+    }catch(e){ const c=e&&e.message;
+      // Keystore vorübergehend nicht bereit (Kanarien-Prüfung 'error' → 'unavailable'): Neu-Einrichtung beim nächsten Entsperren erneut
+      // versuchen — Kanarie und Marker bleiben, sonst ginge der Nachweis einer neuen Registrierung verloren (Kurz-Review C)
+      if(rearm&&c==='unavailable'){ bioArmed=false; setBioMarker(true); bioNeedsRearm=true; toast(tr('bio.naNow')); return false; }
+      bioDrop(true); if(c==='invalidated') setBioAlert(true); toast(tr(c==='invalidated'?'bio.rearmRefused':c==='cancel'?'bio.cancelled':c==='lockout'?'bio.lockout':'bio.failed')); return false; }
     finally{ secret.fill(0); }
   }
   // Sperrbildschirm: Fingerabdruck → Keystore gibt den Zufallsschlüssel heraus → DEK auspacken → gleicher Abschluss wie die Passphrase
@@ -1760,6 +1764,7 @@ const App = (function(){
       const c=e&&e.message; if(gen!==bioGen) return;
       if(c==='cancel') return; if(c==='lockout') return err('lock-err',tr('bio.lockout'));
       if(c==='reboot'){ bioDrop(false); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }   // Slot hat unlock() selbst gelöscht, Kanarie bleiben lassen
+      if(c==='invalidated') setBioAlert(true);                            // neuer Finger während die App gesperrt im Hintergrund lag: bleibende Warnung (Kurz-Review A)
       bioDrop(c!=='invalidated'&&c!=='none'); return bioMsg(tr('bio.reset'));   // ungültiger Schlüssel, alter/fremder Blob, Manipulation
     }finally{ doBio._busy=false; if(secret) secret.fill(0); }
     afterGate();
