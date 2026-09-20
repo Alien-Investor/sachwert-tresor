@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.1 — 2026-09-20
+
+Kleines Pflege-Update aus dem Praxistest. Am Tresor-Format und an der Verschlüsselung ändert sich nichts.
+
+- **Verlauf: kein versehentliches Markieren mehr.** Wer mit dem Finger über die Grafik fuhr, löste die
+  Textauswahl des Systems aus (Kopieren/Alles auswählen). Die Grafik ist jetzt davon ausgenommen,
+  waagerechtes Wischen bewegt nur noch den Tooltip, senkrechtes Scrollen bleibt wie gewohnt.
+- **Verlauf: Legende unter der Grafik.** Im Reiter „Netto investiert“ stehen zwei Linien: durchgezogen
+  der **Wert** aus deinen selbst gepflegten Preisen, gestrichelt dein **Einstand**. Die Legende erscheint,
+  sobald beide Linien da sind. Die Wertlinie beginnt erst am Tag deines ersten Preisstands.
+- **Verlauf: Wertlinie liegt obenauf.** Liegen Wert und Einstand fast gleichauf, verschwand die Wertlinie
+  bisher unter den Strichen des Einstands.
+- **Nachlass-Blatt: klarerer Verwahrhinweis.** Kopf und Warnhinweise sagen jetzt „getrennt von
+  Existenzhinweis **und Zugangsanleitung** verwahren“ (vorher nur „getrennt vom Existenzhinweis“).
+
 ## v3.0 — 2026-09-19
 
 > **Vor dem Update ein Backup exportieren** (Export & Sync → Backup erstellen). Beim ersten

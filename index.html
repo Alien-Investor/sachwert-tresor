@@ -202,7 +202,9 @@ tr:hover td{color:var(--neon);}
 .btn .ic{stroke-width:1.9;flex-shrink:0;}   /* Flex-Element: bricht der Text um, würde das Symbol sonst auf Punktgröße gestaucht */
 
 /* CHART — Look wie charts.html (Rahmen + neon Eck-Akzente) */
-.chart-wrap{position:relative;width:100%;border:1px solid var(--border);border-radius:4px;background:#0a0f0d;padding:10px;overflow:hidden;}
+/* Kein Markieren/Kopieren im Chart: langes Druecken oder Wischen startete sonst die Textauswahl der WebView.
+   touch-action:pan-y pinch-zoom — waagerechtes Wischen gehoert dem Tooltip, Scrollen und Zoomen bleiben der Seite. */
+.chart-wrap{position:relative;width:100%;border:1px solid var(--border);border-radius:4px;background:#0a0f0d;padding:10px;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-y pinch-zoom;}
 .chart-wrap::before{content:'';position:absolute;top:0;left:0;width:24px;height:24px;border-top:1px solid var(--neon);border-left:1px solid var(--neon);pointer-events:none;}
 .chart-wrap::after{content:'';position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:1px solid var(--neon);border-right:1px solid var(--neon);pointer-events:none;}
 .chart-wrap svg{width:100%;height:auto;display:block;}
@@ -214,6 +216,10 @@ tr:hover td{color:var(--neon);}
 .chart-tip{position:absolute;top:8px;pointer-events:none;background:var(--card-bg);border:1px solid var(--neon-mid);border-radius:4px;padding:5px 8px;font-size:.66rem;line-height:1.45;color:var(--text);white-space:nowrap;z-index:4;box-shadow:0 0 14px rgba(0,0,0,.5);}
 .chart-tip b{display:block;color:var(--neon);font-size:.68rem;letter-spacing:1px;margin-bottom:2px;}
 .chart-tip span{display:block;}
+.chart-legend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:.7rem;color:var(--text-mid);}
+.chart-legend span{display:inline-flex;align-items:center;gap:6px;}
+.chart-legend i{display:inline-block;width:22px;height:0;border-top:2px solid var(--neon);flex-shrink:0;}
+.chart-legend i.dash{border-top:2px dashed var(--text-mid);}
 .seg button:disabled{opacity:.35;cursor:default;}
 [data-theme="soft"] .chart-wrap{background:#0a1622;}
 [data-theme="soft"] .chart-grid{stroke:rgba(0,200,160,0.05);}
@@ -484,7 +490,7 @@ tr:hover td{color:var(--neon);}
       <div class="card">
         <h2 data-i18n="exp.nlTitle">Nachlass-Anhang (Bestandsliste für das Erben-Paket)</h2>
         <p class="muted" data-i18n-html="exp.nlIntro">Ein Blatt mit deinen aktuellen <strong>Netto-Beständen</strong> (Bitcoin, Gold, Silber mit Stückelung) im Aufbau des <strong>Nachlassplaners</strong>: Fassungsnummer, Datum, Vernichtungsvermerk. Nur Mengen, keine Preise, keine Händler, keine Standorte. Der Planer bleibt absichtlich blind für Beträge, dieses Blatt liegt ihm als Anlage der Klasse B bei.</p>
-        <p style="margin-top:8px;color:#ffcc66;font-size:0.85em" data-i18n="exp.nlWarn">⚠ Dieses Blatt nennt Bestände im Klartext. Vertraulich wie eine Zugangsanleitung verwahren, getrennt vom Existenzhinweis. Alte Fassung vernichten.</p>
+        <p style="margin-top:8px;color:#ffcc66;font-size:0.85em" data-i18n="exp.nlWarn">⚠ Dieses Blatt nennt Bestände im Klartext. Vertraulich verwahren, getrennt von Existenzhinweis und Zugangsanleitung. Alte Fassung vernichten.</p>
         <button class="btn" style="margin-top:12px" data-action="openNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6"/><path d="M9 16h6"/></svg> <span data-i18n="exp.nlOpen">Bestandsliste erstellen</span></button>
       </div>
       <div class="card">
@@ -673,7 +679,7 @@ tr:hover td{color:var(--neon);}
       <button class="btn ghost sm" data-action="closeNachlass" data-i18n="help.closeX">Schließen ✕</button>
     </div>
     <div class="nl-noprint">
-      <p class="warn" data-i18n="nl.warn">⚠ Klasse B, vertraulich: Dieses Blatt nennt Bestände im Klartext. Getrennt vom Existenzhinweis verwahren, alte Fassung vernichten. Standorte gehören nicht hierher, sondern handschriftlich in den Nachlassplaner.</p>
+      <p class="warn" data-i18n="nl.warn">⚠ Klasse B, vertraulich: Dieses Blatt nennt Bestände im Klartext. Getrennt von Existenzhinweis und Zugangsanleitung verwahren, alte Fassung vernichten. Standorte gehören nicht hierher, sondern handschriftlich in den Nachlassplaner.</p>
       <div class="row" style="margin-top:12px;align-items:flex-end">
         <label style="flex:0 0 auto"><span data-i18n="nl.fassungLbl">Fassung</span><br><input id="nl-fassung" type="text" inputmode="numeric" maxlength="12" placeholder="1" autocomplete="off" data-input="renderNachlass" style="width:90px"></label>
         <button class="btn" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span data-i18n="nl.print">Drucken</span></button>

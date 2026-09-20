@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.0';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -83,10 +83,10 @@ const I18N = {
   "help.title":"Manual","help.closeX":"Close ✕","help.close":"Close",
   "exp.nlTitle":"Estate appendix (holdings sheet for the heir package)",
   "exp.nlIntro":"One sheet with your current <strong>net holdings</strong> (Bitcoin, gold, silver with denominations) laid out like the <strong>Estate Planner</strong>: version number, date, destruction note. Quantities only, no prices, no dealers, no locations. The planner is deliberately blind to amounts; this sheet is attached to it as a class B annex.",
-  "exp.nlWarn":"⚠ This sheet states holdings in plain text. Keep it as confidential as an access guide, separate from the existence notice. Destroy the old version.",
+  "exp.nlWarn":"⚠ This sheet states holdings in plain text. Keep it confidential, separate from the existence notice and the access guide. Destroy the old version.",
   "exp.nlOpen":"Create holdings sheet",
   "nl.title":"Estate appendix",
-  "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
+  "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice and the access guide, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
   "nl.fassungLbl":"Version","nl.print":"Print","nl.save":"Save as file (.txt)",
   "nl.howto":"Desktop: print. Phone: the Share dialog opens; pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
@@ -229,7 +229,7 @@ const T = {
   "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
   "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
   "nl.sheetTitle":{de:"Nachlass-Anhang – Bestandsliste",en:"Estate appendix – holdings sheet"},
-  "nl.klasse":{de:"Klasse B – vertraulich – getrennt vom Existenzhinweis verwahren",en:"Class B – confidential – keep separate from the existence notice"},
+  "nl.klasse":{de:"Klasse B – vertraulich – getrennt von Existenzhinweis und Zugangsanleitung verwahren",en:"Class B – confidential – keep separate from the existence notice and the access guide"},
   "nl.fassung":{de:"Fassung",en:"Version"},
   "nl.stand":{de:"Stand",en:"As of"},
   "nl.replaces":{de:"Ersetzt Fassung vom",en:"Replaces version dated"},
@@ -1262,13 +1262,16 @@ const App = (function(){
     }
     if(cp.length<2 && cv.length<2){ chartState=null; wrap.innerHTML=hint; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
-    const lines=[];
-    if(cv.length>1) lines.push({pts:cv, color:'var(--neon)', fill:true,  key:'value'});
+    const lines=[], both=cv.length>1;
     // Nur nicht-leere Reihen zeichnen: eine Reihe ohne Punkte liess buildChartSVG auf p[0] laufen
     // und riss den ganzen Verlauf-Tab mit (Audit run-3, Fund A-1).
-    if(cp.length) lines.push({pts:cp, color:cv.length>1?'var(--text-mid)':m.color, fill:cv.length<=1, dash:cv.length>1, key:'invested'});
+    // Reihenfolge: Einstand unten, Wert obenauf — liegen beide fast deckungsgleich, bleibt die
+    // durchgezogene Wertlinie sichtbar statt unter den Strichen des Einstands zu verschwinden.
+    if(cp.length) lines.push({pts:cp, color:both?'var(--text-mid)':m.color, fill:!both, dash:both, key:'invested'});
+    if(both) lines.push({pts:cv, color:'var(--neon)', fill:true,  key:'value'});
     if(!lines.length){ chartState=null; wrap.innerHTML=hint; empty.classList.remove('hidden'); return; }
-    wrap.innerHTML = buildChartSVG(lines, m) + '<div id="chart-tip" class="chart-tip hidden"></div>' + hint;
+    const legend = both ? `<div class="chart-legend"><span><i></i>${tr('series.value')}</span><span><i class="dash"></i>${tr('series.invested')}</span></div>` : '';
+    wrap.innerHTML = buildChartSVG(lines, m) + '<div id="chart-tip" class="chart-tip hidden"></div>' + legend + hint;
   }
   const note = t => `<p class="muted" style="font-size:.78rem;margin-top:6px">${t}</p>`;
   const fmtDay = ts => {const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
