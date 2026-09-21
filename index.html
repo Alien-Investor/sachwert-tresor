@@ -65,6 +65,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 label{display:block;font-size:.72rem;letter-spacing:1px;color:var(--text-mid);margin:10px 0 4px;text-transform:uppercase;}
 input,select,textarea{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:3px;color:var(--neon);font-family:'Share Tech Mono',monospace;font-size:.9rem;padding:9px 10px;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--neon-mid);box-shadow:0 0 8px rgba(0,255,204,.25);}
+/* Autofill (Passwortmanager): Browser legt sonst ein helles Feld mit eigener Schriftfarbe drüber. Hintergrund lässt sich nicht direkt setzen, daher Innenschatten. */
+input:-webkit-autofill,input:-webkit-autofill:hover{-webkit-text-fill-color:var(--neon);caret-color:var(--neon);box-shadow:0 0 0 1000px var(--bg) inset;transition:background-color 600000s 0s,color 600000s 0s;}
+input:-webkit-autofill:focus{box-shadow:0 0 0 1000px var(--bg) inset,0 0 8px rgba(0,255,204,.25);}
 /* Auge im Passwortfeld (statt „anzeigen“-Kästchen, Muster Alien Pass): Knopf data-showpass, Zustand aria-pressed, Symbol als Maske in Theme-Farbe */
 .pw-wrap{position:relative;flex:1;min-width:0;}
 .pw-wrap input{padding-right:40px;}

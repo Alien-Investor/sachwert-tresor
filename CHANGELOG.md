@@ -3,6 +3,14 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.1.1 — 2026-09-21
+
+Reine Darstellungskorrektur. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts.
+
+- **Passwortfeld bleibt dunkel, wenn ein Passwortmanager es ausfüllt.** Füllte ein Passwortmanager
+  (z.B. Proton Pass) die Passphrase per Autofill ein, legte das System ein helles Feld darüber. Das Feld
+  behält jetzt Hintergrund und Schriftfarbe der gewählten Darstellung.
+
 ## v3.1 — 2026-09-20
 
 Kleines Pflege-Update aus dem Praxistest. Am Tresor-Format und an der Verschlüsselung ändert sich nichts.
