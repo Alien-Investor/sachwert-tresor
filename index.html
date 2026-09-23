@@ -562,7 +562,7 @@ tr:hover td{color:var(--neon);}
           </div>
         </div>
         <div id="totp-on" class="hidden">
-          <p class="muted"><svg class="ic" viewBox="0 0 24 24" style="color:var(--neon)"><path d="M5 12.5l4 4 10-10"/></svg> <span data-i18n="set.totpOnText">2FA ist aktiv. Beim Entsperren wird zusätzlich ein Aegis-Code verlangt.</span></p>
+          <p class="muted"><svg class="ic" viewBox="0 0 24 24" style="color:var(--neon)"><path d="M5 12.5l4 4 10-10"/></svg> <span data-i18n="set.totpOnText">2FA ist aktiv. Beim Entsperren wird zusätzlich ein Aegis-Code verlangt. Sie gilt nur auf diesem Gerät — Backups tragen sie nicht mit.</span></p>
           <button class="btn danger sm" style="margin-top:10px" data-action="totpDisable" data-i18n="set.totpDisable">2FA deaktivieren</button>
         </div>
       </div>
@@ -673,8 +673,8 @@ tr:hover td{color:var(--neon);}
     <h2 data-i18n="help.h7">Steuertool-Export</h2>
     <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle. Das Steuertool rechnet in EUR: Buchungen in USD/CHF landen nur im Export, wenn im Eintrag ein EUR-Gegenwert vom Buchungstag erfasst ist (laut Abrechnung) — sonst lässt der Export sie aus und zeigt eine Warnung.</p>
 
-    <h2 data-i18n="help.h8">2FA über mehrere Geräte</h2>
-    <p data-i18n-html="help.p8">Das 2FA-Secret liegt im verschlüsselten Tresor, pro Installation. Web und App sind getrennte Speicher → 2FA ist nicht automatisch gleich. Für denselben Aegis-Eintrag auf beiden: 2FA nur auf <em>einem</em> Gerät aktivieren, dann Backup auf dem anderen wiederherstellen (dort vorher kein 2FA aktivieren — ein bestehendes wird nie überschrieben).</p>
+    <h2 data-i18n="help.h8">2FA und Backups</h2>
+    <p data-i18n-html="help.p8">Die 2FA-Hürde gilt <strong>nur auf diesem Gerät</strong>. Ein Backup trägt sie nie mit (seit v3.4): Das Wiederherstellen einer <code>.vault</code>-Datei führt Buchungen und Preisstände zusammen, schaltet 2FA aber weder ein noch aus. Richte 2FA auf jedem Gerät, auf dem du sie willst, getrennt ein. So bleibt ein Backup immer der Notausgang, wenn Aegis weg ist: neu einrichten, Backup importieren, kein Code nötig.</p>
     <p data-i18n-html="help.p8b"><strong>Einordnung:</strong> Der Aegis-Code ist eine zusätzliche Hürde beim Entsperren auf diesem Gerät — <em>kein</em> zweiter Verschlüsselungsfaktor. Die Verschlüsselung selbst schützt allein die Passphrase: Wer an die Tresor-Daten oder eine <code>.vault</code>-Datei kommt, braucht die Passphrase (nicht den Code). Wähle sie entsprechend stark.</p>
 
     <h2 data-i18n="help.h9">Sicherheit</h2>

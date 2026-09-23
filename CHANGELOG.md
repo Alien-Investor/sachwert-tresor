@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.4 — 2026-09-23
+
+Sicherheits-Korrektur beim Wiederherstellen. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts.
+
+- **Ein Backup bringt die 2FA-Hürde nicht mehr mit.** Bisher konnte eine `.vault`-Datei beim Wiederherstellen nach Rückfrage die Aegis-Hürde
+  aktivieren. Wer den Aegis-Eintrag nicht mehr hatte, sperrte sich damit aus dem eigenen Backup aus. Jetzt gilt die Hürde nur auf dem Gerät, auf
+  dem du sie einrichtest — wie bei Alien Pass. Der Import führt Buchungen und Preisstände zusammen und lässt 2FA unverändert. Ein Backup bleibt
+  damit immer der Notausgang: neu einrichten, importieren, kein Code nötig. Wer denselben Aegis-Eintrag bisher per Backup auf ein zweites Gerät
+  gebracht hat, richtet 2FA dort künftig getrennt ein.
+- Einstellungen und Handbuch sagen das jetzt ausdrücklich („gilt nur auf diesem Gerät — Backups tragen sie nicht mit“).
+- Linux-Desktop: keine Änderung an der Hülle, Bundle `sachwert-tresor-3.4-linux-x86_64.flatpak` mit derselben App.
+
 ## v3.3 — 2026-09-23
 
 Der Sachwert-Tresor gibt es jetzt auch für den **Linux-Desktop** — derselbe Code wie im Browser und in der Android-App, verpackt mit Electron

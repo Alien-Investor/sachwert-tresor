@@ -244,6 +244,10 @@ vollständig in `desktop/` (Hauptprozess, Brücke, Build-Skript mit gepinntem El
 > Tipp: Läuft der Tresor auf demselben Handy wie Aegis, ist das manuelle Eintragen des
 > Schlüssels (Kopier-Button) bequemer als den eigenen Bildschirm zu scannen.
 
+Die 2FA-Hürde gilt **nur auf diesem Gerät** — ein Backup trägt sie nicht mit (seit v3.4, wie bei Alien Pass).
+Auf jedem weiteren Gerät richtest du sie getrennt ein. So bleibt ein Backup immer der Notausgang, wenn Aegis
+verloren geht: neu einrichten, Backup importieren, kein Code nötig.
+
 ### Backup & Sync (Syncthing)
 
 1. Auf beiden Geräten Syncthing, einen gemeinsamen Ordner teilen (z.B. `Tresor/`).
@@ -254,7 +258,7 @@ vollständig in `desktop/` (Hauptprozess, Brücke, Build-Skript mit gepinntem El
 
 > **Wie der Import zusammenführt:** Der Import **ersetzt nicht**, sondern **merged additiv**
 > über die eindeutige `id` jedes Eintrags — neue Einträge kommen hinzu, deine lokalen bleiben,
-> deine lokale Passphrase bleibt unverändert. Das heißt aber: **nachträgliche Änderungen und
+> deine lokale Passphrase bleibt unverändert, und die 2FA-Hürde des Backups wird nie übernommen. Das heißt aber: **nachträgliche Änderungen und
 > Löschungen syncen nicht** (ein bearbeiteter Eintrag bleibt auf dem anderen Gerät auf altem
 > Stand, ein gelöschter taucht beim Import wieder auf). Für ein anhängendes Käufe-Logbuch ist
 > das meist gewollt; korrigiere Einträge sonst auf beiden Geräten gleich.

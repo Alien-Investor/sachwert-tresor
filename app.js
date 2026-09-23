@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.3';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.4';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -64,7 +64,7 @@ const I18N = {
   "set.totpSetup2":"• <strong>With camera</strong> (e.g. desktop screen): scan the QR.<br>• <strong>Without camera, QR:</strong> save “QR as image” → in Aegis “+” → QR scan → import from gallery/image.<br>• <strong>Without camera, manual:</strong> “Copy key” → in Aegis “Add entry manually” → type <em>TOTP</em> → paste.",
   "set.copyKey":"Copy key","set.saveQR":"Save QR as image","set.copyQR":"Copy QR","set.otpauth":"otpauth link",
   "set.totpSetup3":"2) Aegis now shows a 6-digit code. Enter it to confirm:","set.activate":"Activate",
-  "set.totpOnText":"2FA is active. On unlock, an Aegis code is additionally required.","set.totpDisable":"Disable 2FA",
+  "set.totpOnText":"2FA is active. On unlock, an Aegis code is additionally required. It applies only to this device — backups do not carry it.","set.totpDisable":"Disable 2FA",
   "set.cpTitle":"Change passphrase","set.cpCur":"Current passphrase","set.cpNew":"New passphrase","set.cpRepeat":"Repeat","set.cpBtn":"Change",
   "set.themeTitle":"Appearance","set.themeDark":"Black (Neon)","set.themeSoft":"Soft (Navy)",
   "set.secTitle":"Security","set.autolock":"Auto-lock after inactivity",
@@ -112,8 +112,8 @@ const I18N = {
   "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
   "help.h7":"Tax-tool export",
   "help.p7":"Export & Sync generates <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exactly in the BTC tax tool format (KYC buys marked, noKYC separated) plus <code>edelmetalle.csv</code> for the metals. The tax tool calculates in EUR: entries in USD/CHF only make it into the export if an EUR equivalent from the transaction date is recorded in the entry (from your statement) — otherwise the export leaves them out and shows a warning.",
-  "help.h8":"2FA across multiple devices",
-  "help.p8":"The 2FA secret lives in the encrypted vault, per installation. Web and app are separate stores → 2FA is not automatically the same. For the same Aegis entry on both: enable 2FA on <em>one</em> device only, then restore the backup on the other (do not enable 2FA there first — an existing one is never overwritten).",
+  "help.h8":"2FA and backups",
+  "help.p8":"The 2FA hurdle applies <strong>only to this device</strong>. A backup never carries it along (since v3.4): restoring a <code>.vault</code> file merges entries and price history, but never switches 2FA on or off. Set up 2FA separately on every device you want it on. That way a backup is always the way out if Aegis is gone: reinstall, import the backup, no code required.",
   "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
@@ -199,8 +199,6 @@ const T = {
   "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
   "msg.total":{de:"gesamt",en:"total"},
   "msg.passKept":{de:"Deine lokale Passphrase bleibt unverändert.",en:"Your local passphrase stays unchanged."},
-  "confirm.importTotp":{de:"Diese Backup-Datei will eine 2FA (Aegis) aktivieren. Nur zulassen, wenn es DEIN eigenes Backup ist — sonst sperrst du dich mit einem fremden Code aus. 2FA jetzt aus dem Backup übernehmen?",en:"This backup wants to enable 2FA (Aegis). Only allow this if it is YOUR own backup — otherwise a foreign code would lock you out. Adopt 2FA from the backup now?"},
-  "msg.totpAdopted":{de:"2FA aus dem Backup aktiviert.",en:"2FA from the backup enabled."},
   "msg.importBad":{de:"Import fehlgeschlagen (falsche Passphrase oder Datei?).",en:"Import failed (wrong passphrase or file?)."},
   "msg.notValidVault":{de:"Keine gültige .vault-Datei.",en:"Not a valid .vault file."},
   "msg.enterPass":{de:"Bitte Passphrase eingeben.",en:"Please enter a passphrase."},
@@ -1670,27 +1668,21 @@ const App = (function(){
       // Zustand vor dem Zusammenfuehren merken: scheitert persist(), darf die Anzeige nicht fremde
       // Buchungen zeigen, die nie gespeichert wurden — der naechste persist() schriebe sie sonst
       // dauerhaft fest (Audit run-3, Fund B-3; gleiches Muster wie importCsv seit run-2).
-      const beforeEntries=VAULT.entries, beforeSnaps=VAULT.priceHistory, beforeTotp=VAULT.totp;
+      const beforeEntries=VAULT.entries, beforeSnaps=VAULT.priceHistory;
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
       VAULT.priceHistory=mergeSnaps(VAULT.priceHistory, v.priceHistory);
-      // 2FA aus einem Import NUR nach ausdrücklicher Bestätigung übernehmen (Secret Base32-validiert).
-      // Sonst könnte eine fremde .vault still ein Aegis-Gate mit unbekanntem Secret aktivieren und
-      // dich nach dem nächsten Entsperren aus dem eigenen Tresor aussperren.
-      let totpAdopted=false;
-      if((!VAULT.totp||!VAULT.totp.enabled) && v.totp && v.totp.enabled===true
-         && typeof v.totp.secret==='string' && /^[A-Z2-7]{16,64}$/i.test(v.totp.secret)
-         && confirm(tr('confirm.importTotp'))){
-        VAULT.totp={enabled:true, secret:v.totp.secret.toUpperCase()}; totpAdopted=true;
-      }
+      // Die Aegis-Hürde (VAULT.totp) fasst der Import NIE an (seit v3.4, Muster Alien Pass): Sie gilt nur auf diesem Gerät.
+      // Bis v3.3 konnte ein Backup sie nach Rückfrage mitbringen — wer den Aegis-Eintrag nicht mehr hatte, sperrte sich damit
+      // beim Wiederherstellen selbst aus. Jetzt bleibt ein Backup immer der Notausgang: neu einrichten, importieren, ohne Code.
       try{ await persist(); }
       catch(ex){
-        if(!(ex&&ex.locked)){ VAULT.entries=beforeEntries; VAULT.priceHistory=beforeSnaps; VAULT.totp=beforeTotp; renderAll(); }
+        if(!(ex&&ex.locked)){ VAULT.entries=beforeEntries; VAULT.priceHistory=beforeSnaps; renderAll(); }
         $('export-msg').textContent=tr('msg.importSaveFailed');
         return;
       }
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
-      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(totpAdopted?' '+tr('msg.totpAdopted'):'');
+      $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`;
       renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
     }catch(e){ if(!(e&&e.locked)&&VAULT===session) $('export-msg').textContent=openErrMsg(e,'msg.importBad'); }
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
