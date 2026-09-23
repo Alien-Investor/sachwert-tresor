@@ -6,7 +6,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.1.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.2';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -70,10 +70,13 @@ const I18N = {
   "set.al0":"Off","set.al1":"1 minute","set.al5":"5 minutes","set.al15":"15 minutes","set.al30":"30 minutes",
   "lock.bio":"Unlock with fingerprint",
   "set.bioTitle":"Fingerprint unlock (Android)",
-  "set.bioOffIntro":"Unlocks the vault with the device fingerprint instead of the passphrase. <strong>Honestly:</strong> a fingerprint is convenient, but it can be forced — at a border, or by someone holding your hand. Android binds the key to every strong biometric of the device: where a strong face unlock is enrolled (some stock Pixels; not on GrapheneOS), that opens the vault too, after a confirmation tap. The passphrase remains the real protection: it is required after every restart of the phone, after a passphrase change and as soon as a new fingerprint is enrolled in the system. Technically, a random key held by the Android Keystore unlocks the data key; none of it ends up in backups.",
+  "set.bioOffIntro":"Unlocks the vault with the device fingerprint instead of the passphrase. <strong>Honestly:</strong> a fingerprint is convenient, but it can be forced — at a border, or by someone holding your hand. Android binds the key to every strong biometric of the device: where a strong face unlock is enrolled (some stock Pixels; not on GrapheneOS), that opens the vault too, after a confirmation tap. The passphrase remains the real protection: it is required after every restart of the phone (as long as the box below is unticked), after a passphrase change and as soon as a new fingerprint is enrolled in the system. Technically, a random key held by the Android Keystore unlocks the data key; none of it ends up in backups.",
   "set.bioPass":"Passphrase to confirm",
   "set.bioEnable":"Enable fingerprint",
+  "set.bioKeep":"Also unlock with the fingerprint after a restart of the phone (off by default)",
+  "set.bioKeepNote":"By default the app asks for the passphrase once after every restart. That protects in exactly one case: someone knows or forces your device PIN and can force your finger — a restart then helps, because the app asks for the passphrase afterwards. GrapheneOS reboots by default once the phone stays locked for 18 hours in a row (adjustable from 10 minutes to 72 hours); whoever sets that counter short or often leaves the phone lying around types the passphrase accordingly often. With this box ticked the fingerprint keeps working across a restart. Unchanged: passphrase after a passphrase change, a warning when a new fingerprint is enrolled in the system, 'Lock now' as the bolt. Changeable only by disabling and enabling again.",
   "set.bioOnText":"Active. The fingerprint is enough to unlock — until the next restart, passphrase change or new fingerprint in the system. 'Lock now' is the deliberate bolt: the next start then requires the passphrase, afterwards the fingerprint works again. Applies to this device only.",
+  "set.bioOnTextKeep":"Active, across a restart of the phone as well — chosen that way when enabling. The fingerprint is enough to unlock until the passphrase is changed or a new fingerprint is enrolled in the system. 'Lock now' is the deliberate bolt: the next start then requires the passphrase, afterwards the fingerprint works again. Changing this is only possible by disabling and enabling again. Applies to this device only.",
   "set.bioDisable":"Disable fingerprint",
   "set.lockNow":"Lock now","set.wipe":"Delete local data",
   "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
@@ -111,7 +114,8 @@ const I18N = {
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
   "help.h10":"Fingerprint (Android app)",
-  "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone, after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint."
+  "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone (as long as the box is unticked), after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint.",
+  "help.p10b":"<strong>The 'across a restart' switch (off by default):</strong> when enabling, you can tick that the fingerprint keeps working across a restart. The restart rule protects in one case only: someone knows or forces your device PIN and can force your finger — a restart then helps, because the app asks for the passphrase afterwards. GrapheneOS reboots by default once the phone stays locked for 18 hours in a row (adjustable from 10 minutes to 72 hours); whoever sets that counter short or often leaves the phone lying around types the passphrase accordingly often. With the box ticked, only the system's device-PIN requirement remains after a restart; the app then asks for the passphrase only after a passphrase change, on a new fingerprint and after 'Lock now'. Changing this is only possible by disabling and enabling again. When in doubt: restart the phone, then only the passphrase counts (if the box is unticked)."
 };
 // Dynamische JS-Strings (beide Sprachen)
 const T = {
@@ -281,6 +285,7 @@ const T = {
   "bio.naHardware":{de:"Dieses Gerät hat keinen Fingerabdrucksensor der Klasse „stark“ (Android-Einstufung).",en:"This device has no fingerprint sensor of Android's 'strong' class."},
   "bio.naNow":{de:"Fingerabdrucksensor derzeit nicht verfügbar.",en:"Fingerprint sensor currently unavailable."},
   "bio.wrapMismatch":{de:"Der Passphrase-Schlüssel der Tresordatei wurde verändert — Fingerabdruck verweigert. Bitte Passphrase; falls sie nicht mehr passt, das letzte Backup zurückspielen.",en:"The vault file's passphrase key was altered — fingerprint refused. Use the passphrase; if it no longer works, restore the last backup."},
+  "bio.tampered":{de:"Der Fingerabdruck-Slot wurde verändert — Fingerabdruck verworfen. Bitte die Passphrase eingeben und den Fingerabdruck in den Einstellungen bewusst neu aktivieren.",en:"The fingerprint slot was altered — fingerprint discarded. Enter the passphrase and deliberately re-enable the fingerprint in Settings."},
   "bio.aborted":{de:"Fingerabdruck nicht aktiviert — Vorgang durch Sperre oder Passphrase-Wechsel abgebrochen",en:"Fingerprint not enabled — interrupted by lock or passphrase change"},
   "bio.busy":{de:"Bitte erst den laufenden Fingerabdruck-Vorgang abschließen.",en:"Finish the pending fingerprint step first."},
   "bio.rearmRefused":{de:"Fingerabdruck NICHT wieder aktiviert: Seit dem Einrichten wurde im System ein Fingerabdruck registriert. Warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Neu aktivieren geht in den Einstellungen.",en:"Fingerprint NOT re-enabled: a fingerprint was enrolled in the system since setup. If that was not you, check the fingerprints in Android settings. You can re-enable it in Settings."},
@@ -410,8 +415,14 @@ function unwrapDek(wrap, kek, kdf, extractable, role){ return crypto.subtle.unwr
 function bioKey(raw){ if(!(raw instanceof Uint8Array)||raw.length!==32) throw new Error('biokey'); return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['wrapKey','unwrapKey']); }
 // `w` = b64 des Passphrase-Wrap-Ciphertexts, für den der Slot erzeugt wurde: doBio übernimmt f.wrap nur, wenn es dazu passt —
 // sonst könnte ein manipulierter wrap per Fingerabdruck-Sitzung stillschweigend weitergeschrieben werden (Alien-Pass-Audit run-3 #3)
-function parseBioBlob(raw){ if(typeof raw!=='string'||raw.length>512) return null; let o; try{ o=JSON.parse(raw); }catch(_){ return null; } if(!o||typeof o!=='object') return null; const iv=b64Bytes(o.iv), ct=b64Bytes(o.ct), w=b64Bytes(o.w); return (iv&&iv.length===12&&ct&&ct.length===48&&w&&w.length===48)?{iv,ct,w:o.w}:null; }
-function serializeBioBlob(blob, wrapCt){ if(!(wrapCt instanceof Uint8Array)||wrapCt.length!==48) throw new Error('bioblob'); return JSON.stringify({iv:bufToB64(blob.iv), ct:bufToB64(blob.ct), w:bufToB64(wrapCt)}); }
+// `wi` (v3.2, Alien-Pass-Audit run-8 #1) = b64 der Wrap-IV, OPTIONAL: Slots von ≤ v3.1.1 tragen nur `w` und laufen unverändert weiter; neue Slots binden
+// IV + Ciphertext, damit eine gekippte IV nicht ungeprüft in die Sitzung und mit dem nächsten persist() in Datei und Backups wandert.
+function parseBioBlob(raw){ if(typeof raw!=='string'||raw.length>512) return null; let o; try{ o=JSON.parse(raw); }catch(_){ return null; } if(!o||typeof o!=='object') return null; const iv=b64Bytes(o.iv), ct=b64Bytes(o.ct), w=b64Bytes(o.w); if(!(iv&&iv.length===12&&ct&&ct.length===48&&w&&w.length===48)) return null;
+  if(o.wi===undefined||o.wi===null) return {iv,ct,w:o.w,wi:null}; const wi=b64Bytes(o.wi); return (wi&&wi.length===12)?{iv,ct,w:o.w,wi:o.wi}:null; }
+function serializeBioBlob(blob, wrapCt, wrapIv){ if(!(wrapCt instanceof Uint8Array)||wrapCt.length!==48) throw new Error('bioblob'); if(wrapIv!==undefined&&!(wrapIv instanceof Uint8Array&&wrapIv.length===12)) throw new Error('bioblob');
+  const o={iv:bufToB64(blob.iv), ct:bufToB64(blob.ct), w:bufToB64(wrapCt)}; if(wrapIv) o.wi=bufToB64(wrapIv); return JSON.stringify(o); }
+// Passt der Passphrase-Slot der Datei zum Fingerabdruck-Blob? Ciphertext immer, IV nur wenn der Blob sie kennt (Übergang ≤ v3.1.1)
+function bioWrapOk(blob, wrap){ return !!blob&&!!wrap&&blob.w===bufToB64(wrap.ct)&&(!blob.wi||blob.wi===bufToB64(wrap.iv)); }
 async function encryptBody(obj, dek, kdf){ const iv=rand(12); const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad(kdf,'body')}, dek, enc.encode(JSON.stringify(obj)))); return {iv,ct}; }
 async function decryptBody(body, dek, kdf){ const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:body.iv,additionalData:aad(kdf,'body')}, dek, body.ct); return JSON.parse(dec.decode(pt)); }
 function serializeFile(kdf, wrap, body){
@@ -716,7 +727,7 @@ const App = (function(){
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
   function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices();
-    if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP.ct, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
+    if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
   // entstuende erst beim naechsten Anfassen eines Preisfelds. Der heutige Stand ist keine Erfindung:
@@ -729,7 +740,8 @@ const App = (function(){
   }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
-    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pass H3
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
+    { const bk=$('bio-keep'); if(bk) bk.checked=false; }   // „auch nach Neustart“ nie stehen lassen (ab Werk aus)s H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
     // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
@@ -1692,7 +1704,9 @@ const App = (function(){
      Invarianten: BIO-INVARIANTEN.md. Fingerabdruck-Fehlversuche zählen NICHT in die Passphrase-Bremse (Android sperrt selbst). */
   const BIO = (isNative && CAP.Plugins && CAP.Plugins.Biometric) ? CAP.Plugins.Biometric : null;   // Plugin aus patch-hardening.mjs; Web: kein Slot
   const BIO_KEY='ai-sachwert-bio', BIO_REARM_KEY='ai-sachwert-bio-rearm', BIO_HOLD_KEY='ai-sachwert-bio-hold';   // Marker (keine Geheimnisse)
-  let bioArmed=false, bioNeedsRearm=false, bioRearmDek=null, bioGen=0, bioAuto=true;
+  // bioKeep (v3.2) ist NUR Anzeige: die Wahrheit steht im Slot des Plugins und hängt in dessen GCM-AAD (boot+"|keep"). Geändert wird sie
+  // ausschließlich durch Deaktivieren + neu Aktivieren — hier wird sie aus status()/enroll() übernommen, nie gesetzt.
+  let bioArmed=false, bioNeedsRearm=false, bioRearmDek=null, bioGen=0, bioAuto=true, bioKeep=false;
   function bioBlob(){ try{ return parseBioBlob(localStorage.getItem(BIO_KEY)); }catch(_){ return null; } }
   function bioMarker(){ try{ return localStorage.getItem(BIO_REARM_KEY)==='1'; }catch(_){ return false; } }
   function setBioMarker(on){ try{ if(on) localStorage.setItem(BIO_REARM_KEY,'1'); else localStorage.removeItem(BIO_REARM_KEY); }catch(_){} }
@@ -1711,7 +1725,7 @@ const App = (function(){
   function renderBioGate(){ const b=$('bio-btn'); if(b){ b.classList.toggle('hidden',!bioArmed||bioHold()); b.disabled=!!doUnlock._busy; } }   // Riegel: Knopf verborgen
   // Slot verwerfen: JS-Blob + Marker immer, Keystore-Teil auf Wunsch (bei ungültigem Schlüssel hat das Plugin ihn schon selbst gelöscht).
   // bioGen++ lässt laufende enroll/unlock-Vorgänge verfallen
-  function bioDrop(native){ try{ localStorage.removeItem(BIO_KEY); }catch(_){} setBioMarker(false); setBioHold(false); bioArmed=false; bioNeedsRearm=false; bioRearmDek=null; bioGen++; if(native&&BIO){ try{ BIO.disable().catch(()=>{}); }catch(_){} } renderBioGate(); }
+  function bioDrop(native){ try{ localStorage.removeItem(BIO_KEY); }catch(_){} setBioMarker(false); setBioHold(false); bioArmed=false; bioNeedsRearm=false; bioRearmDek=null; bioKeep=false; bioGen++; if(native&&BIO){ try{ BIO.disable().catch(()=>{}); }catch(_){} } renderBioGate(); }
   // Sperrbildschirm: nativen Zustand abgleichen. auto = Prompt sofort zeigen (nicht nach manuellem Sperren, nie im Hintergrund)
   async function bioProbe(auto){
     bioArmed=false; renderBioGate();
@@ -1720,6 +1734,7 @@ const App = (function(){
     let st; try{ st=await BIO.status(); }catch(_){ st={enabled:false,reason:'error'}; }
     if(gen!==bioGen||DEK||pendingUnlock) return;
     const reason=st&&st.reason;
+    bioKeep=!!(st&&st.enabled&&st.keep);   // nur Anzeige (v3.2): gilt der Slot über einen Neustart hinaus?
     // Neue Registrierung im System schlägt Neustart (Audit run-5 #1): das Plugin prüft den Kanarien-Schlüssel VOR der Boot-Kennung.
     // Kein automatisches Neu-Bewaffnen — der Nutzer aktiviert bewusst neu (und sieht, dass sich etwas geändert hat).
     if(reason==='invalidated'){ bioDrop(false); bioMsg(tr('bio.reset')); setBioAlert(true); return; }
@@ -1732,15 +1747,17 @@ const App = (function(){
     bioDrop(false); bioMsg(tr('bio.reset'));                                              // neuer Fingerabdruck / Schlüssel weg: bewusst neu aktivieren
   }
   // Slot (neu) bewaffnen: braucht einen EXTRAHIERBAREN DEK-Handle (WebCrypto-Objekt, nie Rohbytes), der danach fallen gelassen wird;
-  // wrapCt bindet den Slot an den Passphrase-Slot der Datei
-  async function bioArm(dekX, kdf, wrapCt, rearm){
-    const gen=bioGen, secret=rand(32);
+  // wrap (ct + iv) bindet den Slot an den Passphrase-Slot der Datei
+  // keep (v3.2) = „Fingerabdruck auch nach Neustart“: nur beim bewussten Aktivieren wählbar (ab Werk aus), nie beim Rearm — das Plugin
+  // schreibt die Wahl in den Slot und authentisiert sie in der AAD; ändern geht nur über Deaktivieren + neu Aktivieren.
+  async function bioArm(dekX, kdf, wrap, rearm, keep){
+    const gen=bioGen, secret=rand(32), wantKeep=!!keep&&!rearm;
     try{
-      const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrapCt);
+      const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrap.ct, wrap.iv);   // seit v3.2 mit `wi` (Alien-Pass-Audit run-8 #1)
       // rearm:true → das Plugin richtet nur mit gültigem Kanarien-Schlüssel neu ein (sonst 'invalidated', Audit run-5 #1)
-      await BIO.enroll({secret:bufToB64(secret), rearm:!!rearm, title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
+      await BIO.enroll({secret:bufToB64(secret), rearm:!!rearm, keep:wantKeep, title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
       if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} setBioMarker(false); toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen — auch keinen Marker, sonst meldet die nächste Neu-Einrichtung ohne Kanarie fälschlich einen fremden Finger (Kurz-Review B)
-      localStorage.setItem(BIO_KEY, ser); setBioMarker(false); bioArmed=true; bioNeedsRearm=false; if(!rearm) setBioAlert(false); return true;   // bewusst neu aktiviert: Warnung erledigt
+      localStorage.setItem(BIO_KEY, ser); setBioMarker(false); bioArmed=true; bioNeedsRearm=false; bioKeep=wantKeep; if(!rearm) setBioAlert(false); return true;   // bewusst neu aktiviert: Warnung erledigt
     }catch(e){ const c=e&&e.message;
       // Keystore vorübergehend nicht bereit (Kanarien-Prüfung 'error' → 'unavailable'): Neu-Einrichtung beim nächsten Entsperren erneut
       // versuchen — Kanarie und Marker bleiben, sonst ginge der Nachweis einer neuen Registrierung verloren (Kurz-Review C)
@@ -1755,7 +1772,7 @@ const App = (function(){
     const raw=localStorage.getItem(LS_KEY); if(!raw) return boot();
     let f; try{ f=parseFile(raw); }catch(e){ return err('lock-err',fileErrMsg(e)); }
     const blob=bioBlob(); if(!blob){ bioDrop(true); return; }
-    if(blob.w!==bufToB64(f.wrap.ct)){ bioArmed=false; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot: nie übernehmen, Blob behalten (Backup-Restore heilt)
+    if(!bioWrapOk(blob,f.wrap)){ bioArmed=false; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot (ct ODER iv): nie übernehmen, Blob behalten (Backup-Restore heilt)
     const gen=bioGen; doBio._busy=true; let secret=null;
     try{
       const r=await BIO.unlock({title:tr('bio.promptTitle'), subtitle:tr('bio.promptUnlock'), negative:tr('bio.usePass')});
@@ -1773,6 +1790,10 @@ const App = (function(){
       // → disable() räumte die Kanarie ab; ein provozierter Timeout plus danach registrierter Finger bliebe sonst unbemerkt
       // (Rückmeldung aus Alien Pass v1.6.1, N1)
       if(c==='error'){ err('lock-err',tr('bio.naNow')); return; }
+      // 'tampered' = GCM-Tag der Slot-Datei falsch (boot/keep im Klartext verändert): nie „vorübergehend“ — JS-Blob weg, bleibende Warnung,
+      // Keystore-Teil bleibt bis zum nächsten bioProbe (dort räumt „enabled ohne Blob“ auf; kein Wipe HIER: das gäbe eine Lösch-Primitive
+      // im Fehlerpfad, N1; Alien-Pass-Audit run-8 #16). Die Warnung bleibt unabhängig davon stehen.
+      if(c==='tampered'){ bioDrop(false); setBioAlert(true); return bioMsg(tr('bio.tampered')); }
       if(c==='invalidated') setBioAlert(true);                            // neuer Finger während die App gesperrt im Hintergrund lag: bleibende Warnung (Kurz-Review A)
       bioDrop(c!=='invalidated'&&c!=='none'); return bioMsg(tr('bio.reset'));   // ungültiger Schlüssel, alter/fremder Blob, Manipulation
     }finally{ doBio._busy=false; if(secret) secret.fill(0); }
@@ -1789,7 +1810,8 @@ const App = (function(){
       const pass=$('bio-pass').value; if(!pass) return err('bio-err',tr('err.cpWrong'));
       let dekX; try{ const kek=await deriveKek(passBytes(pass), KDF); dekX=await unwrapDek(WRAP, kek, KDF, true); }catch(e){ return err('bio-err',openErrMsg(e,'err.cpWrong')); }
       if(!VAULT||!DEK) return; $('bio-pass').value='';
-      if(await bioArm(dekX, KDF, WRAP.ct, false)) toast(tr('bio.on'));
+      const keep=!!($('bio-keep')&&$('bio-keep').checked);   // Wahl gilt nur für DIESE Aktivierung; danach wieder ab Werk aus
+      if(await bioArm(dekX, KDF, WRAP, false, keep)){ toast(tr('bio.on')); const k=$('bio-keep'); if(k) k.checked=false; }
     }finally{ bioEnable._busy=false; btn.disabled=false; btn.textContent=orig; $('bio-pass').value=''; maskInputs(); if(VAULT) renderSettings(); }
   }
   function bioDisable(){ if(!VAULT||!bioArmed||!confirm(tr('confirm.bioDisable'))) return; bioDrop(true); toast(tr('bio.off')); renderSettings(); }
@@ -1801,7 +1823,9 @@ const App = (function(){
     $('th-dark').classList.toggle('on',!soft);$('th-soft').classList.toggle('on',soft);
     $('set-autolock').value=String(VAULT.autolock==null?5:VAULT.autolock); syncCombo('set-autolock');
     const bc=$('bio-card'); if(bc){ bc.classList.toggle('hidden',!BIO); $('bio-off').classList.toggle('hidden',bioArmed); $('bio-on').classList.toggle('hidden',!bioArmed);
-      const ba=$('bio-alert'); if(ba){ ba.textContent=bioAlert()?tr('bio.alert'):''; ba.classList.toggle('hidden',!bioAlert()); } }
+      const ba=$('bio-alert'); if(ba){ ba.textContent=bioAlert()?tr('bio.alert'):''; ba.classList.toggle('hidden',!bioAlert()); }
+      // zwei fertige Texte statt eines zusammengesetzten: beide tragen data-i18n, applyI18n übersetzt sie, hier wird nur umgeschaltet (v3.2)
+      const bt=$('bio-on-text'), bk=$('bio-on-text-keep'); if(bt&&bk){ bt.classList.toggle('hidden',bioKeep); bk.classList.toggle('hidden',!bioKeep); } }
     $('about-line').textContent=tr('about').replace('{v}',APP_VERSION);   // Versionszeile ganz unten (einheitlich mit Alien Pass)
   }
 

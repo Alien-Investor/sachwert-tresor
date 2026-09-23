@@ -258,7 +258,7 @@ async function main(){
   ok(!!region && region.length>1500, 'Sentinel-Region gefunden (Marker nicht umbenennen!)');
   const V = new Function('enc','dec','bufToB64','b64ToBuf',
     region + '\nreturn {MAGIC,FILE_VER,KDF_DEFAULT,KDF_BOUNDS,MAX_FILE_BYTES,rand,b64Bytes,passBytes,kdfOk,aad,'
-           + 'deriveKek,newDek,wrapDek,unwrapDek,bioKey,parseBioBlob,serializeBioBlob,encryptBody,decryptBody,'
+           + 'deriveKek,newDek,wrapDek,unwrapDek,bioKey,parseBioBlob,serializeBioBlob,bioWrapOk,encryptBody,decryptBody,'
            + 'serializeFile,parseFile,looksLegacy};')(enc,dec,bufToB64,b64ToBuf);
   const KDF_TEST={m:8192,t:1,p:1};                       // klein, damit die Suite schnell bleibt
   const mkKdf=()=>({...KDF_TEST, salt:V.rand(16)});
@@ -330,6 +330,16 @@ async function main(){
   ok(V.parseBioBlob('{"iv":"AAAA","ct":"AAAA","w":"AAAA"}')===null, 'Bio-Blob mit falschen Laengen wird verworfen');
   ok(V.parseBioBlob('x'.repeat(600))===null, 'uebergrosser Bio-Blob wird verworfen');
   ok(V.parseBioBlob(null)===null && V.parseBioBlob('kein json')===null, 'Muell im Bio-Slot wird verworfen');
+  // --- v3.2 (Alien-Pass-Audit run-8 #1): Wrap-IV-Bindung `wi`, alter Blob ohne wi laeuft weiter ---
+  const blobStr2=V.serializeBioBlob(bioWrap, wrapA.ct, wrapA.iv); const blobBack2=V.parseBioBlob(blobStr2);
+  ok(blobBack2&&blobBack2.wi===bufToB64(wrapA.iv)&&blobBack2.w===bufToB64(wrapA.ct),'Blob v3.2 traegt auch die Wrap-IV (wi)');
+  ok(blobBack&&blobBack.wi===null&&V.bioWrapOk(blobBack,wrapA),'Blob ohne wi (<= v3.1.1) gilt weiter: bioWrapOk prueft nur den Ciphertext');
+  ok(V.bioWrapOk(blobBack2,wrapA),'bioWrapOk: unveraenderter Wrap passt');
+  { const iv2=new Uint8Array(wrapA.iv); iv2[0]^=1; ok(!V.bioWrapOk(blobBack2,{iv:iv2,ct:wrapA.ct}),'bioWrapOk: gekippte IV -> Mismatch (vorher unbemerkt)'); ok(V.bioWrapOk(blobBack,{iv:iv2,ct:wrapA.ct}),'alter Blob ohne wi kann die IV nicht pruefen (dokumentierter Uebergang)'); }
+  { const ct2=new Uint8Array(wrapA.ct); ct2[5]^=1; ok(!V.bioWrapOk(blobBack2,{iv:wrapA.iv,ct:ct2})&&!V.bioWrapOk(blobBack,{iv:wrapA.iv,ct:ct2}),'bioWrapOk: gekippter Ciphertext -> Mismatch, alt und neu'); }
+  ok(V.parseBioBlob(JSON.stringify({iv:bufToB64(bioWrap.iv),ct:bufToB64(bioWrap.ct),w:bufToB64(wrapA.ct),wi:'AAAA'}))===null,'parseBioBlob: wi mit falscher Laenge -> null');
+  { let badWi=false; try{ V.serializeBioBlob(bioWrap, wrapA.ct, V.rand(11)); badWi=true; }catch(e){ ok(e.message==='bioblob','serializeBioBlob verlangt 12-Byte-IV'); } ok(!badWi,'falsche IV-Laenge wirft'); }
+  ok(!V.bioWrapOk(null,wrapA)&&!V.bioWrapOk(blobBack2,null),'bioWrapOk: ohne Blob oder ohne Wrap nie true');
 
   // --- NFKC: gleich getippte Passphrase ergibt denselben Schluessel ---
   ok(bufToB64(V.passBytes('Käse'))===bufToB64(V.passBytes('Ka\u0308se')), 'Passphrasen werden NFKC-normalisiert');

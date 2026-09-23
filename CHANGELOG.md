@@ -3,6 +3,31 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.2 — 2026-09-23
+
+Pflege-Update für den Fingerabdruck der Android-App (Wartungsstand aus Alien Pass v1.8 übernommen). Am Tresor-Format,
+an der Verschlüsselung und an deinen Daten ändert sich nichts. Die Web-Version bekommt nur die neuen Handbuch-Texte.
+
+- **Android: Schalter „Auch nach einem Neustart des Handys mit Fingerabdruck entsperren“** (ab Werk aus). Bisher verlangte die App nach jedem
+  Neustart einmal die Passphrase — GrapheneOS startet ab Werk nach 18 Stunden Sperre von selbst neu, wer den Zähler kürzer stellt, tippte sie
+  entsprechend oft. Der Haken lässt sich nur beim Aktivieren des Fingerabdrucks setzen; die Wahl steckt im Fingerabdruck-Slot selbst, ist dort
+  mitauthentisiert und nur durch Deaktivieren und erneutes Aktivieren änderbar. Unverändert: Passphrase nach einem Passphrase-Wechsel, Warnung
+  bei neuem Fingerabdruck im System, „Jetzt sperren“ als Riegel. Die Einstellungen und das Handbuch erklären, wovor der Neustart-Zwang schützt
+  und was der Haken davon aufgibt.
+  **Nach dem Update** verlangt die App einmal die Passphrase, als wäre das Handy neu gestartet worden, und richtet den Fingerabdruck danach
+  von selbst wieder ein: Die Neustart-Erkennung nutzt jetzt den Boot-Zähler von Android statt der Kernel-Kennung, die nicht auf jedem Gerät
+  lesbar ist. Ein bestehender Slot passt darum einmalig nicht mehr.
+- **Fingerabdruck prüft die Tresordatei vollständiger (intern gefunden, niedrig).** Der Fingerabdruck-Slot ist an den Passphrase-Slot der Datei
+  gebunden; bisher deckte der Abgleich nur den verschlüsselten Teil, nicht den Zufallswert daneben. Eine dort veränderte Datei konnte per
+  Fingerabdruck still geöffnet und beim nächsten Speichern so zurückgeschrieben werden, bis die Passphrase nicht mehr passte. Jetzt meldet die App
+  „Datei geändert“. Das braucht Zugriff auf die App-Daten des Handys — ein Backup von davor stellt alles wieder her. Bestehende Slots laufen weiter.
+- **Android: eine von Hand veränderte Fingerabdruck-Slot-Datei** meldet sich als Manipulation mit bleibender Warnung statt als „Sensor
+  vorübergehend nicht verfügbar“.
+- Kästchen im Neon-Look aus dem Design-Kit (bisher gab es im Tresor keins).
+- Intern: Testbatterie um den Schalter, die vollständigere Datei-Prüfung und die Manipulationsmeldung erweitert; der CSV-Import-Test liest jetzt
+  eine eingecheckte Demo-Datei. Die Änderungen sind durch das interne Security-Audit run-8 von Alien Pass geprüft, der Tresor übernimmt sie
+  wortgleich.
+
 ## v3.1.1 — 2026-09-21
 
 Reine Darstellungskorrektur. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts.

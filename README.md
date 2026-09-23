@@ -106,7 +106,9 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   sobald die fertige APK eine andere Berechtigung anfordert.
 - **Fingerabdruck** (optional, v3.0): Ein vom Android-Keystore verwahrter Zufallsschlüssel schließt
   den Datenschlüssel auf, freigegeben nur nach starker Biometrie. **Ehrlich eingeordnet:** bequem,
-  aber erzwingbar, und kein zusätzlicher Faktor. Die Passphrase bleibt Pflicht nach jedem Neustart,
+  aber erzwingbar, und kein zusätzlicher Faktor. Die Passphrase bleibt Pflicht nach jedem Neustart
+  (seit v3.2 abwählbar: Haken „auch nach Neustart“ beim Aktivieren, ab Werk aus — die Wahl steckt
+  im Fingerabdruck-Slot und ist dort mitauthentisiert),
   nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden),
   nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck
   registriert wird — dann schaltet die App den Fingerabdruck ab und warnt. Die Neustart-Regel ist
