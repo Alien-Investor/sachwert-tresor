@@ -3,6 +3,34 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
 
+## v3.3 — 2026-09-23
+
+Der Sachwert-Tresor gibt es jetzt auch für den **Linux-Desktop** — derselbe Code wie im Browser und in der Android-App, verpackt mit Electron
+als Flatpak (x86_64, Muster Alien Pass v1.8). Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts; Backups
+laufen zwischen Handy, Browser und Desktop in beide Richtungen.
+
+- **Linux-Desktop (Flatpak) ohne Netz und ohne Dateizugriff.** Das Flatpak hat keine Netzwerk-Berechtigung und keinen Zugriff auf deine
+  Dateien — nachprüfbar mit `flatpak info --show-permissions org.alieninvestor.tresor`. Backup, Import, CSV-Export und Nachlass-Anhang laufen
+  über den Dateidialog des Systems, der nur die gewählte Datei freigibt. Der Tresor liegt als Datei (Rechte 600) unter
+  `~/.var/app/org.alieninvestor.tresor/data/`, atomar geschrieben. Die Hülle ist gehärtet wie bei Alien Pass: Chromium-Sandbox im Flatpak-Käfig,
+  Renderer ohne Node, Electron-Fuses, keine Fernsteuerung, keine DevTools, kein Menü; toter Proxy und Anfrage-Filter als zweite Netzschicht.
+- **Nachlass-Anhang als PDF** (nur Desktop): Statt Drucken speichert die Desktop-Fassung das Blatt über den Speichern-Dialog als PDF —
+  im Käfig gibt es keinen Drucker. Klartext, danach löschen.
+- **Zwischenablage am Desktop:** Der kopierte 2FA-Schlüssel ist für KDE als Passwort markiert (Klipper übernimmt ihn nicht in den Verlauf) und
+  wird beim Sperren und Beenden gelöscht. Mit der Maus markierter Text wird bewusst nicht überwacht (anders als in Alien Pass): der Tresor
+  zeigt keine Passwörter.
+- **Sperren am Desktop:** Strg+L sperrt sofort. Minimieren gilt als Hintergrund, ein Fensterwechsel leert nur getippte Passphrasen. Bei
+  Bildschirmsperre und Ruhezustand sperrt die App nicht von selbst (im Flatpak erfährt sie davon nichts) — Systemsperre plus kurze
+  Inaktivitäts-Sperre nutzen. Kein Fingerabdruck, kein Schutz vor Bildschirmfotos, die Browser-Engine liefert die App selbst mit.
+- **Verteilung:** Bundle + `SHA256SUMS` + `SHA256SUMS.asc` im Codeberg-Release, GPG-signierte Prüfsumme mit dem Release-Schlüssel von
+  Alien Investor (`100F 9E25 BFAE A807 DBC3 57D7 50C0 D785 83BF CB81`, `alien-investor-release-key.asc` im Repo und auf alien-investor.org).
+  Nicht auf Flathub, Update = deinstallieren + neu installieren (Daten bleiben). Anleitung im README.
+- **Browser und Android:** Handbuch um den Desktop-Abschnitt ergänzt (nur in der Desktop-Fassung sichtbar); Speichern-Fehler nennt jetzt
+  auch „Datei nicht schreibbar“. Sonst unverändert.
+- **Taskleiste:** Das Fenster trägt ein eigenes Icon und ist dem Starter zugeordnet (Alien Pass v1.8 zeigt dort noch ein Standard-Icon; Korrektur folgt).
+- Intern: Weiche `DESK` in `app.js` (Tresor-Zugriff nur über `vaultGet/vaultSet/vaultDel`, Hintergrund über `onHidden/onShown`), Hülle in
+  `desktop/` (Klartext, auditierbar), Suiten `verify-desk.mjs` (Stub-Brücke) und `verify-desktop.mjs` (echte Hülle).
+
 ## v3.2 — 2026-09-23
 
 Pflege-Update für den Fingerabdruck der Android-App (Wartungsstand aus Alien Pass v1.8 übernommen). Am Tresor-Format,

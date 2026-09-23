@@ -35,6 +35,59 @@ und mit dem Doppelpunkt-Wert oben vergleichen.
 > Android/GrapheneOS prüft die Signatur ohnehin automatisch und lehnt fremd signierte
 > Updates ab.
 
+## 🖥️ Installieren (Linux-Desktop, Flatpak)
+
+Seit v3.3 gibt es denselben Code auch für den Linux-Desktop, verpackt mit Electron als **Flatpak** (x86_64). Das Tresor-Format
+ist identisch: Backups vom Handy lassen sich am Desktop importieren und umgekehrt (z.B. über Syncthing). Verteilung als Datei mit
+GPG-signierter Prüfsumme im [Codeberg-Release](https://codeberg.org/Alien-Investor/sachwert-tresor/releases) — nicht auf Flathub,
+kein automatisches Update.
+
+**Voraussetzung:** Flatpak mit dem Flathub-Remote (für die Laufzeit `org.freedesktop.Platform` 25.08, die flatpak beim Installieren nachlädt):
+```
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+**1. Drei Dateien aus dem Release laden:** `sachwert-tresor-X.Y-linux-x86_64.flatpak`, `SHA256SUMS`, `SHA256SUMS.asc`.
+
+**2. Signatur prüfen.** Die Prüfsummen sind mit dem GPG-Release-Schlüssel von Alien Investor signiert
+([`alien-investor-release-key.asc`](alien-investor-release-key.asc) hier im Repo, derselbe Schlüssel wie bei Alien Pass). Den Fingerabdruck
+zusätzlich über einen zweiten Weg vergleichen (Website [alien-investor.org](https://alien-investor.org/sachwert-tresor.html)):
+```
+Fingerabdruck:  100F 9E25 BFAE A807 DBC3  57D7 50C0 D785 83BF CB81
+```
+```
+gpg --import alien-investor-release-key.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS      # „Korrekte Signatur von "Alien Investor (Release-Signatur) …"“
+sha256sum -c SHA256SUMS                     # „…flatpak: OK“
+```
+
+**3. Installieren und starten:**
+```
+flatpak install --user sachwert-tresor-X.Y-linux-x86_64.flatpak
+flatpak run org.alieninvestor.tresor
+```
+Danach steht der Sachwert-Tresor im Anwendungsmenü.
+
+**Update:** Eine neue Bündel-Datei lässt sich (Flatpak 1.14) nicht über die installierte legen. Neue Version laden und prüfen (Schritt 1–2), dann
+```
+flatpak uninstall --user org.alieninvestor.tresor     # löscht KEINE Daten (ohne --delete-data)
+flatpak install --user sachwert-tresor-X.Y-linux-x86_64.flatpak
+```
+Der Tresor liegt in `~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv` und bleibt dabei erhalten. Vorher trotzdem ein Backup anlegen.
+
+**Selbst prüfen, dass die App kein Netz hat:**
+```
+flatpak info --user --show-permissions org.alieninvestor.tresor
+```
+Erwartet genau:
+```
+[Context]
+shared=ipc;
+sockets=wayland;fallback-x11;
+devices=dri;
+```
+Kein `network`, kein `filesystem`. Was die Desktop-Fassung kann und wo ihre Grenzen liegen, steht unter [Sicherheit](#sicherheit).
+
 ## Erster Start
 
 Beim ersten Öffnen vergibst du deine **Passphrase** — danach entsperrt nur sie den Tresor.
@@ -77,7 +130,7 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   (Fassungsnummer, Datum, Vernichtungsvermerk, Hinweise in Erben-Sprache). Nur Mengen mit
   Stückelung, keine Preise, keine Händler, keine Standorte. Zusammenspiel: Der Tresor kennt
   die Mengen, der Planer kennt die Orte — der Anhang bringt beides in ein Erben-Paket, ohne
-  dass ein Werkzeug die Daten des anderen liest. Druck (Desktop) oder `.txt` (Handy).
+  dass ein Werkzeug die Daten des anderen liest. Druck (Browser), PDF über den Speichern-Dialog (Linux-App) oder `.txt` (Handy).
 - **Aegis-2FA mit QR**: QR scannen, als Bild speichern (Aegis kann ihn ohne Kamera aus der
   Galerie importieren), kopieren, oder den Base32-Schlüssel manuell eintragen.
 - **Dubletten-Schutz**: Warnung beim Erfassen, wenn Typ + Vorgang + Datum + Menge bereits
@@ -135,11 +188,35 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   geprüfte Typen), alle Inhalte werden beim Anzeigen HTML-escaped.
 - Der QR-Encoder ist eigenständig (kein Fremdcode) und bit-genau gegen eine Referenz-Lib
   verifiziert. Keine externen CDNs, keine Tracker, keine Netz-Abfragen.
+- **Desktop-Fassung (Linux, seit v3.3), ehrlich eingeordnet:**
+  - **Kein Netz, vom System erzwungen:** Das Flatpak hat keine Netzwerk-Berechtigung, im Käfig gibt es nur `lo`. Zusätzlich blockt die App
+    selbst jede Verbindung (Content-Security-Policy, Anfrage-Filter, WebRTC über einen toten Proxy ins Leere). **Keine Dateien:** Backup, Import,
+    CSV-Export und Nachlass-Anhang laufen über den Dateidialog des Systems (Portal), der nur die gewählte Datei freigibt.
+  - **Härtung der Hülle:** Chromium-Sandbox über Flatpaks eigenen Käfig (`zypak`), Renderer ohne Node, Kontext-Isolation, nur die eigene
+    Seite erreicht die Brücke zum Hauptprozess. Electron-Fuses: kein `ELECTRON_RUN_AS_NODE`, kein `NODE_OPTIONS`, kein `--inspect`, App nur aus
+    dem Archiv. Fernsteuerung (`--remote-debugging-*`) wird verweigert, DevTools lassen sich nicht öffnen, kein Anwendungsmenü.
+  - **Tresor als Datei** (Rechte 600, Ordner 700), atomar geschrieben — ein Absturz oder eine volle Platte hinterlässt nie einen halben Tresor.
+  - **Zwischenablage:** Der kopierte 2FA-Schlüssel ist für KDE als Passwort markiert, Klipper nimmt ihn nicht in den Verlauf (unter Plasma
+    geprüft); andere Zwischenablage-Manager können die Markierung ignorieren. Die App löscht ihre eigene Kopie beim Sperren und beim Beenden.
+    Nur der Kopieren-Knopf setzt die Markierung — Strg+C auf markiertem Text kopiert über Chromium ohne sie und wird nicht gelöscht.
+    Anders als Alien Pass überwacht der Tresor **nicht**, was du mit der Maus markierst (Mittelklick-Einfügen unter X11) — er zeigt keine
+    Passwörter, nur beim Einrichten von 2FA liegt ein Geheimnis auf dem Schirm.
+  - **Klartext verlässt den Käfig nur auf deinen Klick:** CSV-Exporte, der Nachlass-Anhang als `.txt` oder PDF sind unverschlüsselt —
+    nach Gebrauch löschen.
+  - **Grenzen:** Die App liefert ihre Browser-Engine (Electron 44) selbst mit — Sicherheits-Updates dafür kommen nur mit einer neuen
+    App-Version, nicht über das System. **Kein Schutz vor Bildschirmfotos** (Linux kennt kein Gegenstück zu FLAG_SECURE). Unter **X11** kann
+    jedes laufende Programm Tastatur und Zwischenablage mitlesen, Wayland trennt Programme besser. Bei **Bildschirmsperre und Ruhezustand
+    sperrt die App nicht von selbst** (im Flatpak erfährt sie davon nichts): Systemsperre nutzen, dazu eine kurze Inaktivitäts-Sperre,
+    Strg+L sperrt sofort. „Hintergrund“ heißt am Desktop minimiert oder versteckt — ein Wechsel zu einem anderen Fenster sperrt nicht,
+    leert aber getippte Passphrasen. Kein Fingerabdruck. Die Hülle besteht aus drei kleinen Dateien (`desktop/main.js`, `desktop/preload.js`,
+    `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); für den Tresor selbst gab es Tests
+    mit der echten Hülle, kein eigenes Audit.
 
 ## Open Source & selbst prüfen
 
 Der komplette **Client-Code ist offen** ([MIT](LICENSE)) — du musst niemandem vertrauen, du kannst
-nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`, `vendor/hash-wasm/` (Argon2id). Schnell-Audit:
+nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`, `vendor/hash-wasm/` (Argon2id). Die Desktop-Hülle liegt
+vollständig in `desktop/` (Hauptprozess, Brücke, Build-Skript mit gepinntem Electron-Hash, Flatpak-Manifest). Schnell-Audit:
 
 - **Kein Nach-Hause-Telefonieren:** keine `fetch`/`XMLHttpRequest`/WebSocket-Aufrufe, keine externen
   Skripte, keine CDNs, kein Analytics. Die einzige externe URL ist der Spenden-Link.

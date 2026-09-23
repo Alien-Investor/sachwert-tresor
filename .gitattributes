@@ -33,3 +33,8 @@ assets/** !filter !diff
 # der Indexer liest sie auf Codeberg als Ownership-Nachweis) + Demo-Screenshots.
 zapstore.yaml !filter !diff
 screenshots/** !filter !diff
+
+# Desktop-Hülle (Electron im Flatpak, seit v3.3) — auditierbarer Klartext wie app.js. Build-Ausgabe (desktop/build/) ist gitignored.
+desktop/** !filter !diff
+# Öffentlicher GPG-Release-Schlüssel (Prüfung der Desktop-Pakete) — Klartext, auch auf alien-investor.org
+alien-investor-release-key.asc !filter !diff

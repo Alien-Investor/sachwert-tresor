@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Sachwert-Tresor
+Comment=Offline-Tresor für Bitcoin, Gold und Silber ohne Cloud und ohne Netz
+Comment[en]=Offline vault for Bitcoin, gold and silver without cloud or network
+Exec=sachwert-tresor
+Icon=org.alieninvestor.tresor
+Terminal=false
+Categories=Office;Finance;
+Keywords=bitcoin;gold;silber;silver;tresor;vault;
+StartupWMClass=sachwert-tresor

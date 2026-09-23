@@ -48,3 +48,6 @@ trailer/cards/
 trailer/thumbs/
 trailer/kontakt-*
 trailer/out-build.log
+
+# Desktop-Hülle: Electron-Entpackung, Flatpak-Builder-Zustand, Bundle + SHA256SUMS (regenerierbar, ~700 MB)
+desktop/build/

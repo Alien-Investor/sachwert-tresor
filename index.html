@@ -114,6 +114,8 @@ input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 2px var(--neon-
 input[type=checkbox]:checked:focus{box-shadow:0 0 8px var(--neon-mid);}
 input[type=checkbox]:disabled{opacity:.4;cursor:default;}
 .hidden{display:none!important;}
+/* Desktop-Hülle (html.desk, gesetzt von app.js bei window.AlienDesktop): .only-desk nur dort, .no-desk nirgends dort. revert = Standard-Anzeige des Elements */
+.only-desk{display:none;} html.desk .only-desk{display:revert;} html.desk .no-desk{display:none!important;}
 .center{text-align:center;}
 a{color:var(--neon);}
 
@@ -547,8 +549,8 @@ tr:hover td{color:var(--neon);}
           <div class="secret-box" id="totp-secret"></div>
           <div class="row" style="margin-top:8px">
             <button class="btn ghost sm" data-action="copySecret" data-i18n="set.copyKey">Schlüssel kopieren</button>
-            <button class="btn ghost sm" data-action="saveQR" data-i18n="set.saveQR">QR als Bild speichern</button>
-            <button class="btn ghost sm" data-action="copyQR" data-i18n="set.copyQR">QR kopieren</button>
+            <button class="btn ghost sm no-desk" data-action="saveQR" data-i18n="set.saveQR">QR als Bild speichern</button>
+            <button class="btn ghost sm no-desk" data-action="copyQR" data-i18n="set.copyQR">QR kopieren</button>
             <button class="btn ghost sm" data-action="copyOtpauth" data-i18n="set.otpauth">otpauth-Link</button>
           </div>
           <p class="muted" style="margin-top:14px" data-i18n="set.totpSetup3">2) Aegis zeigt jetzt einen 6-stelligen Code. Gib ihn zur Bestätigung ein:</p>
@@ -612,7 +614,8 @@ tr:hover td{color:var(--neon);}
         </div>
         <button class="btn ghost" data-action="lockNow"><svg class="ic" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> <span data-i18n="set.lockNow">Jetzt sperren</span></button>
         <button class="btn danger" style="margin-left:8px;margin-top:10px" data-action="wipeLocal" data-i18n="set.wipe">Lokale Daten löschen</button>
-        <p class="muted" style="margin-top:10px" data-i18n-html="set.wipeNote">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
+        <p class="muted no-desk" style="margin-top:10px" data-i18n-html="set.wipeNote">„Lokale Daten löschen" entfernt den Tresor nur auf <em>diesem</em> Gerät (localStorage). Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
+        <p class="muted only-desk" style="margin-top:10px" data-i18n-html="set.wipeNoteDesk">„Lokale Daten löschen" entfernt die Tresor-Datei nur auf <em>diesem</em> Rechner. Exportierte <code>.vault</code>-Dateien bleiben bestehen.</p>
         <p class="muted" style="margin-top:10px" id="about-line"></p>
       </div>
     </div>
@@ -621,7 +624,7 @@ tr:hover td{color:var(--neon);}
   <div class="foot">
     <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
     <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238</span><br>
-    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
+    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" class="no-desk" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
   </div>
 </div>
 <div id="help-overlay" class="help-overlay hidden">
@@ -655,7 +658,8 @@ tr:hover td{color:var(--neon);}
     <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
 
     <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
-    <p data-i18n-html="help.p5">Dein Bestand liegt verschlüsselt im lokalen Speicher (localStorage) <em>dieses</em> Geräts — in der <strong>App</strong> im geschützten App-Speicher (übersteht Neustarts und Updates, geht nur bei „App-Daten löschen" oder Deinstallation verloren), im <strong>Browser</strong> im Browser-Profil (wird beim Löschen der „Cookies und Websitedaten" mit entfernt — nicht beim reinen Cache-Leeren). In beiden Fällen gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>. Die App ist deutlich persistenter — für den Dauerbetrieb empfohlen.</p>
+    <p class="only-desk" data-i18n-html="help.p5desk">Dein Bestand liegt verschlüsselt in einer Datei <em>dieses</em> Rechners: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. Sie übersteht Updates (deinstallieren + neu installieren) und geht nur mit „Lokale Daten löschen“ oder <code>flatpak uninstall --delete-data</code> verloren. Auch hier gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>.</p>
+    <p class="no-desk" data-i18n-html="help.p5">Dein Bestand liegt verschlüsselt im lokalen Speicher (localStorage) <em>dieses</em> Geräts — in der <strong>App</strong> im geschützten App-Speicher (übersteht Neustarts und Updates, geht nur bei „App-Daten löschen" oder Deinstallation verloren), im <strong>Browser</strong> im Browser-Profil (wird beim Löschen der „Cookies und Websitedaten" mit entfernt — nicht beim reinen Cache-Leeren). In beiden Fällen gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>. Die App ist deutlich persistenter — für den Dauerbetrieb empfohlen.</p>
     <ul data-i18n-html="help.l5">
       <li><strong>Backup erstellen</strong> (Export & Sync) → verschlüsselte <code>.vault</code>-Datei. Leg sie in deinen Syncthing-Ordner.</li>
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>
@@ -682,9 +686,18 @@ tr:hover td{color:var(--neon);}
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>
 
-    <h2 data-i18n="help.h10">Fingerabdruck (Android-App)</h2>
-    <p data-i18n-html="help.p10">Unter Einstellungen lässt sich das Entsperren per Fingerabdruck einschalten (mit der Passphrase als Bestätigung). <strong>Ehrlich eingeordnet:</strong> Das ist bequem, aber erzwingbar, und kein zusätzlicher Schutz — nur ein zweiter Weg zum selben Schlüssel. Die Passphrase wird wieder verlangt nach jedem Neustart des Handys (wenn der Haken aus ist), nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden), nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck registriert wird. Im letzten Fall schaltet die App den Fingerabdruck ab und zeigt eine Warnung — warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Die Neustart-Regel ist Programmcode, keine kryptografische Garantie. Ist Aegis-2FA aktiv, wird der Code auch nach dem Fingerabdruck verlangt.</p>
-    <p data-i18n-html="help.p10b"><strong>Der Schalter „auch nach Neustart“ (ab Werk aus):</strong> Beim Aktivieren lässt sich ankreuzen, dass der Fingerabdruck über einen Neustart hinaus gilt. Der Neustart-Zwang schützt nur in einem Fall: Jemand kennt oder erzwingt deine Geräte-PIN und kann deinen Finger erzwingen — dann hilft ein Neustart, weil die App danach die Passphrase will. GrapheneOS startet ab Werk neu, sobald das Handy 18 Stunden am Stück gesperrt bleibt (einstellbar von 10 Minuten bis 72 Stunden); wer den Zähler kurz stellt oder das Handy oft lange liegen lässt, tippt die Passphrase entsprechend oft. Mit dem Haken bleibt nach einem Neustart allein die Geräte-PIN-Pflicht des Systems; die App verlangt die Passphrase dann nur noch nach einem Passphrase-Wechsel, bei einem neuen Fingerabdruck und nach „Jetzt sperren“. Ändern geht nur durch Deaktivieren und erneutes Aktivieren. Im Zweifel: Handy neu starten, dann gilt nur die Passphrase (wenn der Haken aus ist).</p>
+    <h2 class="only-desk" data-i18n="help.hDesk">Linux-Desktop (Flatpak)</h2>
+    <ul class="only-desk" data-i18n-html="help.lDesk">
+      <li><strong>Kein Netz, vom System erzwungen.</strong> Das Flatpak hat keine Netzwerk-Berechtigung und keinen Zugriff auf deine Dateien. Backup, CSV-Export, Nachlass-Anhang und Import laufen über den Dateidialog des Systems, der nur die gewählte Datei freigibt. Nachprüfbar mit <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li>
+      <li><strong>Getrennte Speicher:</strong> Desktop, Handy-App und Browser kennen sich nicht — Abgleich über <code>.vault</code>-Backups (z.B. Syncthing), dasselbe gilt für ein 2FA-Secret.</li>
+      <li><strong>Strg+L</strong> sperrt sofort. „Hintergrund“ heißt minimiert oder versteckt — ein Fensterwechsel sperrt nicht, leert aber getippte Passphrasen. Bei Bildschirmsperre und Ruhezustand sperrt die App nicht von selbst: Systemsperre nutzen, dazu eine kurze Inaktivitäts-Sperre.</li>
+      <li><strong>Zwischenablage:</strong> Der kopierte 2FA-Schlüssel ist für KDE als Passwort markiert (Klipper übernimmt ihn nicht in den Verlauf) und wird beim Sperren und Beenden gelöscht. Nur der Kopieren-Knopf setzt diese Markierung; Strg+C auf markiertem Text kopiert über Chromium ohne sie und wird nicht gelöscht. Mit der Maus markierter Text wird nicht überwacht — unter X11 kann jedes Programm Zwischenablage und Tastatur mitlesen.</li>
+      <li><strong>Klartext-Dateien:</strong> CSV-Exporte und der Nachlass-Anhang (<code>.txt</code> oder PDF) sind unverschlüsselt — nach Gebrauch löschen. Kein Fingerabdruck, kein Schutz vor Bildschirmfotos. Die Browser-Engine (Electron) bringt die App selbst mit; Sicherheits-Updates dafür kommen mit einer neuen App-Version.</li>
+    </ul>
+
+    <h2 class="no-desk" data-i18n="help.h10">Fingerabdruck (Android-App)</h2>
+    <p class="no-desk" data-i18n-html="help.p10">Unter Einstellungen lässt sich das Entsperren per Fingerabdruck einschalten (mit der Passphrase als Bestätigung). <strong>Ehrlich eingeordnet:</strong> Das ist bequem, aber erzwingbar, und kein zusätzlicher Schutz — nur ein zweiter Weg zum selben Schlüssel. Die Passphrase wird wieder verlangt nach jedem Neustart des Handys (wenn der Haken aus ist), nach einem Passphrase-Wechsel (danach ist der Fingerabdruck aus und muss neu aktiviert werden), nach „Jetzt sperren“ und sobald in Android ein neuer Fingerabdruck registriert wird. Im letzten Fall schaltet die App den Fingerabdruck ab und zeigt eine Warnung — warst du das nicht selbst, prüfe die Fingerabdrücke in den Android-Einstellungen. Die Neustart-Regel ist Programmcode, keine kryptografische Garantie. Ist Aegis-2FA aktiv, wird der Code auch nach dem Fingerabdruck verlangt.</p>
+    <p class="no-desk" data-i18n-html="help.p10b"><strong>Der Schalter „auch nach Neustart“ (ab Werk aus):</strong> Beim Aktivieren lässt sich ankreuzen, dass der Fingerabdruck über einen Neustart hinaus gilt. Der Neustart-Zwang schützt nur in einem Fall: Jemand kennt oder erzwingt deine Geräte-PIN und kann deinen Finger erzwingen — dann hilft ein Neustart, weil die App danach die Passphrase will. GrapheneOS startet ab Werk neu, sobald das Handy 18 Stunden am Stück gesperrt bleibt (einstellbar von 10 Minuten bis 72 Stunden); wer den Zähler kurz stellt oder das Handy oft lange liegen lässt, tippt die Passphrase entsprechend oft. Mit dem Haken bleibt nach einem Neustart allein die Geräte-PIN-Pflicht des Systems; die App verlangt die Passphrase dann nur noch nach einem Passphrase-Wechsel, bei einem neuen Fingerabdruck und nach „Jetzt sperren“. Ändern geht nur durch Deaktivieren und erneutes Aktivieren. Im Zweifel: Handy neu starten, dann gilt nur die Passphrase (wenn der Haken aus ist).</p>
 
     <div style="text-align:center;margin-top:32px"><button class="btn ghost" data-action="closeHelp" data-i18n="help.close">Schließen</button></div>
   </div>
@@ -699,10 +712,11 @@ tr:hover td{color:var(--neon);}
       <p class="warn" data-i18n="nl.warn">⚠ Klasse B, vertraulich: Dieses Blatt nennt Bestände im Klartext. Getrennt von Existenzhinweis und Zugangsanleitung verwahren, alte Fassung vernichten. Standorte gehören nicht hierher, sondern handschriftlich in den Nachlassplaner.</p>
       <div class="row" style="margin-top:12px;align-items:flex-end">
         <label style="flex:0 0 auto"><span data-i18n="nl.fassungLbl">Fassung</span><br><input id="nl-fassung" type="text" inputmode="numeric" maxlength="12" placeholder="1" autocomplete="off" data-input="renderNachlass" style="width:90px"></label>
-        <button class="btn" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span data-i18n="nl.print">Drucken</span></button>
+        <button class="btn" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span class="no-desk" data-i18n="nl.print">Drucken</span><span class="only-desk" data-i18n="nl.printDesk">Als PDF speichern</span></button>
         <button class="btn ghost" data-action="exportNachlassTxt"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> <span data-i18n="nl.save">Als Datei speichern (.txt)</span></button>
       </div>
-      <p class="muted" style="margin-top:8px;font-size:.8em" data-i18n="nl.howto">Desktop: Drucken. Handy: Es öffnet sich der Teilen-Dialog, dort eine Drucker-App wählen (druckt das Blatt direkt) oder ein Datei-Ziel, dort drucken und die Datei danach löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
+      <p class="muted only-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howtoDesk">Das Blatt wird als PDF über den Speichern-Dialog abgelegt (Klartext): ausdrucken, danach die Datei löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
+      <p class="muted no-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howto">Desktop: Drucken. Handy: Es öffnet sich der Teilen-Dialog, dort eine Drucker-App wählen (druckt das Blatt direkt) oder ein Datei-Ziel, dort drucken und die Datei danach löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
       <p id="nl-msg" class="muted" style="margin-top:6px;font-size:.8em"></p>
     </div>
     <div id="nl-sheet" class="nl-sheet"></div>

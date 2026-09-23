@@ -1,12 +1,13 @@
 "use strict";
 /* Theme-Init vor dem ersten Render (app.js lädt synchron im <head>) */
-(function(){var t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');})();
+(function(){var t=localStorage.getItem('alien-theme');if(t==='soft')document.documentElement.setAttribute('data-theme','soft');
+  if(window.AlienDesktop)document.documentElement.classList.add('desk');})();   // Desktop-Hülle (Electron im Flatpak): schaltet .only-desk/.no-desk, vor dem ersten Render
 
 /* ============================================================
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.2';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.3';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -80,6 +81,7 @@ const I18N = {
   "set.bioDisable":"Disable fingerprint",
   "set.lockNow":"Lock now","set.wipe":"Delete local data",
   "set.wipeNote":"“Delete local data” removes the vault only on <em>this</em> device (localStorage). Exported <code>.vault</code> files remain.",
+  "set.wipeNoteDesk":"“Delete local data” removes the vault file only on <em>this</em> computer. Exported <code>.vault</code> files remain.",
   "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
   "foot.line2":"Encryption: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238",
   "foot.donate":"Charge energy · Donate",
@@ -90,7 +92,8 @@ const I18N = {
   "exp.nlOpen":"Create holdings sheet",
   "nl.title":"Estate appendix",
   "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice and the access guide, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
-  "nl.fassungLbl":"Version","nl.print":"Print","nl.save":"Save as file (.txt)",
+  "nl.fassungLbl":"Version","nl.print":"Print","nl.printDesk":"Save as PDF","nl.save":"Save as file (.txt)",
+  "nl.howtoDesk":"The sheet is saved as a PDF via the save dialog (plain text): print it, then delete the file. Raise the version number before every printout.",
   "nl.howto":"Desktop: print. Phone: the Share dialog opens; pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
@@ -102,6 +105,7 @@ const I18N = {
   "help.h4":"Overview & values",
   "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
   "help.h5":"Backup & Sync (important!)",
+  "help.p5desk":"Your holdings live encrypted in a file on <em>this</em> computer: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. It survives updates (uninstall + reinstall) and is lost only with “Delete local data” or <code>flatpak uninstall --delete-data</code>. Here too: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
   "help.p5":"Your holdings live encrypted in this device's local storage (localStorage) — in the <strong>app</strong> in protected app storage (survives restarts and updates, lost only on “Clear app data” or uninstall), in the <strong>browser</strong> in the browser profile (removed when you clear “cookies and site data” — not by clearing the cache alone). Either way: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>. The app is significantly more persistent — recommended for long-term use.",
   "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li>",
   "help.h6":"CSV import",
@@ -113,6 +117,8 @@ const I18N = {
   "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
+  "help.hDesk":"Linux desktop (Flatpak)",
+  "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop, phone app and browser do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> the copied 2FA key is marked as a password for KDE (Klipper keeps it out of its history) and is cleared on lock and on quit. Only the copy button sets that mark; Ctrl+C on selected text copies via Chromium without it and is not cleared. Text selected with the mouse is not tracked — under X11 every program can read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
   "help.h10":"Fingerprint (Android app)",
   "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone (as long as the box is unticked), after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint.",
   "help.p10b":"<strong>The 'across a restart' switch (off by default):</strong> when enabling, you can tick that the fingerprint keeps working across a restart. The restart rule protects in one case only: someone knows or forces your device PIN and can force your finger — a restart then helps, because the app asks for the passphrase afterwards. GrapheneOS reboots by default once the phone stays locked for 18 hours in a row (adjustable from 10 minutes to 72 hours); whoever sets that counter short or often leaves the phone lying around types the passphrase accordingly often. With the box ticked, only the system's device-PIN requirement remains after a restart; the app then asks for the passphrase only after a passphrase change, on a new fingerprint and after 'Lock now'. Changing this is only possible by disabling and enabling again. When in doubt: restart the phone, then only the passphrase counts (if the box is unticked)."
@@ -231,6 +237,8 @@ const T = {
   "exp.savedShareSfx":{de:' gespeichert — über „Teilen" ablegen.',en:" saved — share it via the Share dialog."},
   "exp.vaultSavedNative":{de:' — über „Teilen" in deinen Syncthing-Ordner legen.',en:" — share it into your Syncthing folder."},
   "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
+  "exp.vaultSavedDesk":{de:"{n} gespeichert (verschlüsselt). In den Syncthing-Ordner legen.",en:"{n} saved (encrypted). Put it in your Syncthing folder."},
+  "exp.savedDesk":{de:" gespeichert (Klartext — nach Gebrauch löschen).",en:" saved (plain text — delete it after use)."},
   "exp.backupSavedPre":{de:"Backup gespeichert (",en:"Backup saved ("},
   "nl.sheetTitle":{de:"Nachlass-Anhang – Bestandsliste",en:"Estate appendix – holdings sheet"},
   "nl.klasse":{de:"Klasse B – vertraulich – getrennt von Existenzhinweis und Zugangsanleitung verwahren",en:"Class B – confidential – keep separate from the existence notice and the access guide"},
@@ -252,6 +260,8 @@ const T = {
   "nl.h5":{de:"Liegt eine neuere Fassung vor, gilt nur diese. Ältere Blätter vernichten.",en:"If a newer version exists, only that one applies. Destroy older sheets."},
   "nl.destroy":{de:"Alte Fassung vernichtet am (Datum, Unterschrift):",en:"Old version destroyed on (date, signature):"},
   "nl.savedWeb":{de:" gespeichert. Ausdrucken, danach die Datei löschen (Klartext).",en:" saved. Print it, then delete the file (plain text)."},
+  "nl.pdfSaved":{de:" gespeichert (PDF). Ausdrucken, danach die Datei löschen (Klartext).",en:" saved (PDF). Print it, then delete the file (plain text)."},
+  "toast.qrDesk":{de:"Am Desktop: QR mit der Aegis-Kamera scannen oder Schlüssel kopieren",en:"On the desktop: scan the QR with the Aegis camera or copy the key"},
   "csv.resultPre":{de:"CSV-Import",en:"CSV import"},"csv.new":{de:"neu",en:"new"},"csv.dupsSkipped":{de:"Dubletten übersprungen",en:"duplicates skipped"},"csv.badRows":{de:"fehlerhafte Zeilen",en:"invalid rows"},
   "lbl.buys":{de:"Käufe",en:"Buys"},"lbl.sells":{de:"Verkäufe",en:"Sells"},
   "err.cpShort":{de:"Neue Passphrase: mind. 12 Zeichen.",en:"New passphrase: min. 12 characters."},
@@ -314,7 +324,9 @@ const T = {
   "csv.failPre":{de:"CSV-Import fehlgeschlagen: ",en:"CSV import failed: "},
   "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
   "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
-  "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll?)",en:"SAVING FAILED — change NOT persisted (storage full?)"},
+  "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll oder Datei nicht schreibbar?)",en:"SAVING FAILED — change NOT persisted (storage full or file not writable?)"},
+  "err.storeRead":{de:"Tresor-Datei nicht lesbar — nichts überschrieben. Datei prüfen oder ein Backup wiederherstellen.",en:"Vault file not readable — nothing overwritten. Check the file or restore a backup."},
+  "err.wipeFailed":{de:"Löschen fehlgeschlagen — Tresor-Datei nicht entfernt",en:"Delete failed — vault file not removed"},
   "about":{de:"Sachwert-Tresor v{v} · AES-256-GCM · Argon2id · 100 % lokal",en:"Sachwert-Tresor v{v} · AES-256-GCM · Argon2id · 100 % local"},
   "err.vaultNewer":{de:"Hinweis: Dieser Tresor stammt aus einer neueren App-Version — bitte App aktualisieren.",en:"Note: this vault was created by a newer app version — please update the app."},
   "bk.never":{de:"⚠ Noch kein Backup erstellt — geht dieses Gerät verloren, ist der Tresor weg. Export & Sync → Backup erstellen.",en:"⚠ No backup yet — if this device is lost, the vault is gone. Export & Sync → Create backup."},
@@ -485,6 +497,14 @@ const App = (function(){
   let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', chartRange = 'max', editId = null;
   let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
 
+  // Desktop-Hülle (Linux, Electron im Flatpak, seit v3.3 — Muster Alien Pass v1.7): Brücke aus desktop/preload.js. Ohne Hülle
+  // (Browser, Android) ist DESK null und alles läuft wie bisher. Der Tresor liegt am Desktop als Datei statt im localStorage —
+  // alle Zugriffe auf LS_KEY NUR über diese drei Helfer (synchron, werfen bei Fehlern; Invarianten: DESKTOP-INVARIANTEN.md).
+  const DESK = window.AlienDesktop || null;
+  function vaultGet(){ return DESK ? DESK.store.read() : localStorage.getItem(LS_KEY); }
+  function vaultSet(s){ if(DESK) DESK.store.write(s); else localStorage.setItem(LS_KEY, s); }
+  function vaultDel(){ if(DESK) DESK.store.del(); else localStorage.removeItem(LS_KEY); }
+
   const $ = id => document.getElementById(id);
   const show = (id) => $(id).classList.remove('hidden');
   const hide = (id) => $(id).classList.add('hidden');
@@ -514,7 +534,7 @@ const App = (function(){
     const body = await encryptBody(vault, dek, kdf);
     if(!DEK||VAULT!==vault) throw lockedErr();
     if(DEK!==dek||KDF!==kdf||WRAP!==wrap) return persist();
-    try{ localStorage.setItem(LS_KEY, serializeFile(kdf, wrap, body)); }
+    try{ vaultSet(serializeFile(kdf, wrap, body)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
   }
   function fileErrMsg(e){ const c=e&&e.message; return tr(c==='newer'?'err.fileNewer':c==='kdfbounds'?'err.fileBounds':c==='toolarge'?'err.fileLarge':c==='noargon2'?'err.noArgon2':'err.fileFormat'); }
@@ -555,14 +575,15 @@ const App = (function(){
     const back=await decryptBody(f.body, await unwrapDek(f.wrap, p.kek, f.kdf, false), f.kdf);
     if(JSON.stringify(back)!==JSON.stringify(p.vault)) throw new Error('readback');
     if(pendingUnlock!==p) throw lockedErr();                       // zwischendurch gesperrt: nichts schreiben
-    if(localStorage.getItem(LS_KEY)!==p.raw) throw new Error('changed');   // Speicher hat sich unter uns geändert
+    if(vaultGet()!==p.raw) throw new Error('changed');            // Speicher hat sich unter uns geändert
     // pre3 nur, wenn Platz ist (Audit run-4 #1): Alt-Blob + Kopie brauchen kurz 2N — ab etwa dem halben Speicherlimit
     // scheiterte sonst JEDE Umstellung und der Tresor ging in v3.0 nie mehr auf. Der Read-back oben hat die neue Datei
-    // bereits bewiesen; setItem ersetzt atomar, bei jedem Fehler steht der Alt-Blob unverändert.
+    // bereits bewiesen; setItem ersetzt atomar (die Desktop-Datei ebenso: Temp + rename), bei jedem Fehler steht der Alt-Blob unverändert.
+    // PRE3 bleibt bewusst im localStorage: am Desktop ist dieser Pfad unerreichbar (die Datei enthält nie einen AISV1-Blob).
     try{ localStorage.setItem(PRE3_KEY, p.raw); }catch(_){ dropPre3(); }
-    try{ localStorage.setItem(LS_KEY, s); }
+    try{ vaultSet(s); }
     catch(e){ dropPre3();                                          // Grenzfall: pre3 passte, blockiert aber den etwas größeren AISV2-Blob
-      localStorage.setItem(LS_KEY, s); }                          // zweiter Fehlschlag wirft: Alt-Blob steht unverändert
+      vaultSet(s); }                                               // zweiter Fehlschlag wirft: Alt-Blob steht unverändert
     return {dek, kdf:p.kdf, wrap};
   }
   function dropPre3(){ try{ localStorage.removeItem(PRE3_KEY); }catch(_){ } }
@@ -602,7 +623,10 @@ const App = (function(){
 
   /* ---------- boot ---------- */
   function boot(){
-    const raw = localStorage.getItem(LS_KEY);
+    let raw=null;
+    // Lesefehler ≠ „kein Tresor“ (Desktop-Datei): nie „Tresor anlegen“ anbieten, sonst überschriebe die App den echten Tresor
+    try{ raw = vaultGet(); }
+    catch(_){ screen('lock'); err('lock-err', tr('err.storeRead')); loadLockState(); return; }
     if(!raw){ screen('setup'); setTimeout(()=>$('setup-pass1').focus(),100); bioDrop(true); }   // ohne Tresor kein Fingerabdruck-Slot
     else { screen('lock'); setTimeout(()=>$('lock-pass').focus(),100); bioProbe(bioAuto); }   // bioAuto setzt erst afterGate() wieder (nach „Jetzt sperren“ kein Auto-Prompt)
     loadLockState();
@@ -641,7 +665,7 @@ const App = (function(){
     if(doUnlock._busy||openSession._busy) return;   // verhindert Doppel-Entsperren bei mehrfachem Enter/Klick
     err('lock-err');
     if(DEK||pendingUnlock) return;
-    const raw = localStorage.getItem(LS_KEY);
+    let raw; try{ raw = vaultGet(); }catch(_){ return err('lock-err', tr('err.storeRead')); }   // Lesefehler: gesperrt bleiben, nichts anlegen
     if(!raw) return boot();
     loadLockState();                               // Stand eines anderen Tabs übernehmen
     const wait=waitMsg(); if(wait){ $('lock-pass').value=''; maskInputs(); return err('lock-err',wait); }   // Bremse VOR jeder KDF-Arbeit
@@ -757,6 +781,7 @@ const App = (function(){
   }
   function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
     bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
+    if(DESK) DESK.clip.clear().catch(()=>{});                            // eigene Kopie (TOTP-Geheimnis) aus der Zwischenablage nehmen
     clearRendered(); maskInputs(); boot(); }
   // „Jetzt sperren“ = die EINZIGE bewusste Nutzer-Sperre: setzt den Riegel (nächster Start nur mit Passphrase). Idle-Timer,
   // Hintergrund und interne Aufrufe bleiben bei lock() und setzen nie einen Riegel.
@@ -777,18 +802,33 @@ const App = (function(){
     document.addEventListener(ev, activity, {passive:true}));
   // Backgrounding: setTimeout pausiert in eingefrorenen WebViews — beim Zurückkehren
   // die tatsächlich verstrichene Zeit prüfen und ggf. sofort sperren.
-  let hiddenAt=0;
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden) clearGateInputs();           // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
-    if(!document.hidden&&!DEK&&!pendingUnlock){ if(bioArmed&&bioAuto&&!$('screen-lock').classList.contains('hidden')) doBio(); return; }   // zurück auf dem Sperrbildschirm
+  // onHidden/onShown: ein Rumpf für beide Quellen — visibilitychange (Android/Browser) und die Desktop-Hülle (DESK.onBackground: dort
+  // ist die Page Visibility API durch backgroundThrottling:false abgeschaltet, der Hauptprozess meldet minimiert/versteckt selbst).
+  // Riegel bgAway gegen doppelte Signale (minimize + hide feuern beide) — sonst rückte hiddenAt nach vorn und die Wegzeit schrumpfte.
+  let hiddenAt=0, bgAway=false;
+  function onHidden(){
+    clearGateInputs();                               // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
+    if(bgAway) return; bgAway=true;
+    const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
+    if(v) hiddenAt=Date.now();
+  }
+  function onShown(){
+    bgAway=false;
+    if(!DEK&&!pendingUnlock){ if(bioArmed&&bioAuto&&!$('screen-lock').classList.contains('hidden')) doBio(); return; }   // zurück auf dem Sperrbildschirm
     const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
     if(!v) return;
     const mins = v.autolock==null?5:v.autolock;
-    if(document.hidden){ hiddenAt=Date.now(); return; }
     const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0;
     if(mins && away>mins*60000){ toast(tr('toast.autolocked')); lock(); }
     else resetIdle();
-  });
+  }
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden) onHidden(); else onShown(); });
+  // Desktop: 'blur' (Fensterwechsel) ist KEIN Hintergrund — feuert auch bei Systemdialogen (Portal-Dateidialog, confirm()) → nur Gate-Hygiene
+  if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur') clearGateInputs(); else if(h) onHidden(); else onShown(); });
+  if(DESK&&typeof DESK.onLock==='function') DESK.onLock(()=>{ if(DEK||pendingUnlock) lock(); });   // Ruhezustand/Bildschirmsperre (im Flatpak tot, s. DESKTOP-INVARIANTEN.md)
+  // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung)
+  function deskKey(ev){ if(!DESK||!ev.ctrlKey||ev.altKey||ev.metaKey) return false;
+    if((ev.key==='l'||ev.key==='L')&&(DEK||pendingUnlock)){ lockNow(); return true; } return false; }
 
   /* ---------- tabs ---------- */
   function tab(name){
@@ -1439,22 +1479,41 @@ const App = (function(){
   }
   function blobToBase64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob);});}
   // CSV-Export native-aware: App -> Filesystem+Share, Web -> Download (mit BOM für Excel-Umlaute).
+  const exportErr=e=>(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e);
   async function saveCsv(name, csv){
     const m=$('export-msg');
     if(isNative){
       try{ const uri=await nativeSaveAndShare(name, '﻿'+csv, 'CACHE');
         if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported'));
-      }catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
+      }catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
+    } else if(DESK){   // Desktop: Speichern-Dialog (Portal), Downloads sind in der Hülle gesperrt. BOM für Excel setzt die App, nie die Hülle.
+      try{ const n=await DESK.saveText(name, '﻿'+csv); if(!n) return;   // abgebrochen: still
+        if(m) m.textContent=n+tr('exp.savedDesk'); toast(tr('toast.exported'));
+      }catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
     } else { downloadFile(name, csv); toast(tr('toast.exported')); }
   }
   async function exportVault(){
-    if(!localStorage.getItem(LS_KEY))return;
-    // Backup-Stand für die Erinnerung merken — wandert mit in die Exportdatei
-    const hadFresh=VAULT.needsFreshBackup;
+    if(exportVault._busy) return;
+    let stored=null; try{ stored=vaultGet(); }catch(_){}
+    if(!stored)return;
+    // Backup-Stand für die Erinnerung merken — wandert mit in die Exportdatei. Vorwerte behalten: scheitert das Speichern
+    // (oder bricht der Desktop-Dialog ab), kommt der alte Stand zurück, sonst stünde „Backup von heute“ ohne Datei da.
+    const hadFresh=VAULT.needsFreshBackup, prevBackup=VAULT.lastBackup, prevCount=VAULT.lastBackupCount, v0=VAULT;
+    const revert=()=>{ if(VAULT!==v0) return; if(prevBackup===undefined) delete VAULT.lastBackup; else VAULT.lastBackup=prevBackup;
+      if(prevCount===undefined) delete VAULT.lastBackupCount; else VAULT.lastBackupCount=prevCount; if(hadFresh) VAULT.needsFreshBackup=true; };
     VAULT.lastBackup=todayStr(); VAULT.lastBackupCount=VAULT.entries.length; delete VAULT.needsFreshBackup;   // Backup im neuen Format liegt vor
-    try{ await persist(); }catch(e){ if(!(e&&e.locked)&&VAULT&&hadFresh) VAULT.needsFreshBackup=true; return; }
-    const raw=localStorage.getItem(LS_KEY);
+    try{ await persist(); }catch(e){ if(!(e&&e.locked)) revert(); return; }
+    let raw; try{ raw=vaultGet(); }catch(_){ revert(); persist().catch(()=>{}); return; }
     const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
+    if(DESK){
+      exportVault._busy=true;
+      try{ const n=await DESK.saveBackup(name, raw);
+        if(!n){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=''; }   // abgebrochen: kein Stempel
+        else { $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
+      }catch(e){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+      finally{ exportVault._busy=false; if(VAULT===v0) renderDash(); }
+      return;
+    }
     if(isNative){
       try{ const uri=await nativeSaveAndShare(name, raw);
         $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative');
@@ -1660,6 +1719,7 @@ const App = (function(){
     for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(m.modules[r][c])ctx.fillRect((c+quiet)*scale,(r+quiet)*scale,scale,scale);
   }
   function saveQR(){
+    if(DESK) return toast(tr('toast.qrDesk'));   // Desktop: Knopf ausgeblendet, Downloads gesperrt — die PNG wäre eine bleibende Klartextdatei mit dem TOTP-Geheimnis
     const c=$('totp-qr');
     if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
     // Als Datei speichern (zuverlässig auch auf GrapheneOS) -> in Aegis aus Galerie/Bild importieren
@@ -1681,6 +1741,7 @@ const App = (function(){
     },'image/png');
   }
   function copyQR(){
+    if(DESK) return toast(tr('toast.qrDesk'));   // Desktop: navigator.clipboard ist ohne Berechtigung tot; Bild-Kopie läuft nicht über die Brücke
     const c=$('totp-qr');
     if(!c||c.style.display==='none'||!c.width)return toast(tr('toast.noQr'));
     if(!(navigator.clipboard && window.ClipboardItem))return toast(tr('toast.clipUnavail'));
@@ -1769,7 +1830,8 @@ const App = (function(){
   // (afterGate: Aegis-Hürde bleibt davor). Die Passphrase-Bremse blockiert den Fingerabdruck nicht und zählt ihn nicht.
   async function doBio(){
     if(doBio._busy||doUnlock._busy||openSession._busy||!BIO||!bioArmed||bioHold()||DEK||pendingUnlock) return; err('lock-err');   // Riegel: Passphrase-Pflicht
-    const raw=localStorage.getItem(LS_KEY); if(!raw) return boot();
+    let raw; try{ raw=vaultGet(); }catch(_){ return err('lock-err', tr('err.storeRead')); }   // (am Desktop unerreichbar: BIO ist dort null)
+    if(!raw) return boot();
     let f; try{ f=parseFile(raw); }catch(e){ return err('lock-err',fileErrMsg(e)); }
     const blob=bioBlob(); if(!blob){ bioDrop(true); return; }
     if(!bioWrapOk(blob,f.wrap)){ bioArmed=false; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot (ct ODER iv): nie übernehmen, Blob behalten (Backup-Restore heilt)
@@ -1826,7 +1888,7 @@ const App = (function(){
       const ba=$('bio-alert'); if(ba){ ba.textContent=bioAlert()?tr('bio.alert'):''; ba.classList.toggle('hidden',!bioAlert()); }
       // zwei fertige Texte statt eines zusammengesetzten: beide tragen data-i18n, applyI18n übersetzt sie, hier wird nur umgeschaltet (v3.2)
       const bt=$('bio-on-text'), bk=$('bio-on-text-keep'); if(bt&&bk){ bt.classList.toggle('hidden',bioKeep); bk.classList.toggle('hidden',!bioKeep); } }
-    $('about-line').textContent=tr('about').replace('{v}',APP_VERSION);   // Versionszeile ganz unten (einheitlich mit Alien Pass)
+    $('about-line').textContent=tr('about').replace('{v}',APP_VERSION)+(DESK?' · Linux-Desktop (Flatpak)':'');   // Versionszeile ganz unten (einheitlich mit Alien Pass)
   }
 
   /* ---------- change passphrase ---------- */
@@ -1868,8 +1930,13 @@ const App = (function(){
 
   /* ---------- misc ---------- */
   function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
-  function copy(text,msg){navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
-  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}localStorage.removeItem(LS_KEY);dropPre3();lock();}
+  // Desktop: nur über die Brücke (Kopie mit KDE-Hinweis, Löschen beim Sperren/Beenden) — kein Rückfall auf die Web-API, die schriebe ohne
+  // Hinweis und Klipper hielte das TOTP-Geheimnis im Verlauf. Scheitert die Brücke: „Manuell kopieren“.
+  function copy(text,msg){ if(DESK){ DESK.clip.write({text}).then(()=>toast(msg),()=>toast(tr('copy.manual'))); return; }
+    navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
+  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
+    try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
+    dropPre3();lock();}
   function pickFile(id){const el=$(id);if(el)el.click();}
   function copySecret(){copy($('totp-secret').textContent,tr('msg.keyCopied'));}
   function copyOtpauth(){copy(App._otpauth,tr('msg.otpauthCopied'));}
@@ -1965,13 +2032,23 @@ const App = (function(){
   function nlRemember(){ const f=nlFassung(); if(VAULT.nlFassung!==f){ VAULT.nlFassung=f; persist().catch(()=>{}); } }
   function openNachlass(){ if(!VAULT) return; const f=$('nl-fassung'); if(f&&!f.value&&VAULT.nlFassung) f.value=VAULT.nlFassung; const m=$('nl-msg'); if(m) m.textContent=''; renderNachlass(); show('nachlass-overlay'); const o=$('nachlass-overlay'); if(o) o.scrollTop=0; }
   function closeNachlass(){ hide('nachlass-overlay'); const el=$('nl-sheet'); if(el) el.innerHTML=''; }
-  function printNachlass(){ renderNachlass(); nlRemember(); window.print(); }
+  // Desktop: window.print() liefe im Flatpak ohne cups-Socket ins Leere → die Hülle rendert die Seite mit dem Druck-CSS als PDF
+  // (printToPDF im Hauptprozess, VOR dem Dialog — das Overlay ist dabei offen) und speichert über den Portal-Dialog.
+  function printNachlass(){ renderNachlass(); nlRemember(); if(!DESK) return window.print();
+    if(printNachlass._busy) return; printNachlass._busy=true; const m=$('nl-msg');
+    DESK.savePdf('nachlass-anhang-'+nlToday()+'.pdf')
+      .then(n=>{ if(!n) return; if(m) m.textContent=n+tr('nl.pdfSaved'); toast(tr('toast.exported')); })
+      .catch(e=>{ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); })
+      .finally(()=>{ printNachlass._busy=false; }); }
   async function exportNachlassTxt(){
     renderNachlass(); nlRemember();
     const name='nachlass-anhang-'+nlToday()+'.txt', txt=nachlassText(), m=$('nl-msg');
     if(isNative){
       try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE', txt); if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); }
-      catch(e){ if(m) m.textContent=(LANG==='en'?'Export failed: ':'Export fehlgeschlagen: ')+((e&&e.message)||e); toast(tr('toast.failed')); }
+      catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
+    } else if(DESK){   // Klartext ohne BOM, nur per Dialog
+      try{ const n=await DESK.saveText(name, txt); if(!n) return; if(m) m.textContent=n+tr('nl.savedWeb'); toast(tr('toast.exported')); }
+      catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
     } else { downloadFile(name, txt, 'text/plain;charset=utf-8', false); if(m) m.textContent=name+tr('nl.savedWeb'); toast(tr('toast.exported')); }
   }
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
@@ -1984,7 +2061,7 @@ const App = (function(){
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
-    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,_otpauth:''};
+    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,deskKey,_otpauth:''};
 })();
 
 /* ---------- Event-Delegation ----------
@@ -2016,6 +2093,7 @@ document.addEventListener('input',ev=>{
 document.addEventListener('pointerdown',ev=>{ if(ev.target.closest('#chart-wrap')) App.chartPoint(ev); else App.chartHideTip(); });
 document.addEventListener('pointermove',ev=>{ if(ev.target.closest('#chart-wrap')) App.chartPoint(ev); });
 document.addEventListener('keydown',ev=>{
+  if(App.deskKey(ev)){ ev.preventDefault(); return; }   // Desktop: Strg+L sperrt (ohne Hülle immer false)
   if(ev.key==='Escape'){ App.closeMenus(); App.chartHideTip(); return; }
   if(ev.key!=='Enter') return;
   const el=ev.target.closest('[data-enter]'); if(!el) return;
@@ -2029,8 +2107,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   App.enhancePassFields();   // vor applyI18n: setzt die Augen-Beschriftung
   applyI18n();
   App.boot();
-  // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar
-  if('serviceWorker' in navigator && location.protocol!=='file:'){
+  // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar; in der Desktop-Hülle (app://) gibt es
+  // keinen: sw.js liegt nicht im Bundle und das Schema erlaubt keine Service Worker (Registrierung würde still scheitern).
+  if('serviceWorker' in navigator && location.protocol!=='file:' && !window.AlienDesktop){
     navigator.serviceWorker.register('sw.js').catch(()=>{});
   }
 });
