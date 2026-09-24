@@ -171,8 +171,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   Bestands-Vorschau im App-Switcher. **allowBackup=false** plus Regeln gegen die
   Gerät-zu-Gerät-Übertragung (v3.0): Tresor-Daten landen in keinem ADB-/Cloud-Backup und werden
   beim Handywechsel nicht mitkopiert — Backups machst nur du selbst (`.vault`).
-- **Content-Security-Policy** mit `connect-src 'none'`: Auch die Web-Version kann
-  keinerlei Netz-Verbindung aufbauen. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
+- **Content-Security-Policy** mit `connect-src 'none'`: Die Seite selbst kann
+  keinerlei Netz-Verbindung aufbauen, unabhängig von der Hülle. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
   (`script-src 'self'`): Inline-Script ist komplett verboten — selbst eingeschleustes
   Markup hätte keine Ausführungsfläche. Seit v3.0 steht dort zusätzlich `'wasm-unsafe-eval'`:
   Browser (auch die Android-WebView) brauchen es, um das Argon2-WebAssembly zu übersetzen; es erlaubt weder `eval` noch

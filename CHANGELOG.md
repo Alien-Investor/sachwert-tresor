@@ -1,7 +1,15 @@
 # Changelog
 
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
-Format: `## vX.Y — Datum`. Web-PWA und native App teilen sich eine Codebasis.
+Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
+
+## Hinweis — 2026-09-24: Web-Version eingestellt
+
+Den Sachwert-Tresor gibt es ab sofort nur noch als App: Android (Zap Store, APK auf Codeberg) und Linux-Desktop (Flatpak). Die bisherige
+Browser-Version unter `api.alien-investor.org/tresor/` ist abgeschaltet, weil nur die Apps die volle Härtung bieten (keine
+Internet-Berechtigung, FLAG_SECURE, Flatpak ohne Netz). Wer dort noch Einträge hatte: Die Daten lagen nur im eigenen Browser, nie auf dem
+Server. Bis zum 31.10.2026 lässt sich dort eine alte Version nur zum Exportieren öffnen; die `.vault`-Datei dann in der App importieren.
+Am Tresor-Format und an der Verschlüsselung ändert sich nichts.
 
 ## v3.4 — 2026-09-23
 
