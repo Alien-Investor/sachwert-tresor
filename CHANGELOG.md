@@ -3,6 +3,17 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.6.2 — 2026-09-26
+
+Nur Android. Nacharbeit zur Autofill-Ausnahme aus v3.6.1 (Querfund aus dem Diff-Review von Alien Pass v1.15, Schwere niedrig).
+
+- **Kein Absturz mehr über fremde Autofill-Extras:** Seit v3.6.1 bekommt die WebView keinen AutofillManager. Android liest beim Schließen der
+  App aber zwei Autofill-Extras aus dem Start-Intent und greift dann ohne Prüfung auf diesen Manager zu. Eine andere App hätte den Tresor mit
+  diesen Extras starten und beim Schließen abstürzen lassen können. Die App entfernt beide Extras jetzt gleich beim Start und bei jedem neuen
+  Intent. Daten waren nie betroffen.
+- **Build prüft die fertige APK:** Neben dem erzeugten Java prüft `build-apk.sh` jetzt auch den Bytecode der MainActivity auf alle
+  Autofill-Hebel und bricht ab, wenn einer fehlt.
+
 ## v3.6.1 — 2026-09-26
 
 Nacharbeit aus dem gezielten internen Security-Audit zu v3.6 (kein Fund über „niedrig“, nichts davon betrifft Verschlüsselung oder Daten).
