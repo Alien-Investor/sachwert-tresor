@@ -25,7 +25,8 @@ description: |
     permission with no system access. The build aborts if the finished APK requests any
     other permission
   - FLAG_SECURE: no screenshots, no screen recording, no preview in recents (v2.0); no
-    backup and no device-to-device transfer of vault data (v3.0)
+    backup and no device-to-device transfer of vault data (v3.0); WebView excluded from the
+    Android autofill framework, a third-party autofill service never sees the passphrase fields (v3.6.1)
   - AES-256-GCM encryption (native WebCrypto); since v3.0 the key is derived with Argon2id
     (64 MiB, 3 passes), far costlier to brute-force on GPUs than the former PBKDF2. Older
     vaults and backups keep opening and are switched over automatically

@@ -10,6 +10,10 @@ Nacharbeit aus dem gezielten internen Security-Audit zu v3.6 (kein Fund über �
 - **CSV-Import mit Deckeln wie in Alien Pass:** höchstens 20 MiB, 40.000 Zeilen und 10.000 Buchungen im Tresor; die Größe wird vor dem Lesen
   geprüft, der Zeilendeckel beim Einlesen, der Buchungsdeckel vor dem Einfügen (nichts wird halb übernommen). Die Dubletten-Prüfung ist jetzt
   linear statt quadratisch — eine große CSV fror die App vorher für Minuten ein, und die Auto-Sperre kam erst danach.
+- **Kein fremdes Autofill mehr (Querfund aus dem Gerätetest von Alien Pass, im Tresor genauso beobachtet):** Die WebView meldete jedes
+  Passwortfeld an das Android-Autofill-Framework; ein anderer Passwort-Manager als Autofill-Dienst bot sich im Passphrase-Feld des
+  Backup-Imports an und konnte anbieten, die Passphrase zu speichern. `autocomplete="off"` hält das nicht auf, darum jetzt nativ: Die App
+  nimmt ihre Felder vom Autofill-Framework aus (eine Zeile in der MainActivity, wie bisher im Klartext in `patch-hardening.mjs`).
 - **Lesefehler werden gemeldet:** Wurde die gewählte Datei zwischen Auswahl und Entsperren geändert oder ersetzt (z.B. durch Syncthing), liest
   der Browser sie nicht mehr. Vorher blieb es still, jetzt steht „Datei konnte nicht gelesen werden — bitte erneut wählen.“ Gilt für CSV und `.vault`.
 - **Kleinigkeiten:** Eine zurückgestellte Uhr verlängert den gemerkten Dateiverweis nicht mehr; ein Verweis verfällt bei einer Neu-Einrichtung;

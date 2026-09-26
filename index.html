@@ -693,6 +693,7 @@ tr:hover td{color:var(--neon);}
       <li>AES-256-GCM über native WebCrypto. Den Schlüssel leitet <strong>Argon2id</strong> aus deiner Passphrase ab (64 MiB Speicher, 3 Durchgänge): Jeder Rateversuch kostet Arbeitsspeicher, das macht Durchprobieren auf Grafikkarten und Spezialchips teuer. Argon2id stammt aus der quelloffenen Bibliothek hash-wasm (MIT), fest eingebunden und beim Build per SHA-256 geprüft.</li>
       <li>Tresore und <code>.vault</code>-Backups aus Versionen vor 3.0 öffnen weiter. Der Tresor auf dem Gerät wird beim ersten Entsperren automatisch umgestellt.</li>
       <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline. Die Android-App hat keine INTERNET-Berechtigung; ihre einzige System-Berechtigung gilt dem Fingerabdruck.</li>
+      <li>Die Android-App nimmt ihre Felder vom Android-Autofill-Framework aus (seit v3.6.1): Ein anderer Passwort-Manager, der als Autofill-Dienst eingerichtet ist, sieht die Passphrase-Felder nicht und kann nicht anbieten, sie zu speichern.</li>
       <li>Nach 3 falschen Versuchen wächst eine Wartezeit (bis 30 Sekunden) — ein Riegel gegen Durchprobieren am Gerät, kein Krypto-Schutz.</li>
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>

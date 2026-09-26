@@ -171,6 +171,9 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   Bestands-Vorschau im App-Switcher. **allowBackup=false** plus Regeln gegen die
   Gerät-zu-Gerät-Übertragung (v3.0): Tresor-Daten landen in keinem ADB-/Cloud-Backup und werden
   beim Handywechsel nicht mitkopiert — Backups machst nur du selbst (`.vault`).
+- **Kein fremdes Autofill** (ab v3.6.1): Die App nimmt ihre WebView vom Android-Autofill-Framework aus. Ein anderer Passwort-Manager,
+  der als Autofill-Dienst eingerichtet ist, sieht die Passphrase-Felder nicht und kann nicht anbieten, sie zu speichern —
+  `autocomplete="off"` im HTML hält das nicht auf (Querfund aus dem Gerätetest von Alien Pass).
 - **Rückfragen im eigenen Dialog** (ab v3.5): Löschen, mögliche Duplikate, 2FA/Fingerabdruck abschalten und
   „Lokale Daten löschen“ fragen in einem Dialog innerhalb der App nach, nicht über den Android-Systemdialog.
   Der Systemdialog erbt FLAG_SECURE nicht — ein Screenshot bei offener Rückfrage hätte den Dialogtext gezeigt,
