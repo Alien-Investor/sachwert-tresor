@@ -13,7 +13,8 @@ Nacharbeit aus dem gezielten internen Security-Audit zu v3.6 (kein Fund über �
 - **Kein fremdes Autofill mehr (Querfund aus dem Gerätetest von Alien Pass, im Tresor genauso beobachtet):** Die WebView meldete jedes
   Passwortfeld an das Android-Autofill-Framework; ein anderer Passwort-Manager als Autofill-Dienst bot sich im Passphrase-Feld des
   Backup-Imports an und konnte anbieten, die Passphrase zu speichern. `autocomplete="off"` hält das nicht auf, darum jetzt nativ: Die App
-  nimmt ihre Felder vom Autofill-Framework aus (eine Zeile in der MainActivity, wie bisher im Klartext in `patch-hardening.mjs`).
+  nimmt ihre Felder vom Autofill-Framework aus: Die WebView bekommt keinen AutofillManager mehr (zwei kleine Stücke in der MainActivity, wie
+  bisher im Klartext in `patch-hardening.mjs`; am Gerät geprüft in Alien Pass v1.13).
 - **Lesefehler werden gemeldet:** Wurde die gewählte Datei zwischen Auswahl und Entsperren geändert oder ersetzt (z.B. durch Syncthing), liest
   der Browser sie nicht mehr. Vorher blieb es still, jetzt steht „Datei konnte nicht gelesen werden — bitte erneut wählen.“ Gilt für CSV und `.vault`.
 - **Kleinigkeiten:** Eine zurückgestellte Uhr verlängert den gemerkten Dateiverweis nicht mehr; ein Verweis verfällt bei einer Neu-Einrichtung;
