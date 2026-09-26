@@ -177,8 +177,9 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   während die App dahinter schwarz blieb (intern gefunden beim Gerätetest der Schwester-App Alien Notes).
 - **Sperre auch bei offenem Datei-Picker** (ab v3.6): Läuft die Auto-Sperre ab, während der Datei-Picker offen ist, sperrt die App
   trotzdem — kein Schlüssel bleibt im Speicher. Die gewählte Datei (`.vault` oder CSV) geht dabei nicht verloren: Die App merkt sich nur
-  den Verweis, liest nichts, solange sie zu ist, und importiert nach dem Entsperren genau diese Datei (intern gefunden beim Gerätetest der
-  Schwester-App Alien Pass).
+  den Verweis, liest nichts, solange sie zu ist, und nach dem Entsperren läuft der Import mit genau dieser Datei weiter (intern gefunden beim
+  Gerätetest der Schwester-App Alien Pass). Eine inzwischen geänderte oder ersetzte Datei wird gemeldet, nicht still übergangen (ab v3.6.1).
+- **Deckel für den CSV-Import** (ab v3.6.1, wie Alien Pass): höchstens 20 MiB, 40.000 Zeilen, 10.000 Buchungen im Tresor.
 - **Content-Security-Policy** mit `connect-src 'none'`: Die Seite selbst kann
   keinerlei Netz-Verbindung aufbauen, unabhängig von der Hülle. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
   (`script-src 'self'`): Inline-Script ist komplett verboten — selbst eingeschleustes

@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.6';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.6.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -99,7 +99,7 @@ const I18N = {
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
   "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
   "help.h2":"First steps",
-  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings. It also applies while the file picker is open — a file chosen there is not lost, it is imported after unlocking.</li>",
+  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings. It also applies while the file picker is open — a file chosen there is not lost, the import continues after unlocking.</li>",
   "help.h3":"Adding entries",
   "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
   "help.h4":"Overview & values",
@@ -278,6 +278,8 @@ const T = {
   "err.fileNewer":{de:"Diese Datei stammt aus einer neueren App-Version. Bitte die App aktualisieren.",en:"This file comes from a newer app version. Please update the app."},
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
+  "err.tooMany":{de:"Zu viele Zeilen oder Buchungen (höchstens 40.000 Zeilen, 10.000 Buchungen).",en:"Too many rows or entries (at most 40,000 rows, 10,000 entries)."},
+  "msg.readErr":{de:"Datei konnte nicht gelesen werden — bitte erneut wählen.",en:"File could not be read — please choose it again."},
   "err.noArgon2":{de:"Die Verschlüsselung (Argon2id) lässt sich in diesem Browser nicht starten. Am Tresor wurde nichts verändert.",en:"The encryption (Argon2id) cannot start in this browser. Nothing in the vault was changed."},
   "bio.promptTitle":{de:"Sachwert-Tresor",en:"Sachwert-Tresor"},
   "bio.promptUnlock":{de:"Tresor entsperren",en:"Unlock vault"},
@@ -401,6 +403,7 @@ const MAGIC='AISV2', FILE_VER=1;
 const KDF_DEFAULT={m:65536,t:3,p:1};                                   // 64 MiB, 3 Durchgänge — Parität zu Alien Pass
 const KDF_BOUNDS={mMin:8192,mMax:262144,tMin:1,tMax:16,pMin:1,pMax:4,budget:786432};
 const MAX_FILE_BYTES=20*1024*1024;
+const MAX_ENTRIES=10000, MAX_CSV_ROWS=4*MAX_ENTRIES;   // Deckel wie Alien Pass (Audit run-6 #1): Dubletten und unbrauchbare Zeilen dürfen mitzählen, darum das Vierfache
 function rand(n){ return crypto.getRandomValues(new Uint8Array(n)); }
 function b64Bytes(s){ if(typeof s!=='string'||!/^[A-Za-z0-9+/]*={0,2}$/.test(s)) return null; try{ return new Uint8Array(b64ToBuf(s)); }catch(_){ return null; } }
 function passBytes(p){ return enc.encode(String(p).normalize('NFKC')); }   // NFKC: dieselbe Passphrase, gleich getippt, ergibt denselben Schlüssel
@@ -669,6 +672,7 @@ const App = (function(){
   /* ---------- setup ---------- */
   async function doSetup(){
     if(doSetup._busy) return;
+    pendingFile=null;   // ein Verweis gehört zum alten Tresor, nie zu einem neu eingerichteten (run-6 #5)
     err('setup-err');
     const p1=$('setup-pass1').value, p2=$('setup-pass2').value;
     if(p1.length<12) return err('setup-err',tr('err.setupShort'));
@@ -1569,7 +1573,7 @@ const App = (function(){
     }
   }
   // Minimal-CSV-Parser (RFC-4180-nah: Anführungszeichen, "" als Escape, BOM/CRLF tolerant).
-  function parseCsv(text){
+  function parseCsv(text, maxRows){   // maxRows: bricht beim Überschreiten sofort ab ('toomany'), statt erst alles zu parsen (Audit run-6 #1)
     const rows=[]; let i=0, field='', row=[], inq=false;
     text=String(text).replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
     while(i<text.length){
@@ -1577,7 +1581,7 @@ const App = (function(){
       if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inq=false;i++;continue;} field+=c;i++;continue; }
       if(c==='"'){inq=true;i++;continue;}
       if(c===','){row.push(field);field='';i++;continue;}
-      if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue;}
+      if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++; if(maxRows&&rows.length>maxRows) throw new Error('toomany'); continue;}
       field+=c;i++;
     }
     if(field.length||row.length){row.push(field);rows.push(row);}
@@ -1588,18 +1592,21 @@ const App = (function(){
   function importCsv(ev){
     const f=ev.target.files[0]; if(!f) return;
     if(!VAULT){ deferFile(ev); return; }   // gesperrt (Picker war offen): nur den Verweis merken, nachgeholt in enterApp() (v3.6)
+    if(f.size>MAX_FILE_BYTES){ $('export-msg').textContent=tr('err.fileLarge'); ev.target.value=''; return; }   // VOR dem Lesen (Audit run-6 #1)
+    const session=VAULT;   // Sitzung pinnen wie doImportVault: Sperre + neues Entsperren während des Lesens → verwerfen (run-6 #6)
     const r=new FileReader();
+    r.onerror=()=>{ if(VAULT) $('export-msg').textContent=tr('msg.readErr'); ev.target.value=''; };   // geänderte/ersetzte Datei liest Chromium nicht (run-6 #2)
     r.onload=()=>{
-      if(!VAULT){ ev.target.value=''; return; }   // währenddessen gesperrt → abbrechen
+      if(!VAULT||VAULT!==session){ ev.target.value=''; return; }   // währenddessen gesperrt → abbrechen
       try{
-        const rows=parseCsv(r.result);
+        const rows=parseCsv(r.result, MAX_CSV_ROWS);
         if(rows.length<2) throw new Error(tr('csv.errEmpty'));
         const head=rows[0].map(h=>h.trim().toLowerCase());
         const isBuy=head.includes('kyc'), isSale=head.includes('no_kyc');
         if(head[0]!=='date'||head[1]!=='btc_amount'||head[2]!=='eur_amount'||(!isBuy&&!isSale))
           throw new Error(tr('csv.errFormat'));
         const dir=isSale?'sell':'buy';
-        let added=0,dups=0,bad=0; const newIds=[];
+        let added=0,dups=0,bad=0; const newIds=[], add=[], seen=new Set(VAULT.entries.map(dupKey));   // O(n) statt findDuplicate je Zeile
         for(let n=1;n<rows.length;n++){
           const c=rows[n];
           const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
@@ -1608,9 +1615,10 @@ const App = (function(){
           const e={ id:cryptoId(), type:'btc', dir, date, eur, cur:'EUR', btc, source:note, note:'' };
           if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
           else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
-          if(findDuplicate(e,null)){ dups++; continue; }
-          VAULT.entries.push(e); newIds.push(e.id); added++;
+          const k=dupKey(e); if(seen.has(k)){ dups++; continue; } seen.add(k); add.push(e);
         }
+        if(VAULT.entries.length+add.length>MAX_ENTRIES) throw new Error('toomany');   // Deckel VOR dem Einfügen: nichts halb übernommen
+        for(const e of add){ VAULT.entries.push(e); newIds.push(e.id); added++; }
         persist().then(()=>{ renderAll();
           $('export-msg').textContent=`${tr('csv.resultPre')} (${dir==='buy'?tr('lbl.buys'):tr('lbl.sells')}): ${added} ${tr('csv.new')}, ${dups} ${tr('csv.dupsSkipped')}${bad?`, ${bad} ${tr('csv.badRows')}`:''}.`;
           toast(added?(added+' '+(LANG==='en'?'imported':'importiert')):tr('msg.upToDate'));
@@ -1618,7 +1626,7 @@ const App = (function(){
           if(ex&&ex.locked) return;
           const del=new Set(newIds); VAULT.entries=VAULT.entries.filter(x=>!del.has(x.id)); renderAll();
         });
-      }catch(e){ $('export-msg').textContent=tr('csv.failPre')+((e&&e.message)||'Format?'); }
+      }catch(e){ const m=e&&e.message; $('export-msg').textContent=tr('csv.failPre')+(m==='toomany'?tr('err.tooMany'):(m||'Format?')); }
       ev.target.value='';
     };
     r.readAsText(f);
@@ -1684,7 +1692,9 @@ const App = (function(){
     if(f&&!VAULT){ deferFile(ev); return; }   // gesperrt (Picker war offen): nur den Verweis merken, nachgeholt in enterApp() (v3.6)
     ev.target.value='';            // erlaubt erneute Auswahl derselben Datei
     if(!f)return;
+    if(f.size>MAX_FILE_BYTES){ $('export-msg').textContent=tr('err.fileLarge'); return; }   // VOR dem Lesen; parseFile prüft sonst erst nach 20 MB (run-6 #1)
     const r=new FileReader();
+    r.onerror=()=>{ if(VAULT) $('export-msg').textContent=tr('msg.readErr'); };   // geänderte/ersetzte Datei (Syncthing) → Meldung statt Stille (run-6 #2)
     r.onload=()=>{
       if(!VAULT) return;           // währenddessen gesperrt → abbrechen (clearRendered hat pendingImportBlob geräumt)
       try{
@@ -1990,7 +2000,7 @@ const App = (function(){
   let pendingFile=null; const PENDING_FILE_MS=5*60000;
   function deferFile(ev){ const t=ev&&ev.target, f=t&&t.files&&t.files[0]; if(!f||VAULT) return false;
     pendingFile={id:t.id, file:f, at:Date.now()}; try{ t.value=''; }catch(_){} toast(tr('imp.deferred'),{ms:8000}); return true; }
-  function runPendingFile(){ const p=pendingFile; pendingFile=null; if(!p||!VAULT||Date.now()-p.at>PENDING_FILE_MS) return;
+  function runPendingFile(){ const p=pendingFile; pendingFile=null; if(!p||!VAULT) return; const d=Date.now()-p.at; if(d<0||d>PENDING_FILE_MS) return;   // d<0: zurückgestellte Uhr = verfallen (run-6 #4)
     const fn=p.id==='csv-file'?importCsv:p.id==='vault-file'?importVault:null; if(!fn) return;
     tab('export'); fn({target:{id:p.id, files:[p.file], value:''}}); }
   function pickFile(id){const el=$(id);if(el)el.click();}

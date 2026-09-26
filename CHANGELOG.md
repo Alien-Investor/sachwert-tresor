@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.6.1 — 2026-09-26
+
+Nacharbeit aus dem gezielten internen Security-Audit zu v3.6 (kein Fund über „niedrig“, nichts davon betrifft Verschlüsselung oder Daten).
+
+- **CSV-Import mit Deckeln wie in Alien Pass:** höchstens 20 MiB, 40.000 Zeilen und 10.000 Buchungen im Tresor; die Größe wird vor dem Lesen
+  geprüft, der Zeilendeckel beim Einlesen, der Buchungsdeckel vor dem Einfügen (nichts wird halb übernommen). Die Dubletten-Prüfung ist jetzt
+  linear statt quadratisch — eine große CSV fror die App vorher für Minuten ein, und die Auto-Sperre kam erst danach.
+- **Lesefehler werden gemeldet:** Wurde die gewählte Datei zwischen Auswahl und Entsperren geändert oder ersetzt (z.B. durch Syncthing), liest
+  der Browser sie nicht mehr. Vorher blieb es still, jetzt steht „Datei konnte nicht gelesen werden — bitte erneut wählen.“ Gilt für CSV und `.vault`.
+- **Kleinigkeiten:** Eine zurückgestellte Uhr verlängert den gemerkten Dateiverweis nicht mehr; ein Verweis verfällt bei einer Neu-Einrichtung;
+  eine Sperre mit erneutem Entsperren während des Lesens verwirft die CSV. Wortlaut in Handbuch, README und CHANGELOG: nach dem Entsperren
+  „läuft der Import weiter“ (beim `.vault` folgt die Passphrase der Datei), und die Sperr-Regel ist korrekt beschrieben.
+
 ## v3.6 — 2026-09-26
 
 Ein Gerätetest-Fund aus der Schwester-App Alien Pass, hier nachgezogen. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert
@@ -12,8 +25,9 @@ sich nichts; Android und Linux-Desktop bekommen dieselbe App.
   Systems); läuft währenddessen die Auto-Sperre ab, kam die gewählte Datei in eine gesperrte App: Eine CSV wurde still verworfen, ein
   `.vault`-Backup trotz Sperre eingelesen. Jetzt merkt sich die App nur den Verweis auf die Datei (gelesen wird nichts, solange die App zu
   ist), zeigt auf dem Sperrbildschirm „Datei gewählt — zum Importieren entsperren“ und importiert nach dem Entsperren genau diese Datei im
-  Tab „Export & Sync“. Gilt für `.vault`-Backups und CSV. Der Verweis verfällt nach fünf Minuten ohne Entsperren. Die Sperre selbst bleibt,
-  wie sie ist: kein Schlüssel im Speicher, während die App im Hintergrund liegt.
+  Tab „Export & Sync“ (bei einem `.vault`-Backup folgt dort die Passphrase der Datei). Gilt für `.vault`-Backups und CSV. Der Verweis verfällt
+  nach fünf Minuten ohne Entsperren. Die Sperr-Regel selbst bleibt unverändert (Auto-Sperre nach Inaktivität bzw. Wegzeit); nach dem Sperren
+  ist kein Schlüssel im Speicher.
 - Handbuch DE/EN (Erste Schritte, Backup & Sync) und README ergänzt.
 
 ## v3.5 — 2026-09-26
