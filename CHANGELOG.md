@@ -3,6 +3,19 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.6 — 2026-09-26
+
+Ein Gerätetest-Fund aus der Schwester-App Alien Pass, hier nachgezogen. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert
+sich nichts; Android und Linux-Desktop bekommen dieselbe App.
+
+- **Import bei Sperre während des Datei-Pickers war unmöglich.** Der Datei-Picker ist eine eigene Android-Ansicht (am Desktop der Dateidialog des
+  Systems); läuft währenddessen die Auto-Sperre ab, kam die gewählte Datei in eine gesperrte App: Eine CSV wurde still verworfen, ein
+  `.vault`-Backup trotz Sperre eingelesen. Jetzt merkt sich die App nur den Verweis auf die Datei (gelesen wird nichts, solange die App zu
+  ist), zeigt auf dem Sperrbildschirm „Datei gewählt — zum Importieren entsperren“ und importiert nach dem Entsperren genau diese Datei im
+  Tab „Export & Sync“. Gilt für `.vault`-Backups und CSV. Der Verweis verfällt nach fünf Minuten ohne Entsperren. Die Sperre selbst bleibt,
+  wie sie ist: kein Schlüssel im Speicher, während die App im Hintergrund liegt.
+- Handbuch DE/EN (Erste Schritte, Backup & Sync) und README ergänzt.
+
 ## v3.5 — 2026-09-26
 
 Rückfragen im eigenen Look und „Rückgängig“ nach dem Löschen. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts;

@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.5';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.6';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -99,7 +99,7 @@ const I18N = {
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext.",
   "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
   "help.h2":"First steps",
-  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings.</li>",
+  "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings. It also applies while the file picker is open — a file chosen there is not lost, it is imported after unlocking.</li>",
   "help.h3":"Adding entries",
   "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
   "help.h4":"Overview & values",
@@ -107,7 +107,7 @@ const I18N = {
   "help.h5":"Backup & Sync (important!)",
   "help.p5desk":"Your holdings live encrypted in a file on <em>this</em> computer: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. It survives updates (uninstall + reinstall) and is lost only with “Delete local data” or <code>flatpak uninstall --delete-data</code>. Here too: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
   "help.p5":"Your holdings live encrypted in this device's local storage (localStorage) — in the <strong>app</strong> in protected app storage (survives restarts and updates, lost only on “Clear app data” or uninstall), in the <strong>browser</strong> in the browser profile (removed when you clear “cookies and site data” — not by clearing the cache alone). Either way: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>. The app is significantly more persistent — recommended for long-term use.",
-  "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li>",
+  "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries are added, your local passphrase stays). Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li><li><strong>If the app locks while the file picker is open</strong> (auto-lock), the chosen file is not lost: the lock screen shows “File chosen — unlock to import”, and after unlocking the import continues with exactly this file. Applies to <code>.vault</code> backups and CSV.</li>",
   "help.h6":"CSV import",
   "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
   "help.h7":"Tax-tool export",
@@ -323,6 +323,7 @@ const T = {
   "busy.decrypting":{de:"Entschlüssele…",en:"Decrypting…"},
   "busy.changing":{de:"Ändere…",en:"Changing…"},
   "csv.failPre":{de:"CSV-Import fehlgeschlagen: ",en:"CSV import failed: "},
+  "imp.deferred":{de:"Datei gewählt — zum Importieren entsperren.",en:"File chosen — unlock to import."},
   "csv.errEmpty":{de:"Datei leer oder ohne Datenzeilen.",en:"File empty or without data rows."},
   "csv.errFormat":{de:"Unbekanntes Format. Erwarte Kopfzeile: date,btc_amount,eur_amount,note,kyc (oder …,no_kyc).",en:"Unknown format. Expected header: date,btc_amount,eur_amount,note,kyc (or …,no_kyc)."},
   "err.saveFailed":{de:"SPEICHERN FEHLGESCHLAGEN — Änderung NICHT gesichert (Speicher voll oder Datei nicht schreibbar?)",en:"SAVING FAILED — change NOT persisted (storage full or file not writable?)"},
@@ -779,7 +780,7 @@ const App = (function(){
   }
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
-  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices();
+  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); runPendingFile();
     if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
@@ -1586,8 +1587,10 @@ const App = (function(){
   // CSV nur im Tresor-Format (date,btc_amount,eur_amount,…). Broker-CSVs gehoeren ins Steuertool, nicht hierher.
   function importCsv(ev){
     const f=ev.target.files[0]; if(!f) return;
+    if(!VAULT){ deferFile(ev); return; }   // gesperrt (Picker war offen): nur den Verweis merken, nachgeholt in enterApp() (v3.6)
     const r=new FileReader();
     r.onload=()=>{
+      if(!VAULT){ ev.target.value=''; return; }   // währenddessen gesperrt → abbrechen
       try{
         const rows=parseCsv(r.result);
         if(rows.length<2) throw new Error(tr('csv.errEmpty'));
@@ -1678,10 +1681,12 @@ const App = (function(){
   let pendingImportBlob=null;   // Text der gewählten .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
   function importVault(ev){
     const f=ev.target.files[0];
+    if(f&&!VAULT){ deferFile(ev); return; }   // gesperrt (Picker war offen): nur den Verweis merken, nachgeholt in enterApp() (v3.6)
     ev.target.value='';            // erlaubt erneute Auswahl derselben Datei
     if(!f)return;
     const r=new FileReader();
     r.onload=()=>{
+      if(!VAULT) return;           // währenddessen gesperrt → abbrechen (clearRendered hat pendingImportBlob geräumt)
       try{
         const text=String(r.result);
         // AISV2 streng prüfen (Grenzen VOR jeder KDF-Arbeit); Alt-Backups bewusst locker (ct+salt), damit frühe Dateien nicht an einem Magic scheitern
@@ -1975,6 +1980,19 @@ const App = (function(){
   async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
     try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
     dropPre3();lock();}
+  // Nachgeholter Import (v3.6, Port aus Alien Pass v1.10, Gerätetest 26.09.2026): der Datei-Picker ist eine fremde Android-Activity (am Desktop
+  // der Portal-Dialog), und die Sperre läuft währenddessen weiter — Wegzeit-Prüfung in onShown() und der Inaktivitäts-Timer. Sperrt die App, während
+  // der Picker offen ist, kam die Datei bisher in eine gesperrte App: importCsv lief auf VAULT=null (TypeError, still), importVault las die Datei
+  // trotzdem ein. Jetzt: nur den Dateiverweis merken (Handle, kein Inhalt — nichts wird gelesen, solange die App zu ist), Toast auf dem
+  // Sperrbildschirm, nach dem Entsperren (enterApp, also auch nach dem Aegis-Code) im Export-Tab denselben Handler mit derselben Datei aufrufen.
+  // Verfällt nach PENDING_FILE_MS ohne Entsperren, wird IMMER verbraucht (nie zweimal). Die Sperr-Regel selbst bleibt unangetastet — bewusst
+  // KEINE Schonfrist mit offenem Schlüssel, solange der Picker offen ist (Entscheidung Nutzer 26.09.2026, Alien Pass).
+  let pendingFile=null; const PENDING_FILE_MS=5*60000;
+  function deferFile(ev){ const t=ev&&ev.target, f=t&&t.files&&t.files[0]; if(!f||VAULT) return false;
+    pendingFile={id:t.id, file:f, at:Date.now()}; try{ t.value=''; }catch(_){} toast(tr('imp.deferred'),{ms:8000}); return true; }
+  function runPendingFile(){ const p=pendingFile; pendingFile=null; if(!p||!VAULT||Date.now()-p.at>PENDING_FILE_MS) return;
+    const fn=p.id==='csv-file'?importCsv:p.id==='vault-file'?importVault:null; if(!fn) return;
+    tab('export'); fn({target:{id:p.id, files:[p.file], value:''}}); }
   function pickFile(id){const el=$(id);if(el)el.click();}
   function copySecret(){copy($('totp-secret').textContent,tr('msg.keyCopied'));}
   function copyOtpauth(){copy(App._otpauth,tr('msg.otpauthCopied'));}

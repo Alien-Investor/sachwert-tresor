@@ -652,7 +652,7 @@ tr:hover td{color:var(--neon);}
     <ul data-i18n-html="help.l2">
       <li><strong>Passphrase</strong> vergeben — sie verschlüsselt den gesamten Tresor. Gut merken, sicher notieren.</li>
       <li>Optional <strong>2FA</strong> (Aegis/TOTP) als zweite Hürde: Einstellungen → 2FA aktivieren.</li>
-      <li><strong>Auto-Sperre</strong> bei Inaktivität ist in den Einstellungen einstellbar.</li>
+      <li><strong>Auto-Sperre</strong> bei Inaktivität ist in den Einstellungen einstellbar. Sie greift auch, während der Datei-Picker offen ist — eine dort gewählte Datei geht nicht verloren, sondern wird nach dem Entsperren importiert.</li>
     </ul>
 
     <h2 data-i18n="help.h3">Erfassen</h2>
@@ -675,6 +675,7 @@ tr:hover td{color:var(--neon);}
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>
       <li><strong>Backup wiederherstellen</strong> auf dem anderen Gerät → Datei wählen → <strong>Passphrase der Datei</strong> eingeben (die des Quell-Geräts, nicht zwingend die lokale).</li>
       <li><strong>Merge:</strong> Der Import <strong>führt zusammen</strong> (neue Einträge kommen dazu, deine lokale Passphrase bleibt). Nachträgliche Änderungen und Löschungen syncen <em>nicht</em> — korrigiere Einträge sonst auf beiden Geräten gleich.</li>
+      <li><strong>Sperrt die App, während der Datei-Picker offen ist</strong> (Auto-Sperre), geht die gewählte Datei nicht verloren: Auf dem Sperrbildschirm erscheint „Datei gewählt — zum Importieren entsperren“, und nach dem Entsperren läuft der Import mit genau dieser Datei weiter. Gilt für <code>.vault</code>-Backups und CSV.</li>
     </ul>
 
     <h2 data-i18n="help.h6">CSV-Import</h2>

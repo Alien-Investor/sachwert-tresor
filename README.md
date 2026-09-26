@@ -175,6 +175,10 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   „Lokale Daten löschen“ fragen in einem Dialog innerhalb der App nach, nicht über den Android-Systemdialog.
   Der Systemdialog erbt FLAG_SECURE nicht — ein Screenshot bei offener Rückfrage hätte den Dialogtext gezeigt,
   während die App dahinter schwarz blieb (intern gefunden beim Gerätetest der Schwester-App Alien Notes).
+- **Sperre auch bei offenem Datei-Picker** (ab v3.6): Läuft die Auto-Sperre ab, während der Datei-Picker offen ist, sperrt die App
+  trotzdem — kein Schlüssel bleibt im Speicher. Die gewählte Datei (`.vault` oder CSV) geht dabei nicht verloren: Die App merkt sich nur
+  den Verweis, liest nichts, solange sie zu ist, und importiert nach dem Entsperren genau diese Datei (intern gefunden beim Gerätetest der
+  Schwester-App Alien Pass).
 - **Content-Security-Policy** mit `connect-src 'none'`: Die Seite selbst kann
   keinerlei Netz-Verbindung aufbauen, unabhängig von der Hülle. Seit v2.2 zusätzlich **ohne `unsafe-inline`**
   (`script-src 'self'`): Inline-Script ist komplett verboten — selbst eingeschleustes
@@ -259,6 +263,8 @@ verloren geht: neu einrichten, Backup importieren, kein Code nötig.
 3. Auf dem anderen Gerät den Tresor zuerst **einrichten** (eigene Passphrase – darf eine andere
    sein) und entsperren, dann **Vault importieren** → Datei wählen → die Passphrase **der
    importierten Datei** eingeben.
+   Sperrt die App, während der Datei-Picker offen ist, zeigt der Sperrbildschirm „Datei gewählt — zum Importieren
+   entsperren“; nach dem Entsperren läuft der Import mit genau dieser Datei weiter.
 
 > **Wie der Import zusammenführt:** Der Import **ersetzt nicht**, sondern **merged additiv**
 > über die eindeutige `id` jedes Eintrags — neue Einträge kommen hinzu, deine lokalen bleiben,
