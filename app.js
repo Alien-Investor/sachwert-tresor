@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.4';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.5';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -21,7 +21,7 @@ const I18N = {
   "setup.repeat":"Repeat passphrase","setup.ph1":"min. 12 characters, better a word sequence",
   "setup.create":"Create vault",
   "setup.aegishint":"You can enable Aegis 2FA after setup in the settings.",
-  "lock.title":"Unlock vault","lock.unlock":"Unlock",
+  "lock.title":"Unlock vault","lock.unlock":"Unlock","dlg.cancel":"Cancel",
   "totp.title":"Second factor","totp.intro":"Enter the current 6-digit code from your <strong>Aegis 2FA manager</strong>.","totp.confirm":"Confirm",
   "btn.cancel":"Cancel",
   "tab.dash":"Overview","tab.add":"Add","tab.list":"Holdings","tab.verlauf":"History","tab.export":"Export & Sync","tab.settings":"Settings",
@@ -195,6 +195,10 @@ const T = {
   "err.weightMissing":{de:"Gewicht je Stück fehlt.",en:"Weight per piece is missing."},
   "confirm.delete":{de:"Diesen Eintrag wirklich löschen?",en:"Really delete this entry?"},
   "confirm.wipe":{de:"Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.",en:"Delete the local vault on THIS device? Exported .vault files remain."},
+  // Knöpfe des Rückfrage-Dialogs (v3.5): je Frage ein eigener Knopf statt eines nackten „OK“
+  "dlg.ok":{de:"OK",en:"OK"},"dlg.cancel":{de:"Abbrechen",en:"Cancel"},"dlg.delete":{de:"Löschen",en:"Delete"},"dlg.disable":{de:"Deaktivieren",en:"Disable"},
+  "dlg.wipe":{de:"Tresor löschen",en:"Delete vault"},"dlg.addAnyway":{de:"Trotzdem eintragen",en:"Add anyway"},
+  "toast.undo":{de:"Rückgängig",en:"Undo"},"toast.restored":{de:"Eintrag wiederhergestellt",en:"Entry restored"},"toast.undoGone":{de:"Der Eintrag ist bereits wieder da.",en:"The entry is already back."},
   "msg.merged":{de:"Zusammengeführt",en:"Merged"},
   "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
   "msg.total":{de:"gesamt",en:"total"},
@@ -228,7 +232,6 @@ const T = {
   "stat.investedLbl":{de:"Investiert",en:"Invested"},"stat.realizedLbl":{de:"Realisiert",en:"Realized"},
   "toast.autolocked":{de:"Automatisch gesperrt",en:"Automatically locked"},
   "toast.deletedShort":{de:"Gelöscht",en:"Deleted"},
-  "confirm.del2":{de:"Eintrag löschen?",en:"Delete entry?"},
   "exp.noBuys":{de:"Keine BTC-Käufe vorhanden.",en:"No BTC buys."},
   "exp.noSales":{de:"Keine BTC-Verkäufe vorhanden.",en:"No BTC sells."},
   "exp.noMetals":{de:"Keine Edelmetall-Buchungen vorhanden.",en:"No precious-metal entries."},
@@ -507,7 +510,35 @@ const App = (function(){
   const show = (id) => $(id).classList.remove('hidden');
   const hide = (id) => $(id).classList.add('hidden');
   function screen(name){['setup','lock','totp','app'].forEach(s=>$('screen-'+s).classList.add('hidden'));$('screen-'+name).classList.remove('hidden');}
-  function toast(msg){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),2200);}
+  // Toast, optional mit einem Knopf (v3.5, Kit-Baustein aus Alien Pass v1.9: „Rückgängig“ nach dem Löschen): toast(msg,{action:{label,fn},ms}).
+  // Der Knopf trägt ohne Aktion keinen Text (Suiten lesen #toast per textContent). hideToast() räumt Text und Aktion — auch beim Sperren
+  // (clearRendered), damit kein „Rückgängig“ in eine gesperrte App hinein wirkt; toastAction prüft zusätzlich VAULT.
+  const UNDO_MS=6000;   // so lange steht „Rückgängig“ nach dem Löschen im Toast
+  let toastFn=null;
+  function toast(msg, opt){ const t=$('toast'); if(!t) return; opt=opt||{}; $('toast-msg').textContent=msg; const b=$('toast-btn'); toastFn=opt.action?opt.action.fn:null;
+    b.textContent=opt.action?opt.action.label:''; b.classList.toggle('hidden',!opt.action); t.classList.remove('hidden'); clearTimeout(t._t); t._t=setTimeout(hideToast, opt.ms||2200); }
+  function hideToast(){ const t=$('toast'); if(!t) return; clearTimeout(t._t); t.classList.add('hidden'); $('toast-msg').textContent=''; $('toast-btn').textContent=''; $('toast-btn').classList.add('hidden'); toastFn=null; }
+  function toastAction(){ const fn=toastFn; hideToast(); if(typeof fn==='function'&&VAULT) fn(); }
+  /* ---------- Rückfrage als eigener DOM-Dialog (v3.5, Vorlage Alien Pass v1.9) statt confirm(): der Android-Systemdialog erbt FLAG_SECURE nicht —
+     ein Screenshot bei offener Löschnachfrage zeigte den Dialogtext, während die App dahinter schwarz war (Querfund Alien Notes, Gerätetest 25.09.2026).
+     ask(msg,{ok,danger}) liefert ein Promise<boolean>; nur ein Dialog zur Zeit (eine zweite Frage gilt sofort als abgelehnt); Escape/Hintergrund
+     = Abbrechen; Tab pendelt zwischen den Knöpfen; clearRendered() schließt ihn beim Sperren mit false, und JEDER Aufrufer prüft nach dem await
+     seinen Zustand neu (VAULT? Eintrag noch da? editId gleich?). Text nur per textContent (pre-line macht Absätze aus \n\n). Kein Eingabefeld —
+     der Tresor hat keinen prompt()-Ersatz nötig (Unterschied zu Alien Pass). ---------- */
+  let dlgResolve=null, dlgPrev=null;
+  function ask(msg, opt){ opt=opt||{}; if(dlgResolve) return Promise.resolve(false);
+    return new Promise(res=>{ dlgResolve=res; dlgPrev=document.activeElement; $('dlg-msg').textContent=msg;
+      const b=$('dlg-ok'); b.textContent=tr(opt.ok||'dlg.ok'); b.classList.toggle('danger',!!opt.danger); $('dlg').classList.remove('hidden'); $('dlg-cancel').focus(); }); }
+  function dialogClose(v){ const r=dlgResolve; if(!r) return; dlgResolve=null;
+    $('dlg').classList.add('hidden'); $('dlg-msg').textContent=''; $('dlg-ok').classList.remove('danger');
+    const f=dlgPrev; dlgPrev=null; if(f&&document.contains(f)&&typeof f.focus==='function'){ try{ f.focus(); }catch(_){} } r(!!v); }
+  function dialogOk(){ dialogClose(true); }
+  function dialogCancel(){ dialogClose(false); }
+  function dialogOpen(){ return !!dlgResolve; }
+  function dialogKey(ev){ if(!dlgResolve) return false;
+    if(ev.key==='Escape'){ dialogCancel(); return true; }
+    if(ev.key==='Tab'){ const ring=[$('dlg-cancel'),$('dlg-ok')]; const i=ring.indexOf(document.activeElement); ring[(i+(ev.shiftKey?-1:1)+ring.length)%ring.length].focus(); return true; }
+    return false; }
   function err(id,msg){const e=$(id);if(!msg){e.classList.add('hidden');return;}e.textContent=msg;e.classList.remove('hidden');}
 
   const VAULT_VERSION=1;   // Schema-Version dieser App — Vaults aus neueren Versionen lösen eine Warnung aus
@@ -723,7 +754,7 @@ const App = (function(){
       p.vault.needsFreshBackup=true;                 // Hüllenfeld: Export-Tab empfiehlt ein frisches Backup
       let g;
       try{ g=await migrateToV2(p); }
-      catch(e){ if(!(e&&e.locked)){ toast(tr('err.migrateFailed')); lock(); } return; }
+      catch(e){ if(!(e&&e.locked)){ lock(); toast(tr('err.migrateFailed')); } return; }
       finally{ openSession._busy=false; btns.forEach((b,i)=>{ b.disabled=false; b.textContent=labels[i]; }); }
       if(pendingUnlock!==p) return;                  // nach dem Schreiben gesperrt: Datei ist umgestellt, Sitzung bleibt zu
       DEK=g.dek; KDF=g.kdf; WRAP=g.wrap; VAULT=p.vault; pendingUnlock=null; clearFails();
@@ -744,7 +775,7 @@ const App = (function(){
     if(!v) return;                                   // nur entsperrt oder in der Aegis-Wartestellung
     const mins = v.autolock==null?5:v.autolock;
     if(!mins) return;                                // 0 = Auto-Lock aus
-    idleTimer=setTimeout(()=>{ clearIdle(); toast(tr('toast.autolocked')); lock(); }, mins*60000);
+    idleTimer=setTimeout(()=>{ clearIdle(); lock(); toast(tr('toast.autolocked')); }, mins*60000);
   }
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
@@ -769,7 +800,7 @@ const App = (function(){
     // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
     // Ohne das blieb das Nachlass-Blatt (Klasse B) nach dem Sperren auf dem Schirm stehen — und weil das
     // Druck-CSS alles ausser #nachlass-overlay ausblendet, war es am gesperrten Tresor vorbei druckbar.
-    closeNachlass(); closeHelp();
+    closeNachlass(); closeHelp(); dialogClose(false); hideToast();   // offene Rückfrage verfällt (Aufrufer sieht false), Toast samt „Rückgängig“ weg (v3.5)
     chartState=null;                                     // aus Klartext abgeleitete Zeitreihe nicht im Heap lassen
     ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2',
      'nl-fassung','price-btc','price-gold','price-silver'].forEach(i=>{const el=$(i);if(el)el.value='';});
@@ -817,16 +848,18 @@ const App = (function(){
     if(!v) return;
     const mins = v.autolock==null?5:v.autolock;
     const away=hiddenAt?Date.now()-hiddenAt:0; hiddenAt=0;
-    if(mins && away>mins*60000){ toast(tr('toast.autolocked')); lock(); }
+    if(mins && away>mins*60000){ lock(); toast(tr('toast.autolocked')); }
     else resetIdle();
   }
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) onHidden(); else onShown(); });
-  // Desktop: 'blur' (Fensterwechsel) ist KEIN Hintergrund — feuert auch bei Systemdialogen (Portal-Dateidialog, confirm()) → nur Gate-Hygiene
+  // Desktop: 'blur' (Fensterwechsel) ist KEIN Hintergrund — feuert auch bei Systemdialogen (Portal-Dateidialog) → nur Gate-Hygiene
   if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur') clearGateInputs(); else if(h) onHidden(); else onShown(); });
   if(DESK&&typeof DESK.onLock==='function') DESK.onLock(()=>{ if(DEK||pendingUnlock) lock(); });   // Ruhezustand/Bildschirmsperre (im Flatpak tot, s. DESKTOP-INVARIANTEN.md)
   // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung)
   function deskKey(ev){ if(!DESK||!ev.ctrlKey||ev.altKey||ev.metaKey) return false;
-    if((ev.key==='l'||ev.key==='L')&&(DEK||pendingUnlock)){ lockNow(); return true; } return false; }
+    if((ev.key==='l'||ev.key==='L')&&(DEK||pendingUnlock)){ lockNow(); return true; }
+    if(dlgResolve) return true;   // offene Rückfrage: kein Strg-Kürzel daran vorbei (nur Sperren) — Muster Alien Pass v1.9
+    return false; }
 
   /* ---------- tabs ---------- */
   function tab(name){
@@ -924,7 +957,7 @@ const App = (function(){
     if(!sel||!sel.classList.contains('combo-native')||!Array.from(sel.options).some(o=>o.value===value)||sel.value===value) return;
     sel.value=value; syncCombo(sel.id);
     sel.dispatchEvent(new Event('change',{bubbles:true})); }   // die bestehende change-Delegation übernimmt von hier
-  function addEntry(){
+  async function addEntry(){
     err('add-err');
     const date=$('f-date').value;
     const isWd=addDir==='withdraw';
@@ -960,7 +993,9 @@ const App = (function(){
       const msg = LANG==='en'
         ? `Possible duplicate\n\nOn ${e.date} a ${dirL} of ${what}${prev} already exists.\n\nReally add it a second time?`
         : `Mögliches Duplikat\n\nAm ${e.date} ist bereits ein ${dirL} über ${what}${prev} erfasst.\n\nWirklich ein zweites Mal eintragen?`;
-      if(!confirm(msg)) return;
+      const eid=editId;
+      if(!(await ask(msg,{ok:'dlg.addAnyway'}))) return;
+      if(!VAULT||editId!==eid) return;   // Sperre oder Abbruch während der Frage: das Formular ist nicht mehr dieser Stand
     }
     const wasEdit=!!editId;
     let undo=null;
@@ -1023,7 +1058,17 @@ const App = (function(){
   function dupKey(e){return e.type+'|'+entryDir(e)+'|'+e.date+'|'+amtKey(e);}
   function findDuplicate(e,excludeId){const k=dupKey(e);return VAULT.entries.find(x=>x.id!==excludeId&&dupKey(x)===k);}
   function cryptoId(){const a=crypto.getRandomValues(new Uint8Array(8));return Array.from(a).map(b=>b.toString(16).padStart(2,'0')).join('');}
-  function delEntry(id){ if(!confirm(tr('confirm.del2')))return; const before=VAULT.entries; VAULT.entries=VAULT.entries.filter(e=>e.id!==id); persist().then(()=>{renderList();renderDash();toast(tr('toast.deletedShort'));}).catch(ex=>{ if(ex&&ex.locked) return; VAULT.entries=before; renderList(); }); }
+  // Löschen mit eigener Rückfrage (Kennzeile Datum · Richtung · Menge) und „Rückgängig“ im Toast (v3.5): der Tresor hat keinen Papierkorb,
+  // deshalb kommt der Eintrag nur für UNDO_MS an seine alte Stelle zurück. Nach dem await: Sperre/Import/zweites Löschen → Eintrag frisch suchen.
+  async function delEntry(id){ const e0=VAULT?VAULT.entries.find(x=>x.id===id):null; if(!e0) return;
+    const what=e0.type==='btc'?fmtBtc(e0.btc):e0.count+'× '+fmtNum(e0.qty,4)+' '+e0.unit;
+    if(!(await ask(tr('confirm.delete')+'\n\n'+e0.date+' · '+tr('dir.'+entryDir(e0))+' · '+what,{ok:'dlg.delete',danger:true}))) return;
+    if(!VAULT) return; const e=VAULT.entries.find(x=>x.id===id); if(!e) return; const i=VAULT.entries.indexOf(e);
+    const before=VAULT.entries; VAULT.entries=VAULT.entries.filter(x=>x!==e);
+    persist().then(()=>{ if(!VAULT) return; renderList();renderDash();toast(tr('toast.deletedShort'),{action:{label:tr('toast.undo'),fn:()=>undoDelete(e,i)},ms:UNDO_MS}); }).catch(ex=>{ if(ex&&ex.locked) return; VAULT.entries=before; renderList(); }); }
+  function undoDelete(e,i){ if(!VAULT) return; if(VAULT.entries.some(x=>x.id===e.id)) return toast(tr('toast.undoGone'));
+    const before=VAULT.entries; VAULT.entries=before.slice(); VAULT.entries.splice(Math.min(i,VAULT.entries.length),0,e);
+    persist().then(()=>{ if(!VAULT) return; renderList();renderDash();toast(tr('toast.restored')); }).catch(ex=>{ if(ex&&ex.locked) return; VAULT.entries=before; renderList(); }); }
 
   /* ---------- aggregates ---------- */
   const CURS=['EUR','USD','CHF'];
@@ -1748,7 +1793,8 @@ const App = (function(){
     await persist();pendingSecret=null;renderSettings();toast(tr('toast.totpOn'));
   }
   function totpCancel(){pendingSecret=null;renderSettings();}
-  async function totpDisable(){if(!confirm(tr('confirm.totpDisable')))return;VAULT.totp=null;await persist();renderSettings();toast(tr('toast.totpOff'));}
+  async function totpDisable(){ if(!VAULT||!VAULT.totp||!(await ask(tr('confirm.totpDisable'),{ok:'dlg.disable',danger:true}))) return; if(!VAULT||!VAULT.totp) return;
+    const before=VAULT.totp; VAULT.totp=null; try{ await persist(); }catch(e){ if(!(e&&e.locked)&&VAULT) VAULT.totp=before; return; } renderSettings(); toast(tr('toast.totpOff')); }
   /* ---------- Fingerabdruck-Entsperren (nur Android-App, seit v3.0 — Port aus Alien Pass v1.2 inkl. Audit run-3) ----------
      Der DEK wird zusätzlich unter einem 32-Byte-Zufallsschlüssel verpackt (Rolle 'bio', Blob in localStorage, nie in der .vault).
      Den Zufallsschlüssel verwahrt der Android-Keystore, gebunden an einen starken Fingerabdruck (Freigabe pro Nutzung; ein neu
@@ -1868,7 +1914,7 @@ const App = (function(){
       if(await bioArm(dekX, KDF, WRAP, false, keep)){ toast(tr('bio.on')); const k=$('bio-keep'); if(k) k.checked=false; }
     }finally{ bioEnable._busy=false; btn.disabled=false; btn.textContent=orig; $('bio-pass').value=''; maskInputs(); if(VAULT) renderSettings(); }
   }
-  function bioDisable(){ if(!VAULT||!bioArmed||!confirm(tr('confirm.bioDisable'))) return; bioDrop(true); toast(tr('bio.off')); renderSettings(); }
+  async function bioDisable(){ if(!VAULT||!bioArmed||!(await ask(tr('confirm.bioDisable'),{ok:'dlg.disable',danger:true}))) return; if(!VAULT||!bioArmed) return; bioDrop(true); toast(tr('bio.off')); renderSettings(); }
 
   function renderSettings(){
     const on=VAULT.totp&&VAULT.totp.enabled;
@@ -1926,7 +1972,7 @@ const App = (function(){
   // Hinweis und Klipper hielte das TOTP-Geheimnis im Verlauf. Scheitert die Brücke: „Manuell kopieren“.
   function copy(text,msg){ if(DESK){ DESK.clip.write({text}).then(()=>toast(msg),()=>toast(tr('copy.manual'))); return; }
     navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
-  function wipeLocal(){if(!confirm(tr('confirm.wipe')))return;bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
+  async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
     try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
     dropPre3();lock();}
   function pickFile(id){const el=$(id);if(el)el.click();}
@@ -2053,7 +2099,8 @@ const App = (function(){
     exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
-    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,deskKey,_otpauth:''};
+    pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,deskKey,
+    ask,dialogOk,dialogCancel,dialogOpen,dialogKey,hideToast,toastAction,_otpauth:''};
 })();
 
 /* ---------- Event-Delegation ----------
@@ -2086,9 +2133,11 @@ document.addEventListener('pointerdown',ev=>{ if(ev.target.closest('#chart-wrap'
 document.addEventListener('pointermove',ev=>{ if(ev.target.closest('#chart-wrap')) App.chartPoint(ev); });
 document.addEventListener('keydown',ev=>{
   if(App.deskKey(ev)){ ev.preventDefault(); return; }   // Desktop: Strg+L sperrt (ohne Hülle immer false)
+  if(App.dialogKey(ev)){ ev.preventDefault(); return; }   // offener Dialog: Escape bricht ab, Tab pendelt (v3.5)
   if(ev.key==='Escape'){ App.closeMenus(); App.chartHideTip(); return; }
   if(ev.key!=='Enter') return;
   const el=ev.target.closest('[data-enter]'); if(!el) return;
+  ev.preventDefault();   // sonst klickte Enter nach einem Fokuswechsel (Dialog schließt, Fokus geht zurück) den Knopf dahinter erneut (Alien Pass v1.9)
   const fn=App[el.dataset.enter]; if(typeof fn==='function') fn();
 });
 
@@ -2098,6 +2147,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(cw) cw.addEventListener('pointerleave',()=>App.chartHideTip());   // bubbelt nicht: feuert nur beim Verlassen des Containers
   App.enhancePassFields();   // vor applyI18n: setzt die Augen-Beschriftung
   applyI18n();
+  const dg=document.getElementById('dlg'); if(dg) dg.addEventListener('click',ev=>{ if(ev.target===dg) App.dialogCancel(); });   // Tippen auf den Hintergrund = Abbrechen (v3.5)
   App.boot();
   // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar; in der Desktop-Hülle (app://) gibt es
   // keinen: sw.js liegt nicht im Bundle und das Schema erlaubt keine Service Worker (Registrierung würde still scheitern).

@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.5 — 2026-09-26
+
+Rückfragen im eigenen Look und „Rückgängig“ nach dem Löschen. Am Tresor-Format, an der Verschlüsselung und an deinen Daten ändert sich nichts;
+Android und Linux-Desktop bekommen dieselbe App.
+
+- **Rückfragen erscheinen als eigener Dialog in der App, nicht mehr als Android-Systemdialog (intern gefunden beim Gerätetest der Schwester-App
+  Alien Notes).** Der Systemdialog erbt den Screenshot-Schutz der App nicht: Ein Screenshot bei offener Rückfrage zeigte den Dialogtext, während
+  die App dahinter schwarz blieb. Jetzt liegt jede Rückfrage (Buchung löschen, mögliches Duplikat, 2FA oder Fingerabdruck abschalten, lokale
+  Daten löschen) im Fenster der App und wird wie alles andere geschützt. Jeder Dialog trägt seinen eigenen Knopf („Löschen“, „Trotzdem
+  eintragen“, „Deaktivieren“, „Tresor löschen“) statt eines nackten „OK“; die Löschnachfrage nennt Datum, Richtung und Menge der Buchung.
+  Escape oder ein Tipp daneben bricht ab, eine Sperre während der Frage lässt die Antwort verfallen.
+- **„Rückgängig“ nach dem Löschen.** Der Hinweis „Gelöscht“ bekommt für sechs Sekunden einen Knopf, der die Buchung sofort an ihre Stelle
+  zurückholt. Für „Lokale Daten löschen“ gibt es das bewusst nicht — dort bleibt die Rückfrage.
+- Kleinigkeiten: Der Leuchtschein im Kopf der App ragt auf schmalen Bildschirmen nicht mehr über den Rand; die Meldung „automatisch gesperrt“
+  bleibt nach der Sperre stehen.
+- Linux-Desktop: keine Änderung an der Hülle, Bundle `sachwert-tresor-3.5-linux-x86_64.flatpak` mit derselben App.
+
 ## Hinweis — 2026-09-24: Web-Version eingestellt
 
 Den Sachwert-Tresor gibt es ab sofort nur noch als App: Android (Zap Store, APK auf Codeberg) und Linux-Desktop (Flatpak). Die bisherige
