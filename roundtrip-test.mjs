@@ -259,7 +259,7 @@ async function main(){
   const V = new Function('enc','dec','bufToB64','b64ToBuf',
     region + '\nreturn {MAGIC,FILE_VER,KDF_DEFAULT,KDF_BOUNDS,MAX_FILE_BYTES,rand,b64Bytes,passBytes,kdfOk,aad,'
            + 'deriveKek,newDek,wrapDek,unwrapDek,bioKey,parseBioBlob,serializeBioBlob,bioWrapOk,encryptBody,decryptBody,'
-           + 'serializeFile,parseFile,looksLegacy};')(enc,dec,bufToB64,b64ToBuf);
+           + 'serializeFile,parseFile,looksLegacy,MAX_ENTRIES,MAX_CSV_ROWS,parseCsv,csvKind,csvRowToEntry,sanitizeEntry};')(enc,dec,bufToB64,b64ToBuf);
   const KDF_TEST={m:8192,t:1,p:1};                       // klein, damit die Suite schnell bleibt
   const mkKdf=()=>({...KDF_TEST, salt:V.rand(16)});
   const FIXPASS='fixture-passphrase-nicht-geheim';
@@ -361,6 +361,53 @@ async function main(){
   const vaultLeg=await decryptBlob(fixV1, kLeg);
   ok(vaultLeg.entries.length===2 && vaultLeg.entries[1].type==='gold',
      'eingecheckte AISV1-Fixture ist mit dem Alt-Lesepfad weiterhin lesbar (NIE entfernen)');
+
+  console.log('\n[11] CSV-Fuzz: zufällige Dateien durch parseCsv/csvKind/csvRowToEntry der Sentinel-Region — kein Wurf, jede Buchung sanitizer-stabil, Datum und Beträge gültig, Deckel greift');
+  { // Deterministisch (LCG-Seed), damit ein Fehlschlag reproduzierbar bleibt (Vorlage Alien Pass roundtrip [26]). Alphabet: Anführungszeichen,
+    // Trenner, Zeilenumbrüche im Feld, NUL, BOM, Nullbreite, Formel-Präfixe, kaputte Zahlen (1e309, NaN, Komma, Hex) und kaputte Daten.
+    let seed=20260928; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; }; const pick=a=>a[Math.floor(rnd()*a.length)];
+    const NUL=String.fromCharCode(0);
+    const A=['a','Bisq','"',',',';','\n','\r','\r\n',NUL,'\uFEFF','\u200b','=','+','@','-','🙂','\\',' ','ja','nein','kyc','no_kyc','TRUE','1','0','x'.repeat(260)];
+    const DATES=['2024-03-01','2025-02-28','2024-02-29','2025-02-29','2025-02-30','2024-13-40','0000-00-00','9999-99-99','2024-3-1',' 2024-03-01 ','2024-03-01T00:00','','"2024-03-01"'];
+    const NUMS=['0.0421','2500','0','-1','1e309','-1e309','1e-400','5e-9','NaN','Infinity','1,5','0x10','.5','  7','12abc','','99999999999999999999'];
+    const H=['date,btc_amount,eur_amount,note,kyc','date,btc_amount,eur_amount,note,no_kyc','Date , BTC_Amount,EUR_AMOUNT,note,KYC','\uFEFFdate,btc_amount,eur_amount,note,kyc',
+      'date,btc_amount,eur_amount','date,eur_amount,btc_amount,note,kyc','btc_amount,date,eur_amount,note,no_kyc','name,url,username,password,note'];
+    const fld=()=>{ let s=''; const n=Math.floor(rnd()*6); for(let i=0;i<n;i++) s+=pick(A); return s; };
+    const q=v=>rnd()<0.25?'"'+String(v).replace(/"/g,'""')+'"':v;
+    const validDay=d=>{ const t=Date.parse(d+'T12:00:00Z'); return /^\d{4}-\d{2}-\d{2}$/.test(d)&&isFinite(t)&&new Date(t).toISOString().slice(0,10)===d; };
+    let files=0, rows=0, live=0, unknown=0, capped=0, err=null; const t0=Date.now();
+    for(let r=0;r<20000&&!err;r++){
+      let text=(rnd()<0.1?'\uFEFF':'')+(rnd()<0.5?H[Math.floor(rnd()*2)]:pick(H))+(rnd()<0.2?'\r\n':'\n'); const n=Math.floor(rnd()*12);
+      for(let i=0;i<n;i++){ const f=[q(rnd()<0.8?pick(DATES):fld()),q(rnd()<0.8?pick(NUMS):fld()),q(rnd()<0.8?pick(NUMS):fld()),q(fld()),q(rnd()<0.7?pick(['ja','nein','kyc','no_kyc','TRUE','1','']):fld())];
+        f.length=Math.max(0,5+Math.floor(rnd()*3)-2); text+=f.join(rnd()<0.1?';':',')+(rnd()<0.9?(rnd()<0.2?'\r\n':'\n'):''); }
+      if(rnd()<0.05) text=text.slice(0,Math.floor(rnd()*text.length));             // abgeschnittene Datei
+      const cap=rnd()<0.2?1+Math.floor(rnd()*4):V.MAX_CSV_ROWS; files++;
+      try{ let p; try{ p=V.parseCsv(text,cap); }catch(x){ if(x.message==='toomany'&&cap<V.MAX_CSV_ROWS){ capped++; continue; } throw x; }
+        if(p.length>cap+1) throw new Error('Zeilen-Deckel '+cap+' nicht gegriffen: '+p.length+' Zeilen');
+        if(p.length<2) continue; const dir=V.csvKind(p[0]); if(!dir){ unknown++; continue; }
+        for(const row of p.slice(1)){ const e=V.csvRowToEntry(dir,row,'0123456789abcdef'); rows++; if(!e) continue; live++;
+          if(JSON.stringify(V.sanitizeEntry(e))!==JSON.stringify(e)) throw new Error('nicht sanitizer-stabil: '+JSON.stringify(e).slice(0,160));
+          if(!validDay(e.date)) throw new Error('ungültiges Datum: '+JSON.stringify(e.date));
+          if(!(Number.isFinite(e.btc)&&e.btc>0)) throw new Error('BTC-Menge: '+e.btc);
+          if(!(Number.isFinite(e.eur)&&e.eur>=0)) throw new Error('EUR-Betrag: '+e.eur);
+          if(e.type!=='btc'||e.dir!==dir||e.cur!=='EUR'||e.note!=='') throw new Error('Grundfelder: '+JSON.stringify(e).slice(0,160));
+          if(dir==='buy'?(typeof e.kyc!=='boolean'||'noKyc' in e):(typeof e.noKyc!=='boolean'||'kyc' in e)) throw new Error('KYC-Flag: '+JSON.stringify(e).slice(0,160)); } }
+      catch(x){ err=x.message+' | '+JSON.stringify(text).slice(0,200); }
+    }
+    ok(!err,files+' zufällige Dateien, '+rows+' Zeilen ('+live+' Buchungen, '+unknown+' fremde Kopfzeilen, '+capped+' am Deckel) ohne Wurf, jede Buchung sanitizer-stabil und gültig'+(err?' — '+err:''));
+    ok(rows>60000&&live>2500&&capped>2000&&Date.now()-t0<10000,'Fuzz erreicht genug Zeilen, Buchungen und Deckel-Treffer in unter 10 s ('+(Date.now()-t0)+' ms)');
+  }
+  { const t1=Date.now(); const p=V.parseCsv('date,btc_amount\n"'+'x'.repeat(5*1024*1024),V.MAX_CSV_ROWS); ok(p.length===2&&p[1][0].length===5*1024*1024&&Date.now()-t1<3000,'offenes Anführungszeichen über 5 MB: eine Zeile, linear ('+(Date.now()-t1)+' ms)'); }
+  { const big='a,b\n'.repeat(1000); let thrownCap=null; try{ V.parseCsv(big,10); }catch(x){ thrownCap=x.message; }
+    ok(thrownCap==='toomany'&&V.parseCsv(big).length===1000&&V.parseCsv(big,1000).length===1000,'parseCsv: Deckel wirft bei maxRows+1 Zeilen, ohne/mit passendem Deckel unverändert'); }
+  { const B=(d,b,e,s,f)=>V.csvRowToEntry('buy',[d,b,e,s||'',f||''],'00ff');
+    ok(B('2025-02-30','0.1','100')===null&&B('2024-13-40','0.1','100')===null&&B('0000-00-00','0.1','100')===null,'CSV: Datum mit passender Form, das es nicht gibt → Zeile unbrauchbar');
+    ok(B('2024-02-29','0.1','100').date==='2024-02-29','CSV: Schalttag bleibt gültig');
+    ok(B('2024-03-01','1e309','100')===null&&B('2024-03-01','0.1','1e309')===null&&B('2024-03-01','Infinity','100')===null,'CSV: unendliche Menge oder unendlicher Betrag → Zeile unbrauchbar (JSON machte daraus null)');
+    ok(B('2024-03-01','0.1','100','x'.repeat(300)).source.length===200,'CSV: Quelle wie im Sanitizer auf 200 Zeichen gekappt');
+    { const norm=f=>f.toString().replace(/\/\/[^\n]*/g,'').replace(/\s+/g,'');
+      ok(norm(sanitizeEntry)===norm(V.sanitizeEntry),'Kopie von sanitizeEntry oben im Test (für [6]/[7]) gleicht der Region — driftet sie, fällt dieser Check'); }
+    ok(B('2024-03-01','0.1','100','Bisq','ja').kyc===true&&V.csvRowToEntry('sell',['2024-03-01','0.1','100','','no_kyc'],'00ff').noKyc===true,'CSV: KYC-Flags unverändert'); }
 
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);

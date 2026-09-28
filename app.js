@@ -467,6 +467,72 @@ function parseFile(raw){
 }
 // Sieht ein Blob wie eine Datei aus der Zeit vor AISV2 aus? (Lesepfad Alt-Format — nie entfernen.)
 function looksLegacy(o){ return !!o && typeof o==='object' && typeof o.ct==='string' && typeof o.salt==='string' && typeof o.iv==='string'; }
+/* CSV-Import (Tresor-Eigenformat) + Import-Sanitizer: stehen hier, damit roundtrip-test.mjs [11] sie mit
+   zufälligen Dateien fuzzen kann, statt sie nachzubauen. Keine Abhängigkeit zum App-IIFE. */
+// Minimal-CSV-Parser (RFC-4180-nah: Anführungszeichen, "" als Escape, BOM/CRLF tolerant).
+function parseCsv(text, maxRows){   // maxRows: bricht beim Überschreiten sofort ab ('toomany'), statt erst alles zu parsen (Audit run-6 #1)
+  const rows=[]; let i=0, field='', row=[], inq=false;
+  text=String(text).replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){
+    const c=text[i];
+    if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inq=false;i++;continue;} field+=c;i++;continue; }
+    if(c==='"'){inq=true;i++;continue;}
+    if(c===','){row.push(field);field='';i++;continue;}
+    if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++; if(maxRows&&rows.length>maxRows) throw new Error('toomany'); continue;}
+    field+=c;i++;
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>r.length && r.some(x=>x.trim()!==''));
+}
+// Kopfzeile date,btc_amount,eur_amount,… mit kyc (Käufe) oder no_kyc (Verkäufe) → 'buy'|'sell', sonst null
+function csvKind(head){
+  const h=(head||[]).map(x=>String(x).trim().toLowerCase());
+  const isBuy=h.includes('kyc'), isSale=h.includes('no_kyc');
+  if(h[0]!=='date'||h[1]!=='btc_amount'||h[2]!=='eur_amount'||(!isBuy&&!isSale)) return null;
+  return isSale?'sell':'buy';
+}
+// Datum mit passender Form UND das es gibt ('2025-02-30' passt auf die Regex, existiert aber nicht)
+function csvDay(d){ if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false; const t=Date.parse(d+'T12:00:00Z'); return isFinite(t)&&new Date(t).toISOString().slice(0,10)===d; }
+// Eine CSV-Zeile → Buchung, oder null (unbrauchbar). id kommt von außen (cryptoId im App-IIFE).
+// Ergebnis ist sanitizer-stabil (Fuzz roundtrip [11], 28.09.2026): gleiche Schlüsselfolge, Quelle auf 200 gekappt,
+// nur endliche Zahlen — parseFloat('1e309') ist Infinity, besteht btc>0/eur>=0 und würde beim Speichern zu null.
+function csvRowToEntry(dir, c, id){
+  const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
+  const note=(c[3]||'').trim(), flag=(c[4]||'').trim().toLowerCase();
+  if(!csvDay(date)||!(Number.isFinite(btc)&&btc>0)||!(Number.isFinite(eur)&&eur>=0)) return null;
+  const e={ id, type:'btc', dir, date, eur, cur:'EUR', note:'', source:note.slice(0,200), btc };
+  if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
+  else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
+  return e;
+}
+// Import-Härtung: Einträge aus fremden .vault-Dateien nur mit bekannten Feldern,
+// geprüften Typen und begrenzten Stringlängen übernehmen (kein HTML/JS-Schmuggel).
+function sanitizeEntry(e){
+  if(!e || typeof e!=='object') return null;
+  if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
+  if(['btc','gold','silver'].indexOf(e.type)<0) return null;
+  const dir = e.dir==null ? 'buy' : e.dir;                       // Altdaten ohne dir = Kauf
+  if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
+  if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+  const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
+  const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
+  const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
+    cur:(e.cur==='USD'||e.cur==='CHF')?e.cur:'EUR', note:str(e.note,500), source:str(e.source,200)};
+  if(out.cur!=='EUR' && num(e.eurRef)>0) out.eurRef=num(e.eurRef);
+  if(e.type==='btc'){
+    out.btc=num(e.btc); if(!(out.btc>0)) return null;
+    if(dir==='buy') out.kyc=!!e.kyc;
+    if(dir==='sell') out.noKyc=!!e.noKyc;
+  }else{
+    out.grams=num(e.grams); if(!(out.grams>0)) return null;
+    out.qty=num(e.qty)||out.grams;
+    out.unit=['g','oz','kg'].indexOf(e.unit)>=0?e.unit:'g';
+    if(e.count!=null && num(e.count)>=1) out.count=Math.floor(num(e.count));
+    out.form=str(e.form,50);
+    out.fineness=(e.fineness!=null && num(e.fineness)>0 && num(e.fineness)<=1000)?num(e.fineness):null;
+  }
+  return out;
+}
 /* === VAULT-FORMAT END === */
 
 /* ---------- TOTP (RFC 6238, HMAC-SHA1) ---------- */
@@ -1572,21 +1638,6 @@ const App = (function(){
       $('export-msg').textContent=tr('exp.vaultSavedWeb');
     }
   }
-  // Minimal-CSV-Parser (RFC-4180-nah: Anführungszeichen, "" als Escape, BOM/CRLF tolerant).
-  function parseCsv(text, maxRows){   // maxRows: bricht beim Überschreiten sofort ab ('toomany'), statt erst alles zu parsen (Audit run-6 #1)
-    const rows=[]; let i=0, field='', row=[], inq=false;
-    text=String(text).replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
-    while(i<text.length){
-      const c=text[i];
-      if(inq){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inq=false;i++;continue;} field+=c;i++;continue; }
-      if(c==='"'){inq=true;i++;continue;}
-      if(c===','){row.push(field);field='';i++;continue;}
-      if(c==='\n'){row.push(field);rows.push(row);row=[];field='';i++; if(maxRows&&rows.length>maxRows) throw new Error('toomany'); continue;}
-      field+=c;i++;
-    }
-    if(field.length||row.length){row.push(field);rows.push(row);}
-    return rows.filter(r=>r.length && r.some(x=>x.trim()!==''));
-  }
   // CSV-Bulk-Import im Tresor-Eigenformat (manual_buys.csv = Käufe, manual_sales.csv = Verkäufe).
   // CSV nur im Tresor-Format (date,btc_amount,eur_amount,…). Broker-CSVs gehoeren ins Steuertool, nicht hierher.
   function importCsv(ev){
@@ -1601,20 +1652,10 @@ const App = (function(){
       try{
         const rows=parseCsv(r.result, MAX_CSV_ROWS);
         if(rows.length<2) throw new Error(tr('csv.errEmpty'));
-        const head=rows[0].map(h=>h.trim().toLowerCase());
-        const isBuy=head.includes('kyc'), isSale=head.includes('no_kyc');
-        if(head[0]!=='date'||head[1]!=='btc_amount'||head[2]!=='eur_amount'||(!isBuy&&!isSale))
-          throw new Error(tr('csv.errFormat'));
-        const dir=isSale?'sell':'buy';
+        const dir=csvKind(rows[0]); if(!dir) throw new Error(tr('csv.errFormat'));
         let added=0,dups=0,bad=0; const newIds=[], add=[], seen=new Set(VAULT.entries.map(dupKey));   // O(n) statt findDuplicate je Zeile
         for(let n=1;n<rows.length;n++){
-          const c=rows[n];
-          const date=(c[0]||'').trim(), btc=parseFloat(c[1]), eur=parseFloat(c[2]);
-          const note=(c[3]||'').trim(), flag=(c[4]||'').trim().toLowerCase();
-          if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!(btc>0)||!(eur>=0)){ bad++; continue; }
-          const e={ id:cryptoId(), type:'btc', dir, date, eur, cur:'EUR', btc, source:note, note:'' };
-          if(dir==='buy') e.kyc=(flag==='ja'||flag==='kyc'||flag==='true'||flag==='1');
-          else e.noKyc=(flag==='ja'||flag==='no_kyc'||flag==='true'||flag==='1');
+          const e=csvRowToEntry(dir, rows[n], cryptoId()); if(!e){ bad++; continue; }
           const k=dupKey(e); if(seen.has(k)){ dups++; continue; } seen.add(k); add.push(e);
         }
         if(VAULT.entries.length+add.length>MAX_ENTRIES) throw new Error('toomany');   // Deckel VOR dem Einfügen: nichts halb übernommen
@@ -1630,34 +1671,6 @@ const App = (function(){
       ev.target.value='';
     };
     r.readAsText(f);
-  }
-  // Import-Härtung: Einträge aus fremden .vault-Dateien nur mit bekannten Feldern,
-  // geprüften Typen und begrenzten Stringlängen übernehmen (kein HTML/JS-Schmuggel).
-  function sanitizeEntry(e){
-    if(!e || typeof e!=='object') return null;
-    if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
-    if(['btc','gold','silver'].indexOf(e.type)<0) return null;
-    const dir = e.dir==null ? 'buy' : e.dir;                       // Altdaten ohne dir = Kauf
-    if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
-    if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
-    const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
-    const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
-    const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
-      cur:(e.cur==='USD'||e.cur==='CHF')?e.cur:'EUR', note:str(e.note,500), source:str(e.source,200)};
-    if(out.cur!=='EUR' && num(e.eurRef)>0) out.eurRef=num(e.eurRef);
-    if(e.type==='btc'){
-      out.btc=num(e.btc); if(!(out.btc>0)) return null;
-      if(dir==='buy') out.kyc=!!e.kyc;
-      if(dir==='sell') out.noKyc=!!e.noKyc;
-    }else{
-      out.grams=num(e.grams); if(!(out.grams>0)) return null;
-      out.qty=num(e.qty)||out.grams;
-      out.unit=['g','oz','kg'].indexOf(e.unit)>=0?e.unit:'g';
-      if(e.count!=null && num(e.count)>=1) out.count=Math.floor(num(e.count));
-      out.form=str(e.form,50);
-      out.fineness=(e.fineness!=null && num(e.fineness)>0 && num(e.fineness)<=1000)?num(e.fineness):null;
-    }
-    return out;
   }
   // Preisstände aus einer importierten .vault übernehmen — Feld-Whitelist und Typprüfung wie in
   // sanitizeEntry. Ohne das ginge die Wertlinie beim Umzug auf ein neues Gerät verloren.
