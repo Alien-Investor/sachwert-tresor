@@ -35,14 +35,15 @@ async function persistBlob(vault, key, salt){
   blob.magic='AISV1'; blob.kdf='PBKDF2-SHA256'; blob.iter=ITER; blob.salt=bufToB64(salt);
   return JSON.stringify(blob); // == Inhalt der .vault-Datei
 }
-// sanitizeEntry + mergeEntries: 1:1 wie in index.html (Import-Härtung)
+// sanitizeEntry + mergeEntries: 1:1 wie in app.js (Import-Härtung); [11] prüft den Gleichlauf mit der Sentinel-Region
+function csvDay(d){ if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false; const t=Date.parse(d+'T12:00:00Z'); return isFinite(t)&&new Date(t).toISOString().slice(0,10)===d; }
 function sanitizeEntry(e){
   if(!e || typeof e!=='object') return null;
   if(typeof e.id!=='string' || !/^[0-9a-f]{1,64}$/i.test(e.id)) return null;
   if(['btc','gold','silver'].indexOf(e.type)<0) return null;
   const dir = e.dir==null ? 'buy' : e.dir;
   if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
-  if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+  if(typeof e.date!=='string' || !csvDay(e.date)) return null;
   const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
   const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
   const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
@@ -163,6 +164,9 @@ async function main(){
   ];
   const rEvil=mergeEntries([], evil);
   ok(rEvil.added===0, `alle 6 präparierten Einträge abgewiesen — added=${rEvil.added}`);
+  const badDates=['2025-02-30','2025-13-01','9999-99-99','0000-00-00','2025-02-29'].map((d,i)=>({id:'ed0'+i, type:'btc', dir:'buy', date:d, eur:1, btc:0.1}));
+  ok(mergeEntries([], badDates).added===0, 'Daten mit passender Form, die es nicht gibt, werden abgewiesen (Querfund Fuzz [11])');
+  ok(mergeEntries([], [{id:'ed10', type:'btc', dir:'buy', date:'2024-02-29', eur:1, btc:0.1}]).added===1, 'Schalttag 2024-02-29 bleibt gültig');
   const long={id:'ee10', type:'btc', dir:'buy', date:'2025-01-01', eur:1, btc:0.1, note:'N'.repeat(9999), source:'S'.repeat(9999), extra:'wird verworfen'};
   const rLong=mergeEntries([], [long]);
   ok(rLong.added===1 && rLong.entries[0].note.length===500 && rLong.entries[0].source.length===200, 'Überlange Strings werden gekappt (note 500, source 200)');

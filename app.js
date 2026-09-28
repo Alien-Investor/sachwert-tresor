@@ -491,7 +491,7 @@ function csvKind(head){
   if(h[0]!=='date'||h[1]!=='btc_amount'||h[2]!=='eur_amount'||(!isBuy&&!isSale)) return null;
   return isSale?'sell':'buy';
 }
-// Datum mit passender Form UND das es gibt ('2025-02-30' passt auf die Regex, existiert aber nicht)
+// Datum mit passender Form UND das es gibt ('2025-02-30' passt auf die Regex, existiert aber nicht) — CSV-Import und sanitizeEntry
 function csvDay(d){ if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false; const t=Date.parse(d+'T12:00:00Z'); return isFinite(t)&&new Date(t).toISOString().slice(0,10)===d; }
 // Eine CSV-Zeile → Buchung, oder null (unbrauchbar). id kommt von außen (cryptoId im App-IIFE).
 // Ergebnis ist sanitizer-stabil (Fuzz roundtrip [11], 28.09.2026): gleiche Schlüsselfolge, Quelle auf 200 gekappt,
@@ -513,7 +513,7 @@ function sanitizeEntry(e){
   if(['btc','gold','silver'].indexOf(e.type)<0) return null;
   const dir = e.dir==null ? 'buy' : e.dir;                       // Altdaten ohne dir = Kauf
   if(['buy','sell','withdraw'].indexOf(dir)<0) return null;
-  if(typeof e.date!=='string' || !/^\d{4}-\d{2}-\d{2}$/.test(e.date)) return null;
+  if(typeof e.date!=='string' || !csvDay(e.date)) return null;   // Form UND existierender Tag (Querfund Fuzz [11]: '2025-02-30' kam per .vault durch)
   const num=v=>{const n=typeof v==='number'?v:parseFloat(v);return isFinite(n)?n:0;};
   const str=(v,max)=>typeof v==='string'?v.slice(0,max):'';
   const out={id:e.id.toLowerCase(), type:e.type, dir, date:e.date, eur:Math.max(0,num(e.eur)),
