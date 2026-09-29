@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.6.2';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.6.3';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -2190,9 +2190,4 @@ window.addEventListener('DOMContentLoaded',()=>{
   applyI18n();
   const dg=document.getElementById('dlg'); if(dg) dg.addEventListener('click',ev=>{ if(ev.target===dg) App.dialogCancel(); });   // Tippen auf den Hintergrund = Abbrechen (v3.5)
   App.boot();
-  // Service-Worker nur im sicheren Origin (https / localhost) — bei file:// nicht verfügbar; in der Desktop-Hülle (app://) gibt es
-  // keinen: sw.js liegt nicht im Bundle und das Schema erlaubt keine Service Worker (Registrierung würde still scheitern).
-  if('serviceWorker' in navigator && location.protocol!=='file:' && !window.AlienDesktop){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  }
 });

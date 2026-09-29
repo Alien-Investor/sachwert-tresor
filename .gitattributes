@@ -18,8 +18,6 @@ LICENSE !filter !diff
 index.html !filter !diff
 app.js !filter !diff
 qr.js !filter !diff
-sw.js !filter !diff
-manifest.webmanifest !filter !diff
 icon.svg !filter !diff
 capacitor.config.json !filter !diff
 package.json !filter !diff

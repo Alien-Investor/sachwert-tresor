@@ -35,7 +35,7 @@ async function fresh(){
   const ses=session.defaultSession;
   const st=async u=>{ try{ return (await ses.fetch(u)).status; }catch(e){ return 'FEHLER'; } };
   R('Protokoll liefert index.html', await st('app://tresor/index.html')===200);
-  R('Protokoll liefert manifest.webmanifest (Typ bekannt)', await st('app://tresor/manifest.webmanifest')===200);
+  R('Protokoll kennt kein Web-Manifest mehr (seit v3.6.3 nicht im Bundle)', await st('app://tresor/manifest.webmanifest')===404);
   R('Protokoll liefert Argon2 (hash-wasm) und Schriften', await st('app://tresor/vendor/hash-wasm/argon2.umd.min.js')===200&&await st('app://tresor/vendor/fonts/fonts.css')===200&&await st('app://tresor/vendor/fonts/Orbitron-700.woff2')===200);
   R('Protokoll kennt keinen Service Worker (sw.js nicht im Bundle)', await st('app://tresor/sw.js')===404);
   for(const u of ['app://tresor/%2e%2e/main.js','app://tresor/..%2fpackage.json','app://tresor/vendor/../../main.js','app://anders/index.html','app://tresor/app.js.map','app://tresor/vendor/hash-wasm/LICENSE'])

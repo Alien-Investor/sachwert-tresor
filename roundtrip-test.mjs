@@ -251,8 +251,11 @@ async function main(){
   ok(/object-src 'none'/.test(csp) && /base-uri 'none'/.test(csp), "object-src und base-uri bleiben 'none'");
   ok(html.indexOf('vendor/hash-wasm/argon2.umd.min.js') < html.indexOf('src="app.js"'),
      'Argon2 wird vor app.js geladen');
-  const sw = readFileSync('sw.js','utf8');
-  ok(/hash-wasm\/argon2\.umd\.min\.js/.test(sw), 'Argon2 steht im Service-Worker-CORE (sonst waere die Web-PWA offline tot)');
+  // Web-Version eingestellt (24.09.2026), Web-Rest seit v3.6.3 aus dem Repo: kein Service Worker, kein Manifest
+  const {existsSync} = await import('node:fs');
+  ok(!existsSync('sw.js') && !existsSync('manifest.webmanifest'), 'kein sw.js und kein manifest.webmanifest mehr im Repo');
+  ok(!/rel="manifest"/.test(html), 'index.html verweist auf kein Web-Manifest');
+  ok(!/serviceWorker\.register/.test(readFileSync('app.js','utf8')), 'app.js registriert keinen Service Worker');
 
   console.log('\n[10] Dateiformat AISV2 — ausgewertet wird die Sentinel-Region aus app.js selbst');
   // Kein Nachbau: die Region zwischen den VAULT-FORMAT-Sentinels wird direkt ausgefuehrt.

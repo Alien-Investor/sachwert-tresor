@@ -227,7 +227,7 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
 ## Open Source & selbst prüfen
 
 Der komplette **Client-Code ist offen** ([MIT](LICENSE)) — du musst niemandem vertrauen, du kannst
-nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `sw.js`, `vendor/hash-wasm/` (Argon2id). Die Desktop-Hülle liegt
+nachsehen: `index.html` (UI), `app.js` (App + Krypto), `qr.js`, `vendor/hash-wasm/` (Argon2id). Die Desktop-Hülle liegt
 vollständig in `desktop/` (Hauptprozess, Brücke, Build-Skript mit gepinntem Electron-Hash, Flatpak-Manifest). Schnell-Audit:
 
 - **Kein Nach-Hause-Telefonieren:** keine `fetch`/`XMLHttpRequest`/WebSocket-Aufrufe, keine externen

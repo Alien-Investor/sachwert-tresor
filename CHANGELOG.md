@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.6.3 — 2026-09-29
+
+Android und Linux-Desktop. Wartungsrelease: strengerer Import, aktuelle Android-Brücke, neuer Download-Ort.
+
+- **CSV-Import strenger:** Eine CSV mit Werten wie `1e309` legte bisher eine Buchung mit unendlichem Betrag bzw. unendlicher Menge an
+  (nach dem Speichern leer), Daten wie `2025-02-30` wurden übernommen und die Quelle war nicht in der Länge begrenzt. Solche Zeilen gelten
+  jetzt als unbrauchbar und werden nicht importiert, die Quelle wird auf 200 Zeichen gekürzt. Gefunden von einem neuen Zufallstest, der
+  20.000 erzeugte CSV-Dateien durch den Import schickt.
+- **`.vault`-Import prüft das Datum:** Buchungen mit einem Datum, das es nicht gibt, werden beim Zusammenführen eines Backups abgewiesen
+  (vorher wurde nur die Form geprüft). Bestehende Daten bleiben unverändert.
+- **Android-Brücke Capacitor 6.2.2:** schließt einen internen Weg, über den fremde Inhalte am Ursprung der App hätten landen können. Ohne
+  INTERNET-Berechtigung war das beim Tresor kaum erreichbar; übernommen, damit die App auf dem gepflegten Stand bleibt.
+- **Reste der eingestellten Web-Version entfernt:** kein Service Worker und kein Web-Manifest mehr im Code. Die App verhält sich unverändert.
+- **Neuer Download-Ort:** Releases liegen jetzt auf GitHub (`github.com/Alien-Investor/sachwert-tresor/releases`), zusätzlich unter
+  `api.alien-investor.org/downloads/sachwert-tresor/`. Obtainium-Nutzer tragen die GitHub-Adresse als neue Quelle ein; Zap Store ist bereits
+  umgestellt. Signatur-Fingerprint und GPG-Schlüssel bleiben gleich.
+
 ## v3.6.2 — 2026-09-26
 
 Nur Android. Nacharbeit zur Autofill-Ausnahme aus v3.6.1 (Querfund aus dem Diff-Review von Alien Pass v1.15, Schwere niedrig).
