@@ -7,18 +7,24 @@ Im Klartext verlässt nichts dein Gerät.
 ## 📲 App installieren (Android / GrapheneOS)
 
 Die App ist bewusst **nicht im Google Play Store** — sie wird über signierte Releases
-hier auf Codeberg verteilt. Empfohlen über **[Obtainium](https://github.com/ImranR98/Obtainium)**
-(automatische Updates, ohne Google):
+hier auf GitHub verteilt. Empfohlen über **[Obtainium](https://github.com/ImranR98/Obtainium)**
+(automatische Updates, ohne Google) oder den **[Zap Store](https://zapstore.dev/apps/org.alieninvestor.tresor)**:
 
 1. In Obtainium **„App hinzufügen"** → diese Repo-URL eintragen:
    ```
-   https://codeberg.org/Alien-Investor/sachwert-tresor
+   https://github.com/Alien-Investor/sachwert-tresor
    ```
-2. Quell-Typ wird als **Forgejo/Gitea** erkannt → **Hinzufügen** → **Installieren**.
+2. Quell-Typ wird als **GitHub** erkannt → **Hinzufügen** → **Installieren**.
 3. Künftige Updates meldet Obtainium automatisch (sobald ein neues Release erscheint).
 
+> **Umgezogen (seit v3.6.3):** Die Releases liegen jetzt auf GitHub statt auf Codeberg. Im Zap Store ändert sich nichts.
+> Obtainium kann die Quelle einer App nicht bearbeiten, deshalb einmalig: vorher ein `.vault`-Backup anlegen,
+> den Eintrag „Sachwert-Tresor“ entfernen und im Dialog nur **„Aus Obtainium entfernen“** eingeschaltet lassen
+> (**„Vom Gerät deinstallieren“ aus**, das löscht App und Daten), dann die GitHub-URL oben neu hinzufügen. Obtainium erkennt die installierte App,
+> Signatur und Paket-ID bleiben gleich.
+
 **Ohne Obtainium** — APK direkt laden:
-[**Neuestes Release**](https://codeberg.org/Alien-Investor/sachwert-tresor/releases/latest)
+[**Neuestes Release**](https://github.com/Alien-Investor/sachwert-tresor/releases/latest)
 → die `.apk` herunterladen und installieren.
 
 **Signatur-Fingerprint** (zum Prüfen der Echtheit, über alle Versionen gleich).
@@ -39,7 +45,7 @@ und mit dem Doppelpunkt-Wert oben vergleichen.
 
 Seit v3.3 gibt es denselben Code auch für den Linux-Desktop, verpackt mit Electron als **Flatpak** (x86_64). Das Tresor-Format
 ist identisch: Backups vom Handy lassen sich am Desktop importieren und umgekehrt (z.B. über Syncthing). Verteilung als Datei mit
-GPG-signierter Prüfsumme im [Codeberg-Release](https://codeberg.org/Alien-Investor/sachwert-tresor/releases) — nicht auf Flathub,
+GPG-signierter Prüfsumme im [GitHub-Release](https://github.com/Alien-Investor/sachwert-tresor/releases) — nicht auf Flathub,
 kein automatisches Update.
 
 **Voraussetzung:** Flatpak mit dem Flathub-Remote (für die Laufzeit `org.freedesktop.Platform` 25.08, die flatpak beim Installieren nachlädt):
