@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.6.4 — 2026-09-30
+
+Kleiner Fix für die Desktop-Fassung, eine neuere Engine und ein eigener Download-Ort. Keine Änderung an Tresor-Format, Verschlüsselung,
+Berechtigungen oder Daten.
+
+- **Desktop — Cursor beim Auge:** Wer beim Tippen einer Passphrase aufs Auge klickte, um sie kurz anzusehen, fand den Cursor danach am
+  Zeilenanfang, und die nächsten Zeichen landeten vorne. Cursor und Markierung bleiben jetzt beim Aufdecken und Verdecken stehen.
+- **Desktop — Electron 44.5.1** (vorher 44.4.3): enthält die seither nachgereichten Sicherheitskorrekturen aus Chromium und V8.
+  Das Archiv ist wie bisher per Hash gepinnt.
+- **Eigene Download-Adresse:** `https://api.alien-investor.org/downloads/sachwert-tresor/` ist jetzt der Hauptweg, für Obtainium und
+  Zap Store. GitHub bekommt jedes Release weiter als Spiegel; wer dort eingetragen ist, muss nichts tun. Einrichtung in Obtainium: README.
+
 ## v3.6.3 — 2026-09-29
 
 Android und Linux-Desktop. Wartungsrelease: strengerer Import, aktuelle Android-Brücke, neuer Download-Ort.
