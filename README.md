@@ -6,26 +6,38 @@ Im Klartext verlässt nichts dein Gerät.
 
 ## 📲 App installieren (Android / GrapheneOS)
 
-Die App ist bewusst **nicht im Google Play Store** — sie wird über signierte Releases
-hier auf GitHub verteilt. Empfohlen über **[Obtainium](https://github.com/ImranR98/Obtainium)**
-(automatische Updates, ohne Google) oder den **[Zap Store](https://zapstore.dev/apps/org.alieninvestor.tresor)**:
+Die App ist bewusst **nicht im Google Play Store**. Verteilung über signierte Releases von der eigenen Download-Adresse
+[api.alien-investor.org/downloads/sachwert-tresor/](https://api.alien-investor.org/downloads/sachwert-tresor/) und im
+[Zap Store](https://zapstore.dev/apps/org.alieninvestor.tresor). Jedes Release liegt zusätzlich als Spiegel hier auf
+[GitHub](https://github.com/Alien-Investor/sachwert-tresor/releases).
+Empfohlen über **[Obtainium](https://github.com/ImranR98/Obtainium)** (automatische Updates, ohne Google), in Obtainium **„App hinzufügen“**:
 
-1. In Obtainium **„App hinzufügen"** → diese Repo-URL eintragen:
+1. **„Quell-URL der App“**:
    ```
-   https://github.com/Alien-Investor/sachwert-tresor
+   https://api.alien-investor.org/downloads/sachwert-tresor/
    ```
-2. Quell-Typ wird als **GitHub** erkannt → **Hinzufügen** → **Installieren**.
-3. Künftige Updates meldet Obtainium automatisch (sobald ein neues Release erscheint).
+2. Unter **„Zusatzoptionen für HTML“** → **„Versionsextraktion per RegEx“**:
+   ```
+   sachwert-tresor-([0-9]+(\.[0-9]+)+)\.apk$
+   ```
+3. **„Zu verwendende Gruppe abgleichen“**: `$1`
+4. **„Expected signing certificate hashes“** (so heißt es auch in der deutschen Fassung):
+   ```
+   66:0F:21:0C:7A:28:9F:38:8B:B4:81:2C:23:82:5A:77:F1:FC:84:E6:A7:EE:58:D6:42:81:B6:BF:5C:D8:79:88
+   ```
+5. Mit dem **„+“** hinzufügen → **Installieren**. Updates meldet Obtainium automatisch.
 
-> **Umgezogen (seit v3.6.3):** Die Releases liegen jetzt auf GitHub statt auf Codeberg. Im Zap Store ändert sich nichts.
-> Obtainium kann die Quelle einer App nicht bearbeiten, deshalb einmalig: vorher ein `.vault`-Backup anlegen,
-> den Eintrag „Sachwert-Tresor“ entfernen und im Dialog nur **„Aus Obtainium entfernen“** eingeschaltet lassen
-> (**„Vom Gerät deinstallieren“ aus**, das löscht App und Daten), dann die GitHub-URL oben neu hinzufügen. Obtainium erkennt die installierte App,
+Die RegEx braucht Obtainium, um auf einer Download-Seite die Versionsnummer aus dem Dateinamen zu lesen; ohne sie kann es die
+installierte Version nicht vergleichen. Der Zertifikats-Hash ist eine harte Sperre: Eine APK mit anderem Schlüssel installiert Obtainium nicht.
+Zum Kopieren und mit „In Obtainium öffnen“ (alles vorbelegt): [Obtainium-Blatt auf der Website](https://alien-investor.org/sachwert-tresor.html#obtainium).
+
+> **Schon über GitHub eingerichtet?** Dann musst du nichts ändern, GitHub bekommt jedes Release weiter als Spiegel.
+> **Noch mit einer Codeberg-Adresse?** Dort erscheinen keine Releases mehr. Obtainium kann die Quelle einer App nicht bearbeiten, deshalb einmalig:
+> vorher ein `.vault`-Backup anlegen, den Eintrag „Sachwert-Tresor“ entfernen und im Dialog nur **„Aus Obtainium entfernen“** eingeschaltet lassen
+> (**„Vom Gerät deinstallieren“ aus**, das löscht App und Daten), dann wie oben neu hinzufügen. Obtainium erkennt die installierte App,
 > Signatur und Paket-ID bleiben gleich.
 
-**Ohne Obtainium** — APK direkt laden:
-[**Neuestes Release**](https://github.com/Alien-Investor/sachwert-tresor/releases/latest)
-→ die `.apk` herunterladen und installieren.
+**Ohne Obtainium:** [Download-Seite](https://api.alien-investor.org/downloads/sachwert-tresor/) → `.apk` laden und installieren.
 
 **Signatur-Fingerprint** (zum Prüfen der Echtheit, über alle Versionen gleich).
 Derselbe Wert, zwei Schreibweisen — beides ist der SHA-256 des Signatur-Zertifikats:
