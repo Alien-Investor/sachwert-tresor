@@ -57,7 +57,7 @@ und mit dem Doppelpunkt-Wert oben vergleichen.
 
 Seit v3.3 gibt es denselben Code auch für den Linux-Desktop, verpackt mit Electron als **Flatpak** (x86_64). Das Tresor-Format
 ist identisch: Backups vom Handy lassen sich am Desktop importieren und umgekehrt (z.B. über Syncthing). Verteilung als Datei mit
-GPG-signierter Prüfsumme im [GitHub-Release](https://github.com/Alien-Investor/sachwert-tresor/releases) — nicht auf Flathub,
+GPG-signierter Prüfsumme im [GitHub-Release](https://github.com/Alien-Investor/sachwert-tresor/releases) und auf der eigenen Download-Adresse (siehe Schritt 1) — nicht auf Flathub,
 kein automatisches Update.
 
 **Voraussetzung:** Flatpak mit dem Flathub-Remote (für die Laufzeit `org.freedesktop.Platform` 25.08, die flatpak beim Installieren nachlädt):
@@ -66,6 +66,13 @@ flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/fl
 ```
 
 **1. Drei Dateien aus dem Release laden:** `sachwert-tresor-X.Y-linux-x86_64.flatpak`, `SHA256SUMS`, `SHA256SUMS.asc`.
+Dieselben Dateien liegen auch auf der eigenen Download-Adresse: `SHA256SUMS` und `SHA256SUMS.asc` unter
+`https://api.alien-investor.org/downloads/sachwert-tresor/`, das Bundle unter dem Namen, der in `SHA256SUMS` steht:
+```
+curl -fLO https://api.alien-investor.org/downloads/sachwert-tresor/SHA256SUMS
+curl -fLO https://api.alien-investor.org/downloads/sachwert-tresor/SHA256SUMS.asc
+curl -fLO https://api.alien-investor.org/downloads/sachwert-tresor/$(awk '{print $2}' SHA256SUMS)
+```
 
 **2. Signatur prüfen.** Die Prüfsummen sind mit dem GPG-Release-Schlüssel von Alien Investor signiert
 ([`alien-investor-release-key.asc`](alien-investor-release-key.asc) hier im Repo, derselbe Schlüssel wie bei Alien Pass). Den Fingerabdruck
