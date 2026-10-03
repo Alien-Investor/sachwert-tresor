@@ -44,6 +44,15 @@ body::before{content:'';position:fixed;inset:0;background-image:
  radial-gradient(1px 1px at 90% 80%,rgba(0,255,204,.25) 0%,transparent 100%);
  pointer-events:none;z-index:0;}
 body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.15) 2px,rgba(0,0,0,.15) 4px);pointer-events:none;z-index:1;}
+/* Scrollbalken im Neon-Look statt Chromium-Grau (Desktop-Hülle/Electron, Brave) — Kit app-design (app-theme.css). Daumen mit transparentem Rand + padding-box,
+   damit er in Karten wie auf dem Seitenhintergrund schwebt. Android-WebView blendet Overlay-Balken ohnehin aus. Firefox → scrollbar-color. */
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-track{background:rgba(0,255,204,.04);}
+::-webkit-scrollbar-thumb{background:var(--neon-mid);border:2px solid transparent;background-clip:padding-box;border-radius:6px;}
+::-webkit-scrollbar-thumb:hover{background:var(--neon);background-clip:padding-box;}
+::-webkit-scrollbar-corner{background:transparent;}
+::-webkit-scrollbar-button{display:none;}
+@supports not selector(::-webkit-scrollbar){html{scrollbar-color:var(--neon-mid) transparent;scrollbar-width:thin;}}
 .container{position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
 
 /* HEADER */
@@ -633,7 +642,7 @@ tr:hover td{color:var(--neon);}
   <div class="foot">
     <span data-i18n="foot.line1">Alien Investor · Sachwert-Tresor · 100 % lokal · keine Cloud · keine Telemetrie</span><br>
     <span data-i18n="foot.line2">Verschlüsselung: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238</span><br>
-    <a href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" class="no-desk" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
+    <a id="donate-link" href="https://alien-investor.org/spenden.html" target="_blank" rel="noopener noreferrer" style="color:var(--neon);text-decoration:none;display:inline-block;margin-top:10px;letter-spacing:2px;"><svg class="ic" viewBox="0 0 24 24" style="width:1.4em;height:1.4em;vertical-align:-0.32em;margin-right:.2em"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg><span data-i18n="foot.donate">Energie aufladen · Spenden</span></a>
   </div>
 </div>
 <div id="help-overlay" class="help-overlay hidden">
@@ -702,7 +711,7 @@ tr:hover td{color:var(--neon);}
       <li><strong>Kein Netz, vom System erzwungen.</strong> Das Flatpak hat keine Netzwerk-Berechtigung und keinen Zugriff auf deine Dateien. Backup, CSV-Export, Nachlass-Anhang und Import laufen über den Dateidialog des Systems, der nur die gewählte Datei freigibt. Nachprüfbar mit <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li>
       <li><strong>Getrennte Speicher:</strong> Desktop, Handy-App und Browser kennen sich nicht — Abgleich über <code>.vault</code>-Backups (z.B. Syncthing), dasselbe gilt für ein 2FA-Secret.</li>
       <li><strong>Strg+L</strong> sperrt sofort. „Hintergrund“ heißt minimiert oder versteckt — ein Fensterwechsel sperrt nicht, leert aber getippte Passphrasen. Bei Bildschirmsperre und Ruhezustand sperrt die App nicht von selbst: Systemsperre nutzen, dazu eine kurze Inaktivitäts-Sperre.</li>
-      <li><strong>Zwischenablage:</strong> Der kopierte 2FA-Schlüssel ist für KDE als Passwort markiert (Klipper übernimmt ihn nicht in den Verlauf) und wird beim Sperren und Beenden gelöscht. Nur der Kopieren-Knopf setzt diese Markierung; Strg+C auf markiertem Text kopiert über Chromium ohne sie und wird nicht gelöscht. Mit der Maus markierter Text wird nicht überwacht — unter X11 kann jedes Programm Zwischenablage und Tastatur mitlesen.</li>
+      <li><strong>Zwischenablage:</strong> Was die App kopiert (der 2FA-Schlüssel, Strg+C und Strg+X), ist für KDE als Passwort markiert — Klipper übernimmt es nicht in den Verlauf (andere Zwischenablage-Programme können die Markierung ignorieren). Die App löscht ihre eigene Kopie nach 30 Sekunden, beim Sperren und beim Beenden, aber nur, wenn sie noch drinsteht. Dasselbe gilt für Text, den du in der App markierst (unter Linux sofort per Mittelklick einfügbar), auch für eine markierte Passphrase. Markierter Text trägt die KDE-Markierung nicht: Wer in Klipper die Auswahl in den Verlauf übernehmen lässt, sollte das abschalten. Unter X11 kann trotzdem jedes laufende Programm Zwischenablage und Tastatur mitlesen.</li>
       <li><strong>Klartext-Dateien:</strong> CSV-Exporte und der Nachlass-Anhang (<code>.txt</code> oder PDF) sind unverschlüsselt — nach Gebrauch löschen. Kein Fingerabdruck, kein Schutz vor Bildschirmfotos. Die Browser-Engine (Electron) bringt die App selbst mit; Sicherheits-Updates dafür kommen mit einer neuen App-Version.</li>
     </ul>
 

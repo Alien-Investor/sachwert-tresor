@@ -5,9 +5,10 @@ const {contextBridge,ipcRenderer}=require('electron');
 const sync=(ch,...a)=>{ const r=ipcRenderer.sendSync(ch,...a); if(!r||!r.ok) throw new Error('store'); return r; };
 
 contextBridge.exposeInMainWorld('AlienDesktop',{
-  clip:{   // Kopie mit KDE-Hinweis, wird beim Sperren/Beenden gelöscht — nur write/clear (keine Auswahl-Überwachung, s. DESKTOP-INVARIANTEN.md)
+  clip:{   // Kopie mit KDE-Hinweis; Kopie und gemeldete Markierung werden nach der Frist, beim Sperren und Beenden gelöscht (nur Eigenes)
     write:o=>ipcRenderer.invoke('clip:write',String(o&&o.text||'')),
-    clear:()=>ipcRenderer.invoke('clip:clear')
+    clear:()=>ipcRenderer.invoke('clip:clear'),
+    selected:t=>ipcRenderer.invoke('clip:selected',String(t||''))   // markierter Text (X11-Auswahl) → wird mit der Frist mitgelöscht
   },
   store:{   // der Tresor als Datei; synchron wie localStorage, wirft bei jedem Fehler
     read:()=>sync('store:read').data,

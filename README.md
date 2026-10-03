@@ -233,11 +233,14 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     Seite erreicht die Brücke zum Hauptprozess. Electron-Fuses: kein `ELECTRON_RUN_AS_NODE`, kein `NODE_OPTIONS`, kein `--inspect`, App nur aus
     dem Archiv. Fernsteuerung (`--remote-debugging-*`) wird verweigert, DevTools lassen sich nicht öffnen, kein Anwendungsmenü.
   - **Tresor als Datei** (Rechte 600, Ordner 700), atomar geschrieben — ein Absturz oder eine volle Platte hinterlässt nie einen halben Tresor.
-  - **Zwischenablage:** Der kopierte 2FA-Schlüssel ist für KDE als Passwort markiert, Klipper nimmt ihn nicht in den Verlauf (unter Plasma
-    geprüft); andere Zwischenablage-Manager können die Markierung ignorieren. Die App löscht ihre eigene Kopie beim Sperren und beim Beenden.
-    Nur der Kopieren-Knopf setzt die Markierung — Strg+C auf markiertem Text kopiert über Chromium ohne sie und wird nicht gelöscht.
-    Anders als Alien Pass überwacht der Tresor **nicht**, was du mit der Maus markierst (Mittelklick-Einfügen unter X11) — er zeigt keine
-    Passwörter, nur beim Einrichten von 2FA liegt ein Geheimnis auf dem Schirm.
+  - **Zwischenablage:** Was die App kopiert (2FA-Schlüssel, Strg+C und Strg+X), ist für KDE als Passwort markiert, Klipper nimmt es nicht
+    in den Verlauf (unter Plasma geprüft); andere Zwischenablage-Manager können die Markierung ignorieren. Die App löscht ihre eigene Kopie
+    nach 30 Sekunden, beim Sperren und beim Beenden. Seit v3.7 gilt das auch für Text, den du in der App markierst — unter X11 liegt er sofort
+    in der Auswahl (Mittelklick fügt ein), auch aus einem verdeckten Passwortfeld, etwa nach Tab in die gefüllte Passphrase. Gelöscht wird nur,
+    was noch von der App stammt; fremde Kopien bleiben stehen. Markierter Text trägt die KDE-Markierung nicht: Wer in Klipper die Auswahl in
+    den Verlauf übernehmen lässt, sollte das abschalten.
+  - **Spendenlink:** öffnet sich am Desktop im System-Browser. Die Hülle lässt genau die Spendenseite (DE/EN) durch, höchstens einmal je
+    Sekunde; jede andere Adresse verpufft.
   - **Klartext verlässt den Käfig nur auf deinen Klick:** CSV-Exporte, der Nachlass-Anhang als `.txt` oder PDF sind unverschlüsselt —
     nach Gebrauch löschen.
   - **Grenzen:** Die App liefert ihre Browser-Engine (Electron 44) selbst mit — Sicherheits-Updates dafür kommen nur mit einer neuen
@@ -246,8 +249,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     sperrt die App nicht von selbst** (im Flatpak erfährt sie davon nichts): Systemsperre nutzen, dazu eine kurze Inaktivitäts-Sperre,
     Strg+L sperrt sofort. „Hintergrund“ heißt am Desktop minimiert oder versteckt — ein Wechsel zu einem anderen Fenster sperrt nicht,
     leert aber getippte Passphrasen. Kein Fingerabdruck. Die Hülle besteht aus drei kleinen Dateien (`desktop/main.js`, `desktop/preload.js`,
-    `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); für den Tresor selbst gab es Tests
-    mit der echten Hülle, kein eigenes Audit.
+    `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); die Hülle des Tresors wird mit Tests in
+    der echten Hülle geprüft, mit v3.7 kam ein internes Security-Audit der Änderungen dazu.
 
 ## Open Source & selbst prüfen
 

@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.6.4';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.7';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -118,7 +118,7 @@ const I18N = {
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>The Android app keeps its fields out of the Android autofill framework (since v3.6.1): another password manager set up as the autofill service does not see the passphrase fields and cannot offer to save them.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
   "help.hDesk":"Linux desktop (Flatpak)",
-  "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop, phone app and browser do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> the copied 2FA key is marked as a password for KDE (Klipper keeps it out of its history) and is cleared on lock and on quit. Only the copy button sets that mark; Ctrl+C on selected text copies via Chromium without it and is not cleared. Text selected with the mouse is not tracked — under X11 every program can read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
+  "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop, phone app and browser do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> what the app copies (the 2FA key, Ctrl+C and Ctrl+X) is marked as a password for KDE — Klipper keeps it out of its history (other clipboard managers may ignore the mark). The app clears its own copy after 30 seconds, on lock and on quit, but only if it is still there. The same applies to text you select in the app (on Linux instantly pasteable with a middle click), including a selected passphrase. Selected text does not carry the KDE mark: if Klipper is set to keep the selection in its history, switch that off. Under X11 every running program can still read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
   "help.h10":"Fingerprint (Android app)",
   "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone (as long as the box is unticked), after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint.",
   "help.p10b":"<strong>The 'across a restart' switch (off by default):</strong> when enabling, you can tick that the fingerprint keeps working across a restart. The restart rule protects in one case only: someone knows or forces your device PIN and can force your finger — a restart then helps, because the app asks for the passphrase afterwards. GrapheneOS reboots by default once the phone stays locked for 18 hours in a row (adjustable from 10 minutes to 72 hours); whoever sets that counter short or often leaves the phone lying around types the passphrase accordingly often. With the box ticked, only the system's device-PIN requirement remains after a restart; the app then asks for the passphrase only after a passphrase change, on a new fingerprint and after 'Lock now'. Changing this is only possible by disabling and enabling again. When in doubt: restart the phone, then only the passphrase counts (if the box is unticked)."
@@ -228,6 +228,7 @@ const T = {
   "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
   "msg.importSaveFailed":{de:"Entschlüsselt, aber Speichern fehlgeschlagen — nichts übernommen. Speicher voll?",en:"Decrypted, but saving failed — nothing was imported. Storage full?"},
   "copy.manual":{de:"Manuell kopieren",en:"Copy manually"},
+  "copy.sel":{de:"Markierung kopiert",en:"Selection copied"},"copy.desk30":{de:" · wird in 30 s gelöscht",en:" · cleared in 30 s"},
   "tip.edit":{de:"Bearbeiten",en:"Edit"},"tip.del":{de:"Löschen",en:"Delete"},
   "stat.investedLbl":{de:"Investiert",en:"Invested"},"stat.realizedLbl":{de:"Realisiert",en:"Realized"},
   "toast.autolocked":{de:"Automatisch gesperrt",en:"Automatically locked"},
@@ -359,6 +360,7 @@ function applyI18n(){
   });
   document.documentElement.setAttribute('lang',LANG);
   const lb=document.getElementById('lang-btn'); if(lb) lb.textContent=(LANG==='de'?'DE':'EN');
+  const dl=document.getElementById('donate-link'); if(dl) dl.href='https://alien-investor.org/'+(LANG==='en'?'en/':'')+'spenden.html';   // Desktop-Hülle: genau diese zwei in LINKS
   document.querySelectorAll('.pw-eye').forEach(b=>{ b.title=tr('pw.toggle'); });
   if(typeof App!=='undefined'&&App.syncCombos) App.syncCombos();   // Optionen tragen data-i18n → Knopfbeschriftung nachziehen
 }
@@ -850,7 +852,8 @@ const App = (function(){
   }
   function activity(){ if(!DEK&&!pendingUnlock) return; const n=Date.now(); if(n-lastActivity<5000) return; lastActivity=n; resetIdle(); }
 
-  function enterApp(){ screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); runPendingFile();
+  function enterApp(){ if(DESK&&clipOwned) clearClip();   // markierte Passphrase vom Sperr-/Einrichtungsbildschirm nicht mit in die Sitzung nehmen (Notes leaveGate)
+    screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); runPendingFile();
     if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
@@ -881,7 +884,7 @@ const App = (function(){
   }
   function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
     bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
-    if(DESK) DESK.clip.clear().catch(()=>{});                            // eigene Kopie (TOTP-Geheimnis) aus der Zwischenablage nehmen
+    if(DESK) clearClip();                                                // eigene Kopie und eigene Markierung (X11-Auswahl) aus der Zwischenablage nehmen
     clearRendered(); maskInputs(); boot(); }
   // „Jetzt sperren“ = die EINZIGE bewusste Nutzer-Sperre: setzt den Riegel (nächster Start nur mit Passphrase). Idle-Timer,
   // Hintergrund und interne Aufrufe bleiben bei lock() und setzen nie einen Riegel.
@@ -894,13 +897,16 @@ const App = (function(){
   function setEye(b,on){ b.setAttribute('aria-pressed',on?'true':'false'); b.dataset.showpass.split(',').forEach(id=>{ const f=$(id); if(!f) return;
     const keep=document.activeElement===f, s=f.selectionStart, e=f.selectionEnd, d=f.selectionDirection||'none', v=f.value, ty=on?'text':'password';
     f.type=ty; if(!keep||s==null) return;
-    const put=()=>{ if(document.activeElement===f&&f.type===ty&&f.value===v) try{ f.setSelectionRange(s,e,d); }catch(_){} };
+    // Beim Aufdecken eine Markierung nicht als Klartext-Markierung wiederherstellen (X11 legt markierten Text in PRIMARY) — Cursor ans Ende (Alien Notes v1.6 B-V1)
+    const s2=on&&s!==e?e:s;
+    const put=()=>{ if(document.activeElement===f&&f.type===ty&&f.value===v) try{ f.setSelectionRange(s2,e,d); }catch(_){} };
     put(); setTimeout(put,0); }); }
   function togglePass(_,b){ if(b) setEye(b,b.getAttribute('aria-pressed')!=='true'); }
   function maskInputs(){ document.querySelectorAll('[data-showpass]').forEach(b=>setEye(b,false)); }
   // Getippte Passphrasen und Codes nie stehen lassen, wenn die App in den Hintergrund geht — auch im gesperrten Zustand
   // (Audit run-4 #2, Port von Alien Pass run-2 F1). Nebenwirkung wie dort: halb ausgefüllte Formulare sind danach leer.
-  function clearGateInputs(){ ['lock-pass','setup-pass1','setup-pass2','import-pass','totp-code','cp-cur','cp1','cp2','bio-pass'].forEach(id=>{ const n=$(id); if(n) n.value=''; }); maskInputs(); }
+  // Stärke-Anzeigen mitleeren: sonst stand nach dem Leeren noch „▮▮▮▯ gut“ unter einem leeren Feld (Nutzer-Gerätetest v3.7)
+  function clearGateInputs(){ ['lock-pass','setup-pass1','setup-pass2','import-pass','totp-code','cp-cur','cp1','cp2','bio-pass'].forEach(id=>{ const n=$(id); if(n) n.value=''; }); maskInputs(); ['setup-meter','cp-meter'].forEach(id=>{ const m=$(id); if(m) m.textContent=''; }); }
   function enhancePassFields(){ document.querySelectorAll('input[type=password]').forEach(inp=>{ if(!inp.id||inp.closest('.pw-wrap')) return;
     const w=document.createElement('div'), b=document.createElement('button'); w.className='pw-wrap'; b.className='pw-eye'; b.type='button';
     b.dataset.showpass=inp.id; b.setAttribute('aria-pressed','false'); b.title=tr('pw.toggle'); inp.parentNode.insertBefore(w,inp); w.append(inp,b); }); }
@@ -914,6 +920,7 @@ const App = (function(){
   let hiddenAt=0, bgAway=false;
   function onHidden(){
     clearGateInputs();                               // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
+    if(DESK&&!DEK&&clipOwned&&!clipCopied) clearClip();   // gesperrt minimiert: markierte Passphrase nicht bis zur Frist liegen lassen (Notes v1.7)
     if(bgAway) return; bgAway=true;
     const v=VAULT||(pendingUnlock&&pendingUnlock.vault);
     if(v) hiddenAt=Date.now();
@@ -930,7 +937,8 @@ const App = (function(){
   }
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) onHidden(); else onShown(); });
   // Desktop: 'blur' (Fensterwechsel) ist KEIN Hintergrund — feuert auch bei Systemdialogen (Portal-Dateidialog) → nur Gate-Hygiene
-  if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur') clearGateInputs(); else if(h) onHidden(); else onShown(); });
+  // Gesperrt räumt der Fensterwechsel auch eine bloße Markierung (Release-Audit v3.7 B-3: sonst lag eine markierte Passphrase bis zur Frist per Mittelklick bereit)
+  if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur'){ clearGateInputs(); if(!DEK&&clipOwned&&!clipCopied) clearClip(); } else if(h) onHidden(); else onShown(); });
   if(DESK&&typeof DESK.onLock==='function') DESK.onLock(()=>{ if(DEK||pendingUnlock) lock(); });   // Ruhezustand/Bildschirmsperre (im Flatpak tot, s. DESKTOP-INVARIANTEN.md)
   // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung)
   function deskKey(ev){ if(!DESK||!ev.ctrlKey||ev.altKey||ev.metaKey) return false;
@@ -2002,10 +2010,64 @@ const App = (function(){
 
   /* ---------- misc ---------- */
   function theme(t){if(t==='soft'){document.documentElement.setAttribute('data-theme','soft');localStorage.setItem('alien-theme','soft');}else{document.documentElement.removeAttribute('data-theme');localStorage.setItem('alien-theme','dark');}renderSettings();}
-  // Desktop: nur über die Brücke (Kopie mit KDE-Hinweis, Löschen beim Sperren/Beenden) — kein Rückfall auf die Web-API, die schriebe ohne
-  // Hinweis und Klipper hielte das TOTP-Geheimnis im Verlauf. Scheitert die Brücke: „Manuell kopieren“.
-  function copy(text,msg){ if(DESK){ DESK.clip.write({text}).then(()=>toast(msg),()=>toast(tr('copy.manual'))); return; }
+  // Desktop: nur über die Brücke (Kopie mit KDE-Hinweis, Löschen nach CLIP_FRIST_MS, beim Sperren und Beenden) — kein Rückfall auf die Web-API, die schriebe
+  // ohne Hinweis und Klipper hielte das TOTP-Geheimnis im Verlauf. Scheitert die Brücke: „Manuell kopieren“. Kommt die Kopie erst nach dem Sperren an
+  // während der IPC — entsperrt abgeschickt, gesperrt angekommen), wird sie sofort wieder gelöscht. Auf dem Sperr-/Einrichtungsbildschirm selbst kopiert
+  // Strg+C normal mit Frist (Release-Audit v3.7 B-1: sonst verschwand z. B. eine zum Sichern kopierte neue Passphrase still); enterApp() löscht beim Verlassen.
+  // Frist schon VOR der IPC scharf (B-2): sonst konnte eine ablaufende Frist die gerade geschriebene Kopie löschen und der Toast versprach trotzdem 30 s.
+  // Scheitert die Brücke, gilt der alte clipCopied-Stand wieder (R2-2: sonst schützte eine Kopie, die es nie gab, Markierungen vor dem Sofort-Löschen).
+  // Grenze (bewusst): liegt gesperrt eine ECHTE Kopie in der Frist, räumen Fensterwechsel/Minimieren auch eine Markierung erst mit dieser Frist.
+  function copy(text,msg){ if(DESK){ const was=!!DEK, prevCopied=clipCopied; armClip(); clipCopied=true;
+      DESK.clip.write({text}).then(()=>{ if(was&&!DEK){ clearClip(); return; } armClip(); clipCopied=true; toast(msg+tr('copy.desk30')); },()=>{ clipCopied=prevCopied; toast(tr('copy.manual')); }); return; }
     navigator.clipboard?navigator.clipboard.writeText(text).then(()=>toast(msg)):toast(tr('copy.manual'));}
+  /* ---------- Desktop: Frist für Kopie und X11-Auswahl (v3.7, Fassung Alien Notes v1.7 — Regeln UI-INVARIANTEN.md „X11-Auswahl am Desktop“) ----------
+     Der Tresor hat keine Einstellung „Zwischenablage leeren nach“ wie Notes: am Desktop gilt fest CLIP_FRIST_MS (Notes-Standard 30 s). clearClip() lässt die
+     Hülle NUR eigene Inhalte löschen (gesalzene Hashes in main.js) — fremde Kopien/Markierungen bleiben. Ohne Hülle (Android, Browser) läuft hier nichts. */
+  const CLIP_FRIST_MS=30000;
+  // clipOwned: seit dem letzten Löschen hat die App kopiert oder eine Markierung gemeldet; clipCopied: darunter eine echte KOPIE (Notes R2-N1) —
+  // gesperrt räumen Fensterwechsel und Minimieren bloße Markierungen sofort, eine bewusste Kopie bleibt bis zur Frist (zum Einfügen im anderen Fenster)
+  let clipTimer=null, clipOwned=false, clipCopied=false;
+  function armClip(){ clearTimeout(clipTimer); clipOwned=true; clipTimer=setTimeout(clearClip,CLIP_FRIST_MS); }
+  function clearClip(){ clearTimeout(clipTimer); clipTimer=null; clipOwned=false; clipCopied=false;
+    if(DESK) try{ const p=DESK.clip.clear(); if(p&&p.catch) p.catch(()=>{}); }catch(_){} }   // die Hülle schreibt ohne Fokus — kein Vertagen wie bei der Web-API in Notes
+  // X11-Auswahl: mit der Maus oder per Tastatur Markiertes landet ohne Strg+C in PRIMARY (Mittelklick fügt ein) — auch aus type=password im KLARTEXT
+  // (Messung Alien Pass 23.09.2026, Electron 44, X11). Am Desktop der Hülle melden und mit der Frist mitlöschen; läuft schon eine Frist, gilt diese.
+  if(DESK&&DESK.clip&&typeof DESK.clip.selected==='function'){
+    // Liegt der Fokus nicht im Feld (Klick auf einen Knopf), liefert getSelection() für ein markiertes Passwortfeld dessen PUNKTE — als Meldung überschrieben
+    // sie den Hash des echten Werts in PRIMARY (Alien Pass Gerätetest 03.10.2026). Chromium beschreibt diese Auswahl als LEERE Range an der Stelle des Feldes:
+    // dann das Feld dort auflösen und seinen echten markierten Wert nehmen — so stimmt der Hash, und Strg+C/Strg+X laufen weiter über die Brücke.
+    const selText=()=>{ const a=document.activeElement;
+      if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number') return a.value.substring(a.selectionStart,a.selectionEnd);
+      const g=window.getSelection(); if(!g||!g.rangeCount) return '';
+      const r=g.getRangeAt(0);
+      if(r.collapsed){ const n=r.startContainer&&r.startContainer.childNodes?r.startContainer.childNodes[r.startOffset]:null;
+        if(n&&(n.tagName==='INPUT'||n.tagName==='TEXTAREA')&&typeof n.selectionStart==='number'&&n.selectionStart!==n.selectionEnd) return n.value.substring(n.selectionStart,n.selectionEnd);
+        return ''; }
+      return String(g); };
+    // Auch auf Sperr-/Einrichtungsbildschirm (DEK null): Frist läuft, beim Verlassen (enterApp) und beim Minimieren im gesperrten Zustand wird gelöscht.
+    // Frist SYNCHRON vor der Meldung scharf machen: ein Klick auf „Jetzt sperren“ meldet per mouseup und sperrt im selben Klick — die IPC ist geordnet,
+    // das clear() der Sperre kommt in der Hülle nach dieser Meldung an (Notes Release-Audit v1.7 B-N2).
+    const report=t=>{ if(!t) return;
+      if(!clipOwned) armClip();
+      try{ const p=DESK.clip.selected(t); if(p&&p.catch) p.catch(()=>{}); }catch(_){} };
+    const onSel=()=>report(selText());
+    document.addEventListener('mouseup',onSel);
+    // Strg+C auf Markiertem: nicht Chromium kopieren lassen (ohne KDE-Hinweis, ohne Löschen → Klipper-Verlauf), sondern über die Brücke
+    document.addEventListener('copy',ev=>{ const t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel')); });
+    // Strg+X / Shift+Entf ebenso; danach die Markierung im Feld entfernen: execCommand('delete') hält Rückgängig intakt. Nur aus Textfeldern
+    // (Fokus auf Knopf/Kästchen: nur kopieren — setRangeText warf dort, Notes Release-Audit v1.7 B-N1)
+    document.addEventListener('cut',ev=>{ const a=document.activeElement, t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel'));
+      if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||typeof a.selectionStart!=='number'||a.readOnly||a.disabled) return;
+      let done=false; try{ done=document.execCommand('delete'); }catch(_){}
+      if(!done){ a.setRangeText('',a.selectionStart,a.selectionEnd,'end'); a.dispatchEvent(new Event('input',{bubbles:true})); } });
+    document.addEventListener('keyup',ev=>{ if(ev.shiftKey||ev.key==='Shift'||((ev.ctrlKey||ev.metaKey)&&(ev.key||'').toLowerCase()==='a')) onSel(); });
+    // Fokus in ein gefülltes Feld (Tab, focus()/select()) markiert dessen ganzen Inhalt — Chromium legt ihn auch aus type=password in PRIMARY (Alien Pass v1.18 B-1).
+    // Nach JEDER Fokusbewegung melden, im Timer direkt vom Feld gelesen (ein Feld behält seine Markierung nach dem Blur). Nur Textfelder.
+    document.addEventListener('focusin',ev=>{ const a=ev.target; if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||typeof a.selectionStart!=='number') return;
+      setTimeout(()=>{ try{ report(a.value.substring(a.selectionStart,a.selectionEnd)); }catch(_){} },0); });
+    // Vor jeder Taste synchron (Capture, vor der Standardaktion): Weitertippen klappt die Markierung zusammen, PRIMARY behält sie aber (Pass-Audit Runde 3)
+    document.addEventListener('keydown',onSel,true);
+  }
   async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
     try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
     dropPre3();lock();}

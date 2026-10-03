@@ -3,6 +3,26 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.7 — 2026-10-03
+
+Android und Linux-Desktop. Schwerpunkt Desktop: markierte Passphrasen bleiben nicht mehr in der Linux-Auswahl liegen. Keine Änderung an
+Tresor-Format, Verschlüsselung, Berechtigungen oder Daten.
+
+- **Desktop — Markierter Text wird wieder gelöscht:** Unter Linux (X11) landet markierter Text sofort in der Auswahl, ein Mittelklick fügt ihn
+  in jedem Programm ein — auch aus einem verdeckten Passwortfeld. Schon ein Tab in die ausgefüllte Passphrase markiert sie ganz. Die App meldet
+  jede Markierung jetzt der Desktop-Hülle und löscht sie nach 30 Sekunden, beim Sperren, beim Entsperren (Markierung vom Sperrbildschirm), beim
+  Minimieren oder Fensterwechsel im gesperrten Zustand und beim Beenden. Gelöscht wird nur, was noch von der App stammt. Muster aus Alien Notes und Alien Pass.
+- **Desktop — Kopien:** Strg+C und Strg+X in der App kopieren jetzt wie der Kopieren-Knopf: für KDE als Passwort markiert (Klipper übernimmt
+  es nicht in den Verlauf) und nach 30 Sekunden gelöscht. Vorher kopierte Strg+C ohne Markierung und ohne Löschen. Der 2FA-Schlüssel wird
+  ebenfalls nach 30 Sekunden gelöscht (vorher erst beim Sperren), und zwar auch aus der Auswahl: Klipper kann jede Kopie zusätzlich dorthin
+  spiegeln (Einstellung „Abgleichen“). Auf dem Sperrbildschirm kopiert Strg+C ebenso mit Frist; beim Entsperren wird gelöscht.
+- **Desktop — Auge:** Wer eine Passphrase markiert und dann aufdeckt, bekommt keine Klartext-Markierung mehr; der Cursor steht am Ende.
+- **Desktop — Spendenlink sichtbar:** öffnet sich im System-Browser. Die Hülle lässt genau die Spendenseite (Deutsch/Englisch) durch, höchstens
+  einmal je Sekunde; jede andere Adresse verpufft. Auf Englisch zeigt der Link jetzt auch in der Android-App auf die englische Seite.
+- **Scrollbalken im Neon-Look** statt Grau (Desktop; Android blendet sie aus).
+- **Stärke-Anzeige:** Wird eine angefangene Passphrase beim Fensterwechsel bzw. im Hintergrund geleert, verschwindet jetzt auch die
+  Stärke-Anzeige darunter.
+
 ## v3.6.4 — 2026-09-30
 
 Kleiner Fix für die Desktop-Fassung, eine neuere Engine und ein eigener Download-Ort. Keine Änderung an Tresor-Format, Verschlüsselung,

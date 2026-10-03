@@ -1,8 +1,8 @@
 'use strict';
 // Sachwert-Tresor Desktop — Hauptprozess (Port der Alien-Pass-Hülle v1.8, Abweichungen in DESKTOP-INVARIANTEN.md).
-// Lädt ausschließlich die gebündelte App über app://tresor/ — kein Netz, keine Navigation, keine fremden Fenster.
+// Lädt ausschließlich die gebündelte App über app://tresor/ — kein Netz, keine Navigation, keine fremden Fenster; nur die Links in LINKS gehen an den System-Browser.
 // Im Flatpak nimmt zusätzlich das System das Netz weg (keine --share=network); diese Datei ist die zweite Schicht.
-const {app,BrowserWindow,protocol,session,ipcMain,clipboard,ClipboardItem,Menu,powerMonitor,dialog}=require('electron');
+const {app,BrowserWindow,protocol,session,ipcMain,clipboard,ClipboardItem,Menu,powerMonitor,dialog,shell}=require('electron');
 const path=require('path'); const fs=require('fs'); const crypto=require('crypto');
 const {writeFull,writeAtomic}=require('./atomic.js');
 
@@ -12,11 +12,24 @@ const WWW=path.join(__dirname,'www');
 const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8',
   '.svg':'image/svg+xml','.woff2':'font/woff2','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KDE_HINT='electron application/osclipboard;format="x-kde-passwordManagerHint"';   // Klipper übernimmt so markierte Einträge nicht
-const CLIP_MAX=20000;
+// Kopieren: seit v3.7 läuft auch Strg+C/Strg+X über die Brücke — eine markierte lange Liste (bis 10.000 Buchungen) muss passen. Mit 20.000 scheiterte
+// das Kopieren still mit „Manuell kopieren“ (Querfund Alien Notes v1.7 B-M1). Markierungen werden nur gehasht, eigene Grenze wie Notes.
+const CLIP_MAX=16*1024*1024;
+const SEL_MAX=16*1024*1024;
 const FILE_MAX=20*1024*1024;   // wie MAX_FILE_BYTES in app.js
 // Tresor als eigene Datei statt im Browser-Speicher. Im Flatpak liegt XDG_DATA_HOME unter ~/.var/app/<id>/data.
 const DATA_DIR=path.join(process.env.XDG_DATA_HOME||path.join(app.getPath('home'),'.local','share'),'sachwert-tresor');
 const VAULT_FILE=path.join(DATA_DIR,'vault.aisv');
+// Links der Oberfläche, die im System-Browser aufgehen dürfen (OpenURI-Portal, kein Flatpak-Recht nötig). Exakter Vergleich, keine Präfixe (Vorlage Alien Notes v1.7).
+const LINKS=new Set(['https://alien-investor.org/spenden.html','https://alien-investor.org/en/spenden.html']);
+function linkOk(u){
+  if(typeof u!=='string') return false;
+  try{ return LINKS.has(new URL(u).href); }catch(_){ return false; }
+}
+// Weiter geht der geprüfte href (nicht der Rohstring) und höchstens ein Link je Sekunde — sonst könnte eine Schleife im Renderer Hunderte Browser-Tabs öffnen.
+// Monotone Uhr: mit Date.now() bliebe der Knopf nach einem Zurückstellen der Systemuhr bis zum alten Stand tot (Alien Pass Release-Audit v1.18 A-2)
+let lastOut=-Infinity;
+function openOutside(u){ const t=performance.now(); if(!linkOk(u)||t-lastOut<1000) return; lastOut=t; shell.openExternal(new URL(u).href).catch(()=>{}); }
 
 // Fernsteuerung verweigern: die Fuses sperren nur --inspect (Node), nicht Chromiums DevTools-Protokoll
 for(const s of ['remote-debugging-port','remote-debugging-pipe','remote-debugging-address','remote-allow-origins'])
@@ -55,25 +68,42 @@ else {
       return u.protocol==='app:'&&u.host==='tresor'&&u.pathname==='/index.html'; }
     catch(_){ return false; }
   }
-  // Zwischenablage, bewusst MINIMAL (Entscheidung 23.09.2026): der Tresor kopiert nur das TOTP-Geheimnis und den otpauth-Link bei der
-  // Einrichtung. Kopie mit KDE-Hinweis, gemerkt wird nur ein gesalzener Hash, gelöscht wird nur die eigene Kopie (beim Sperren, beim Beenden).
-  // Keine Überwachung der X11-Auswahl (PRIMARY) und kein Abfangen von Strg+C/X wie in Alien Pass — dort steht es in DESKTOP-INVARIANTEN.md.
+  // Zwischenablage (seit v3.7 Fassung Alien Notes v1.7, Entscheidung Nutzer 03.10.2026): Kopie mit KDE-Hinweis, dazu die X11-Auswahl (PRIMARY) —
+  // die App meldet markierten Text, gemerkt wird je nur ein gesalzener Hash, gelöscht wird nur Eigenes (Frist in app.js, Sperren, Beenden).
+  // Besitz-Hashes mit prozess-zufälligem Salz: der Hash darf nie ein Klartext-Orakel für kurze Texte sein (Alien Pass Audit run-8 #3)
   const SALT=crypto.randomBytes(16);
   const sha=t=>crypto.createHash('sha256').update(SALT).update(String(t)).digest('hex');
   let owned=null;      // Hash des zuletzt von uns kopierten Texts — nie der Text selbst
+  let ownedSel=null;   // Hash des zuletzt in der App markierten Texts (X11-Auswahl, Mittelklick) — Klipper speichert sie nicht, aber jedes Programm liest sie
   async function clearOwned(){
-    if(!owned) return;
-    let cur=''; try{ cur=await clipboard.readText(); }catch(_){}
-    if(cur&&sha(cur)===owned) await clipboard.clear();   // nur löschen, was noch von uns stammt; fremde Kopien bleiben
-    owned=null;
+    // Hashes ZUERST übernehmen und freigeben: readText() ist in Electron 44 asynchron — eine Meldung/Kopie, die während der awaits ankommt, gehört
+    // zum nächsten Löschen und darf hier nicht mit weggewischt werden (sonst bliebe sie unbegrenzt liegen; Release-Audit v3.7 A-1)
+    const o=owned, s=ownedSel; owned=null; ownedSel=null;
+    const mine=[o,s].filter(Boolean); if(!mine.length) return;
+    if(o){ let cur=''; try{ cur=await clipboard.readText(); }catch(_){}
+      if(cur&&sha(cur)===o){ try{ await clipboard.clear(); }catch(_){} } }   // nur löschen, was noch von uns stammt; fremde Kopien bleiben
+    // PRIMARY: die eigene Markierung — UND die eigene Kopie. Unter X11/KDE spiegelt Klipper jede Kopie zusätzlich in PRIMARY, auch mit KDE-Hinweis
+    // (gemessen 03.10.2026, Electron 44.5.1): sonst bliebe das kopierte TOTP-Geheimnis per Mittelklick abrufbar. Die Gegenrichtung (Markierung →
+    // CLIPBOARD) fand die Messung nicht.
+    { let cur=''; try{ cur=await clipboard.selection.readText(); }catch(_){}
+      if(cur&&mine.includes(sha(cur))){ try{ await clipboard.selection.clear(); }catch(_){} } }
   }
+  // Alle Zwischenablage-Schritte in EINER Kette, in IPC-Reihenfolge: ein write/selected kann sich nicht mehr in ein laufendes Löschen schieben,
+  // und das Beenden wartet das letzte Löschen ab (Release-Audit v3.7 R2-1 — clipboard.* ist in Electron 44 asynchron)
+  let clipQ=Promise.resolve();
+  const run=f=>(clipQ=clipQ.then(f,f));
   ipcMain.handle('clip:write',async(e,text)=>{
     if(!fromApp(e)) throw new Error('denied');
     if(typeof text!=='string'||!text||text.length>CLIP_MAX) throw new Error('bad');
-    await clipboard.write([new ClipboardItem({'text/plain':new Blob([text],{type:'text/plain'}),[KDE_HINT]:new Blob(['secret'])})]);
-    owned=sha(text); return true;
+    return run(async()=>{ await clipboard.write([new ClipboardItem({'text/plain':new Blob([text],{type:'text/plain'}),[KDE_HINT]:new Blob(['secret'])})]);
+      owned=sha(text); return true; });
   });
-  ipcMain.handle('clip:clear',async e=>{ if(!fromApp(e)) throw new Error('denied'); await clearOwned(); return true; });
+  ipcMain.handle('clip:selected',async(e,text)=>{   // App meldet markierten Text; gemerkt wird nur der Hash
+    if(!fromApp(e)) throw new Error('denied');
+    if(typeof text!=='string'||text.length>SEL_MAX) throw new Error('bad');
+    const h=text?sha(text):null; return run(()=>{ ownedSel=h; return true; });
+  });
+  ipcMain.handle('clip:clear',async e=>{ if(!fromApp(e)) throw new Error('denied'); await run(clearOwned); return true; });
 
   // Vollständig + atomar schreiben: desktop/atomic.js (eigenes Modul, damit es einzeln unter ulimit geprüft werden kann)
   // Temp-Reste nach einem Absturz entfernen — sie können nach einem Passphrase-Wechsel einen Alt-Stand halten
@@ -136,12 +166,12 @@ else {
     return saveVia(name,buf,[{name:'PDF',extensions:['pdf']}]);
   });
 
-  // Jede Webansicht: keine Navigation, keine neuen Fenster, keine <webview>
+  // Jede Webansicht: keine Navigation, keine neuen Fenster, keine <webview>. Bekannte Links gehen an den System-Browser.
   app.on('web-contents-created',(_e,wc)=>{
-    wc.on('will-navigate',ev=>ev.preventDefault());
+    wc.on('will-navigate',(ev,url)=>{ ev.preventDefault(); openOutside(url); });
     wc.on('will-redirect',ev=>ev.preventDefault());
     wc.on('will-attach-webview',ev=>ev.preventDefault());
-    wc.setWindowOpenHandler(()=>({action:'deny'}));
+    wc.setWindowOpenHandler(({url})=>{ openOutside(url); return {action:'deny'}; });
     wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
   });
 
@@ -186,6 +216,8 @@ else {
 
   // Beim Beenden die eigene Kopie aus der Zwischenablage nehmen
   let quitting=false;
-  app.on('before-quit',ev=>{ if(quitting||!owned) return; ev.preventDefault(); quitting=true; clearOwned().catch(()=>{}).finally(()=>app.quit()); });
+  // Immer über die Kette: auch wenn die Hashes gerade frei sind, kann ein Löschen oder eine Kopie noch unterwegs sein (R2-1). Höchstens 3 s warten.
+  app.on('before-quit',ev=>{ if(quitting) return; ev.preventDefault(); quitting=true;
+    Promise.race([run(clearOwned),new Promise(r=>setTimeout(r,3000))]).catch(()=>{}).finally(()=>app.quit()); });
   app.on('window-all-closed',()=>app.quit());
 }
