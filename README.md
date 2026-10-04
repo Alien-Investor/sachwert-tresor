@@ -237,7 +237,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     in den Verlauf (unter Plasma geprüft); andere Zwischenablage-Manager können die Markierung ignorieren. Die App löscht ihre eigene Kopie
     nach 30 Sekunden, beim Sperren und beim Beenden. Seit v3.7 gilt das auch für Text, den du in der App markierst — unter X11 liegt er sofort
     in der Auswahl (Mittelklick fügt ein), auch aus einem verdeckten Passwortfeld, etwa nach Tab in die gefüllte Passphrase. Gelöscht wird nur,
-    was noch von der App stammt; fremde Kopien bleiben stehen. Markierter Text trägt die KDE-Markierung nicht: Wer in Klipper die Auswahl in
+    was noch von der App stammt; fremde Kopien bleiben stehen. Klipper kann jede Kopie zusätzlich in diese Mittelklick-Auswahl spiegeln
+    (Einstellung „Auswahl und Zwischenablage synchronisieren“) — die App löscht sie dort mit. Markierter Text trägt die KDE-Markierung nicht: Wer in Klipper die Auswahl in
     den Verlauf übernehmen lässt, sollte das abschalten.
   - **Spendenlink:** öffnet sich am Desktop im System-Browser. Die Hülle lässt genau die Spendenseite (DE/EN) durch, höchstens einmal je
     Sekunde; jede andere Adresse verpufft.

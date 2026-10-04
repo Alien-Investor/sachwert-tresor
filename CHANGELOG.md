@@ -3,6 +3,27 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.8 — 2026-10-04
+
+Kleine Korrekturen an der Zwischenablage der Linux-Desktop-Fassung, nachgezogen aus Alien Notes 1.8 und Alien Pass 1.19. Am Datei-Format, an der
+Verschlüsselung und an deinen Buchungen ändert sich nichts; auf Android ändert sich am Verhalten nichts (nur die Versionsnummer).
+- **Desktop — Markierung nach einem Klick neben ein anderes Feld:** Stand in einem anderen Feld noch eine alte Markierung (etwa in der Bezugsquelle,
+  in der Notiz oder in einem Passphrase-Feld), konnte ein Klick links neben oder knapp über dieses Feld die App dazu bringen, dessen Inhalt statt des
+  eben markierten Texts zu melden. Der markierte Text blieb dann in der Mittelklick-Auswahl liegen, auch nach dem Sperren. Die Hülle merkt sich jetzt
+  die letzten acht Markierungen statt nur einer.
+- **Desktop — markierte Passphrase beim Fensterwechsel:** Beim Passphrase-Wechsel und bei der Passphrase eines Backup-Imports leert der Wechsel in ein
+  anderes Fenster die getippten Felder, eine dort markierte Passphrase blieb aber bis zum Ablauf der 30 Sekunden in der Mittelklick-Auswahl. Jetzt
+  verschwindet sie mit, sofern nicht gerade eine Kopie der App in ihrer Frist liegt (dann gilt deren Frist für beides). Markierter Text in der Tabelle
+  oder im Eintragsformular bleibt beim Fensterwechsel wie bisher per Mittelklick einfügbar.
+- **Desktop — kleinere Härtungen:** Jeder Zugriff auf die Zwischenablage hat jetzt eine eigene Frist, Zwischenablage und Mittelklick-Auswahl werden
+  unabhängig voneinander geräumt: ein hängendes fremdes Programm hält das Löschen nicht mehr auf, und was nicht sofort gelöscht werden kann, holt die
+  Hülle selbst nach. Kommt eine Kopie zu spät an, meldet die App „Manuell kopieren“ und löscht sie gleich wieder. Beim Beenden wird das letzte Löschen
+  abgewartet und, falls es nicht alles erwischt hat, direkt nachgefasst, zusammen höchstens etwa 5 Sekunden.
+- **Zahlenfelder im Neon-Look:** Die Pfeile zum Hoch- und Runterzählen (etwa bei „Bezahlt“) und das Kalender-Symbol im Datumsfeld waren am Desktop
+  grau wie im Standard-Browser; jetzt in den Farben der App. Bedienung unverändert (Android zeigt die Pfeile nicht).
+- **Handbuch:** nennt jetzt die Klipper-Einstellung „Auswahl und Zwischenablage synchronisieren“, mit der jede Kopie zusätzlich in der
+  Mittelklick-Auswahl landet; die App löscht sie dort mit (seit 3.7). Im Eintrag zu 3.7 stand der Name der Einstellung falsch.
+
 ## v3.7 — 2026-10-03
 
 Android und Linux-Desktop. Schwerpunkt Desktop: markierte Passphrasen bleiben nicht mehr in der Linux-Auswahl liegen. Keine Änderung an
@@ -15,7 +36,7 @@ Tresor-Format, Verschlüsselung, Berechtigungen oder Daten.
 - **Desktop — Kopien:** Strg+C und Strg+X in der App kopieren jetzt wie der Kopieren-Knopf: für KDE als Passwort markiert (Klipper übernimmt
   es nicht in den Verlauf) und nach 30 Sekunden gelöscht. Vorher kopierte Strg+C ohne Markierung und ohne Löschen. Der 2FA-Schlüssel wird
   ebenfalls nach 30 Sekunden gelöscht (vorher erst beim Sperren), und zwar auch aus der Auswahl: Klipper kann jede Kopie zusätzlich dorthin
-  spiegeln (Einstellung „Abgleichen“). Auf dem Sperrbildschirm kopiert Strg+C ebenso mit Frist; beim Entsperren wird gelöscht.
+  spiegeln (Einstellung „Auswahl und Zwischenablage synchronisieren“). Auf dem Sperrbildschirm kopiert Strg+C ebenso mit Frist; beim Entsperren wird gelöscht.
 - **Desktop — Auge:** Wer eine Passphrase markiert und dann aufdeckt, bekommt keine Klartext-Markierung mehr; der Cursor steht am Ende.
 - **Desktop — Spendenlink sichtbar:** öffnet sich im System-Browser. Die Hülle lässt genau die Spendenseite (Deutsch/Englisch) durch, höchstens
   einmal je Sekunde; jede andere Adresse verpufft. Auf Englisch zeigt der Link jetzt auch in der Android-App auf die englische Seite.
