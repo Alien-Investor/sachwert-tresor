@@ -355,7 +355,8 @@ async function restart(){
     R('Kurszeile per echtem Strg+V eingefügt: Rückfrage mit dem Kurs erscheint', da, {foc:win.isFocused()});
     await click('#dlg-cancel'); await sleep(300);
     R('Kurszeile abgebrochen: Feld leer, BTC-Preis unverändert, Tresor-Datei unverändert', await js(`document.getElementById('price-paste').value===''&&document.getElementById('price-btc').value!=='61234.5'`)&&fs.readFileSync(VAULT).equals(vorher));
-    try{ clipboard.clear(); }catch(_){} }
+    try{ clipboard.clear(); }catch(_){}
+    await js(`(()=>{ App.tab('settings'); return true; })()`); }   // Folgeprüfungen (Auge, Tab) arbeiten in cp1 auf dem Einstellungs-Tab
   // Auge beim Tippen (v3.6.4, Port Alien Pass v1.17): Chromium setzt beim type-Wechsel die Auswahl auf 0 — echte Tasten und echter Mausklick aufs Auge
   const eye=async()=>{ const r=await js(`(()=>{const b=document.querySelector('[data-showpass="cp1"]');b.scrollIntoView({block:'center'});const q=b.getBoundingClientRect();return {x:Math.round(q.left+q.width/2),y:Math.round(q.top+q.height/2)};})()`);
     win.webContents.sendInputEvent({type:'mouseDown',x:r.x,y:r.y,button:'left',clickCount:1}); win.webContents.sendInputEvent({type:'mouseUp',x:r.x,y:r.y,button:'left',clickCount:1}); await sleep(300); };
