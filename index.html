@@ -346,7 +346,7 @@ tr:hover td{color:var(--neon);}
       <div id="dash-stats" class="stat-grid"></div>
       <div class="card">
         <h2 data-i18n="dash.valTitle">Aktueller Wert (manuell, offline)</h2>
-        <p class="muted" data-i18n="dash.valIntro">Keine Kursabfrage übers Netz (OpSec). Trage aktuelle Preise selbst ein — der Wert wird lokal berechnet.</p>
+        <p class="muted" data-i18n="dash.valIntro">Keine Kursabfrage übers Netz (OpSec). Trage aktuelle Preise selbst ein oder füge unten die Kurszeile aus Mission Control ein — der Wert wird lokal berechnet.</p>
         <label style="margin-top:4px" data-i18n="dash.metalUnit">Edelmetall-Einheit</label>
         <div class="seg" id="metal-unit-seg" style="max-width:280px">
           <button data-u="oz" class="on" data-action="setMetalUnit" data-arg="oz" data-i18n="dash.oz">Unze (oz)</button>
@@ -362,6 +362,9 @@ tr:hover td{color:var(--neon);}
           <div><label id="price-gold-label">Gold €/oz</label><input id="price-gold" type="number" step="any" data-input="savePrices"></div>
           <div><label id="price-silver-label">Silber €/oz</label><input id="price-silver" type="number" step="any" data-input="savePrices"></div>
         </div>
+        <label for="price-paste" style="margin-top:12px" data-i18n="dash.pasteLbl">Kurszeile aus Mission Control</label>
+        <input id="price-paste" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Hier einfügen: ALIEN-KURSE/1 …" data-i18n-ph="dash.pastePh" data-input="pasteRates" data-enter="pasteRatesEnter" aria-describedby="price-paste-msg">
+        <p id="price-paste-msg" class="muted" role="status" aria-live="polite" style="margin:4px 0 0;font-size:.8rem"></p>
         <div id="dash-value" class="stat-grid" style="margin-top:16px"></div>
       </div>
     </div>
@@ -684,7 +687,7 @@ tr:hover td{color:var(--neon);}
     </ul>
 
     <h2 data-i18n="help.h4">Übersicht & Werte</h2>
-    <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
+    <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) oder kopierst sie in Mission Control (alien-investor.org, Karte „Sachwert-Tresor · Kurse kopieren“) und fügst die Zeile in der Übersicht ein — der Tresor zeigt sie dir vor der Übernahme, Gold und Silber kommen schon in Euro umgerechnet an → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
 
     <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
     <p class="only-desk" data-i18n-html="help.p5desk">Dein Bestand liegt verschlüsselt in einer Datei <em>dieses</em> Rechners: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. Sie übersteht Updates (deinstallieren + neu installieren) und geht nur mit „Lokale Daten löschen“ oder <code>flatpak uninstall --delete-data</code> verloren. Auch hier gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>.</p>

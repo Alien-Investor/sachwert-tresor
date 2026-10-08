@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.8';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.9';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -26,7 +26,8 @@ const I18N = {
   "btn.cancel":"Cancel",
   "tab.dash":"Overview","tab.add":"Add","tab.list":"Holdings","tab.verlauf":"History","tab.export":"Export & Sync","tab.settings":"Settings",
   "dash.valTitle":"Current value (manual, offline)",
-  "dash.valIntro":"No price lookup over the network (OpSec). Enter current prices yourself — the value is computed locally.",
+  "dash.valIntro":"No price lookup over the network (OpSec). Enter current prices yourself or paste the price line from Mission Control below — the value is computed locally.",
+  "dash.pasteLbl":"Price line from Mission Control","dash.pastePh":"Paste here: ALIEN-KURSE/1 …",
   "dash.metalUnit":"Precious-metal unit","dash.oz":"Ounce (oz)","dash.g":"Gram (g)","dash.btcUnit":"Bitcoin unit","dash.btcPrice":"BTC price €/BTC",
   "add.buy":"＋ Buy","add.sell":"－ Sell","add.withdraw":"↗ Withdrawal",
   "add.tBtc":"₿ Bitcoin","add.tGold":"Au Gold","add.tSilver":"Ag Silver",
@@ -103,7 +104,7 @@ const I18N = {
   "help.h3":"Adding entries",
   "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
   "help.h4":"Overview & values",
-  "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
+  "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) or copy them in Mission Control (alien-investor.org, card “Sachwert-Tresor · Copy Prices”) and paste the line in the overview — the vault shows them to you before applying them, gold and silver arrive already converted to euros → from this, current value and profit/loss are computed. The History tab shows wealth development.",
   "help.h5":"Backup & Sync (important!)",
   "help.p5desk":"Your holdings live encrypted in a file on <em>this</em> computer: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. It survives updates (uninstall + reinstall) and is lost only with “Delete local data” or <code>flatpak uninstall --delete-data</code>. Here too: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
   "help.p5":"Your holdings live encrypted in this device's local storage (localStorage) — in the <strong>app</strong> in protected app storage (survives restarts and updates, lost only on “Clear app data” or uninstall), in the <strong>browser</strong> in the browser profile (removed when you clear “cookies and site data” — not by clearing the cache alone). Either way: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>. The app is significantly more persistent — recommended for long-term use.",
@@ -197,7 +198,7 @@ const T = {
   "confirm.wipe":{de:"Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.",en:"Delete the local vault on THIS device? Exported .vault files remain."},
   // Knöpfe des Rückfrage-Dialogs (v3.5): je Frage ein eigener Knopf statt eines nackten „OK“
   "dlg.ok":{de:"OK",en:"OK"},"dlg.cancel":{de:"Abbrechen",en:"Cancel"},"dlg.delete":{de:"Löschen",en:"Delete"},"dlg.disable":{de:"Deaktivieren",en:"Disable"},
-  "dlg.wipe":{de:"Tresor löschen",en:"Delete vault"},"dlg.addAnyway":{de:"Trotzdem eintragen",en:"Add anyway"},
+  "dlg.wipe":{de:"Tresor löschen",en:"Delete vault"},"dlg.addAnyway":{de:"Trotzdem eintragen",en:"Add anyway"},"dlg.takeRates":{de:"Übernehmen",en:"Apply"},
   "toast.undo":{de:"Rückgängig",en:"Undo"},"toast.restored":{de:"Eintrag wiederhergestellt",en:"Entry restored"},"toast.undoGone":{de:"Der Eintrag ist bereits wieder da.",en:"The entry is already back."},
   "msg.merged":{de:"Zusammengeführt",en:"Merged"},
   "msg.entriesNew":{de:"neue Einträge",en:"new entries"},
@@ -224,6 +225,19 @@ const T = {
   "series.silver":{de:"Silber-Bestand",en:"Silver holdings"},
   "preview.totalPrefix":{de:"→ Gesamt: ",en:"→ Total: "},"preview.gross":{de:"brutto",en:"gross"},
   "dash.pricesHint":{de:"Trage oben Preise ein, um den aktuellen Wert zu sehen.",en:"Enter prices above to see the current value."},
+  "rates.ask":{de:"Kurse übernehmen?",en:"Apply prices?"},
+  "rates.when":{de:"Abgerufen am {d}",en:"Fetched on {d}"},
+  "rates.typed":{de:"Gültige Zeile — mit Enter prüfen und übernehmen.",en:"Valid line — press Enter to review and apply."},
+  "rates.silver":{de:"Silber",en:"Silver"},
+  "rates.fx":{de:"Edelmetallpreise umgerechnet mit 1 USD = {r} €",en:"Metal prices converted at 1 USD = {r} €"},
+  "rates.keep":{de:"Nicht enthaltene Preise bleiben unverändert.",en:"Prices not included stay unchanged."},
+  "rates.staleH":{de:"Achtung: Diese Kurse wurden vor {n} Stunden abgerufen.",en:"Note: these prices were fetched {n} hours ago."},
+  "rates.staleD":{de:"Achtung: Diese Kurse wurden vor {n} Tagen abgerufen.",en:"Note: these prices were fetched {n} days ago."},
+  "rates.future":{de:"Achtung: Der Abrufzeitpunkt liegt in der Zukunft — Geräteuhr prüfen.",en:"Note: the fetch time lies in the future — check the device clock."},
+  "rates.invalid":{de:"Keine gültige Kurszeile. In Mission Control „Kurse kopieren“ antippen und die ganze Zeile hier einfügen.",en:"Not a valid price line. Tap “Copy Prices” in Mission Control and paste the whole line here."},
+  "rates.newer":{de:"Diese Kurszeile stammt aus einer neueren Version — bitte den Tresor aktualisieren.",en:"This price line comes from a newer version — please update the vault."},
+  "rates.range":{de:"Ein Kurs liegt außerhalb des plausiblen Bereichs ({k}) — nichts übernommen.",en:"A price is outside the plausible range ({k}) — nothing applied."},
+  "rates.taken":{de:"Kurse übernommen",en:"Prices applied"},
   "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
   "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
   "msg.importSaveFailed":{de:"Entschlüsselt, aber Speichern fehlgeschlagen — nichts übernommen. Speicher voll?",en:"Decrypted, but saving failed — nothing was imported. Storage full?"},
@@ -535,6 +549,42 @@ function sanitizeEntry(e){
   }
   return out;
 }
+/* Kurszeile aus Mission Control (seit v3.9): Kurse kommen nur per Kopieren & Einfügen in den Tresor, nie übers Netz.
+   Format v1, EINZEILIG (das Feld ist ein <input>; Umbrüche werden beim Einfügen zu Leerzeichen):
+     ALIEN-KURSE/1 t=2026-10-08T12:32Z btc=58123.45 gold=2312.10 silver=27.85 usdeur=0.8554
+   btc = €/BTC, gold/silver = €/Feinunze. Mission Control rechnet USD in EUR um, der Tresor nie (DATEN-INVARIANTEN);
+   usdeur dient nur der Anzeige im Bestätigungsdialog und wird nicht gespeichert. Streng: ein Wert außerhalb der Grenzen
+   verwirft die ganze Zeile. Unbekannte Schlüssel werden übergangen (spätere Zeilen bleiben lesbar).
+   t = Zeitpunkt des Abrufs (UTC), Sekunden erlaubt.
+   → {ok:true, t (ms, UTC), btc, gold, silver, usdeur} (fehlend = null) oder {ok:false, err:'invalid'|'newer'|'range' (+ key)}. */
+const RATE_LINE_MAX=400;
+const RATE_LIMITS={btc:[100,1e8], gold:[50,1e5], silver:[0.5,1e4], usdeur:[0.1,10]};
+function parseRateLine(text){
+  const s=String(text==null?'':text).trim();
+  if(s.length>RATE_LINE_MAX) return {ok:false, err:'invalid'};
+  const head=/^ALIEN-KURSE\/(\d{1,3})(?:\s|$)/.exec(s);
+  if(!head) return {ok:false, err:'invalid'};
+  if(head[1]!=='1') return {ok:false, err:(head[1][0]!=='0'&&+head[1]>1)?'newer':'invalid'};
+  const out={ok:true, t:null, btc:null, gold:null, silver:null, usdeur:null}, seen=Object.create(null);
+  for(const tok of s.slice(head[0].length).split(/\s+/)){
+    if(!tok) continue;
+    const m=/^([a-z]{1,16})=(\S{1,40})$/.exec(tok);
+    if(!m || seen[m[1]]) return {ok:false, err:'invalid'};   // kaputtes Token oder doppelter Schlüssel
+    const k=m[1], v=m[2]; seen[k]=true;
+    if(k==='t'){
+      const tm=/^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})(?::(\d{2}))?Z$/.exec(v);   // Sekunden erlaubt (date -u +%FT%TZ), gelesen wird bis zur Minute
+      if(!tm || !csvDay(v.slice(0,10)) || +tm[1]>23 || +tm[2]>59 || (tm[3]!==undefined && +tm[3]>59)) return {ok:false, err:'invalid'};
+      out.t=Date.parse(v.slice(0,16)+':00Z');
+    }else if(Object.prototype.hasOwnProperty.call(RATE_LIMITS,k)){
+      if(!/^\d{1,9}(\.\d{1,8})?$/.test(v)) return {ok:false, err:'invalid'};   // nur Dezimalpunkt, kein Vorzeichen/Exponent/Komma
+      const n=Number(v), lim=RATE_LIMITS[k];
+      if(!(n>=lim[0] && n<=lim[1])) return {ok:false, err:'range', key:k};
+      out[k]=n;
+    }
+  }
+  if(out.t==null || (out.btc==null && out.gold==null && out.silver==null)) return {ok:false, err:'invalid'};
+  return out;
+}
 /* === VAULT-FORMAT END === */
 
 /* ---------- TOTP (RFC 6238, HMAC-SHA1) ---------- */
@@ -568,6 +618,7 @@ const App = (function(){
   // {vault, dek,kdf,wrap} oder {legacy:true, vault, kdf, kek, raw}. Vor dem Gate liegt NICHTS in DEK/VAULT.
   let pendingUnlock = null;
   let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', chartRange = 'max', editId = null;
+  let pasteLast='', pasteMsgKey='', pasteMsgArg='';   // Kurszeile (v3.9): Feldinhalt nach der letzten Auswertung, letzte Meldung (für relabel)
   let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
 
   // Desktop-Hülle (Linux, Electron im Flatpak, seit v3.3 — Muster Alien Pass v1.7): Brücke aus desktop/preload.js. Ohne Hülle
@@ -867,7 +918,7 @@ const App = (function(){
   }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
-    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert','price-paste-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
     { const bk=$('bio-keep'); if(bk) bk.checked=false; }   // „auch nach Neustart“ nie stehen lassen (ab Werk aus)s H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
@@ -877,7 +928,8 @@ const App = (function(){
     closeNachlass(); closeHelp(); dialogClose(false); hideToast();   // offene Rückfrage verfällt (Aufrufer sieht false), Toast samt „Rückgängig“ weg (v3.5)
     chartState=null;                                     // aus Klartext abgeleitete Zeitreihe nicht im Heap lassen
     ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2',
-     'nl-fassung','price-btc','price-gold','price-silver'].forEach(i=>{const el=$(i);if(el)el.value='';});
+     'nl-fassung','price-btc','price-gold','price-silver','price-paste'].forEach(i=>{const el=$(i);if(el)el.value='';});
+    pasteLast=''; pasteMsgKey=''; pasteMsgArg='';
     $('totp-secret').textContent=''; App._otpauth='';
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup'); err('bio-err');
@@ -1259,6 +1311,56 @@ const App = (function(){
     if(h.length>PRICE_HIST_MAX) h.splice(0,h.length-PRICE_HIST_MAX);
     persist().catch(()=>{});
   }
+  // Kurszeile aus Mission Control (v3.9): parseRateLine (Sentinel-Region) prüft streng, ask() zeigt die Werte, erst
+  // „Übernehmen“ schreibt. Die Rückfrage öffnet NUR ein echtes Einfügen (paste-Listener unten, ersetzt den ganzen Feldinhalt)
+  // oder ein Block von ≥ 20 neuen Zeichen auf einmal (Zwischenablage-Vorschlag der Tastatur, Ziehen) — erkannt am tatsächlich
+  // eingefügten Teil (gemeinsamer Anfang/Ende von altem und neuem Inhalt, run-9 R2-3/R2-4), nicht an der Längendifferenz.
+  // Tippen und Löschen aktualisieren nur die Meldung — sonst öffnete schon „btc=581“ die Rückfrage (run-9 A-1); getippt: Enter.
+  // Nur gelieferte Preise werden ersetzt; Gold/Silber kommen in €/oz und landen wie in savePrices intern als €/g.
+  // Der Wechselkurs steht nur im Dialog — der Tresor speichert und nutzt ihn nicht (DATEN-INVARIANTEN).
+  // Das Feld wird vor der Rückfrage geleert (OK wie Abbrechen), der Preisstand bekommt wie immer das heutige Datum.
+  const rateLabel=k=>k==='silver'?tr('rates.silver'):({btc:'Bitcoin',gold:'Gold',usdeur:'USD/EUR'})[k]||'';
+  const pasteMsgText=()=>pasteMsgKey?tr(pasteMsgKey).replace('{k}',rateLabel(pasteMsgArg)):'';
+  // Live-Region (role=status): nur bei geändertem Text schreiben, sonst sagt ein Screenreader sie je Taste neu an (run-9 R2-5)
+  function setPasteMsg(key,arg){ pasteMsgKey=key||''; pasteMsgArg=arg||''; const m=$('price-paste-msg'), t=pasteMsgText(); if(m&&m.textContent!==t) m.textContent=t; }
+  // Neu hinzugekommener Teil zwischen gemeinsamem Anfang und gemeinsamem Ende von a (vorher) und b (jetzt)
+  function insertedPart(a,b){ const n=Math.min(a.length,b.length); let i=0; while(i<n&&a[i]===b[i]) i++;
+    let j=0; while(j<n-i&&a[a.length-1-j]===b[b.length-1-j]) j++; return b.slice(i,b.length-j); }
+  // how: undefined = input-Ereignis (Tippen, Löschen, Tastatur-Vorschlag, Ziehen), true = paste-Ereignis, 'enter' = Enter im Feld
+  async function pasteRates(how){
+    const el=$('price-paste'); let raw=el.value, pasted=how===true;
+    if(how===undefined){ const ins=insertedPart(pasteLast,raw);
+      if(ins.length>=20){ pasted=true;   // Block auf einmal: gilt der ganze Inhalt nicht, aber der eingefügte Teil, dann nur dieser (vor oder hinter einem Rest)
+        if(!parseRateLine(raw).ok&&parseRateLine(ins).ok){ raw=ins.trim(); el.value=raw; } } }
+    pasteLast=raw;
+    if(!raw.trim()){ setPasteMsg(''); return; }
+    const r=parseRateLine(raw);
+    if(!r.ok){ setPasteMsg(pasted||how==='enter'||raw.trim().length>=12?'rates.'+r.err:'', r.key); return; }   // kurzes Tippen meckert nicht sofort
+    if(!pasted&&how!=='enter'){ setPasteMsg('rates.typed'); return; }
+    setPasteMsg(''); el.value=''; pasteLast='';
+    const when=new Date(r.t).toLocaleString(LANG==='en'?'en-GB':'de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const L=[tr('rates.ask'),tr('rates.when').replace('{d}',when),''];
+    if(r.btc!=null) L.push('Bitcoin: '+fmtEur(r.btc)+'/BTC');
+    if(r.gold!=null) L.push('Gold: '+fmtEur(r.gold)+'/oz');
+    if(r.silver!=null) L.push(tr('rates.silver')+': '+fmtEur(r.silver)+'/oz');
+    if(r.usdeur!=null&&(r.gold!=null||r.silver!=null)) L.push('',tr('rates.fx').replace('{r}',r.usdeur.toLocaleString('de-DE',{minimumFractionDigits:4,maximumFractionDigits:8})));
+    if(r.btc==null||r.gold==null||r.silver==null) L.push('',tr('rates.keep'));
+    const age=Date.now()-r.t, h=Math.floor(age/3600000);
+    if(age>24*3600000) L.push('',tr(h<48?'rates.staleH':'rates.staleD').replace('{n}',h<48?h:Math.floor(h/24)));
+    else if(age<-10*60000) L.push('',tr('rates.future'));
+    if(!(await ask(L.join('\n'),{ok:'dlg.takeRates'})) || !VAULT) return;   // Sperre beantwortet die Frage mit false
+    clearTimeout(savePrices._t);                                            // offener Debounce aus savePrices: Preisstand/Neuzeichnen kommt gleich ohnehin
+    const before=VAULT.prices, p=Object.assign({btc:'',gold:'',silver:''},before);
+    if(r.btc!=null) p.btc=String(r.btc);
+    if(r.gold!=null) p.gold=String(r.gold/OZ_G);
+    if(r.silver!=null) p.silver=String(r.silver/OZ_G);
+    VAULT.prices=p;
+    try{ await persist(); }
+    catch(_){ if(VAULT&&VAULT.prices===p){ VAULT.prices=before; renderDash(); } return; }   // gesperrt oder Speicherfehler (persist meldet selbst)
+    if(!VAULT) return;
+    snapPrices(); renderDash(); toast(tr('rates.taken'));
+  }
+  function pasteRatesEnter(){ return pasteRates('enter'); }
   function setMetalUnit(u){VAULT.unit=u;persist();renderDash();}
   function setBtcUnit(u){VAULT.btcUnit=(u==='sat'?'sat':'btc');addBtcUnit=VAULT.btcUnit;persist();renderDash();}
   function setAutolock(v){VAULT.autolock=parseInt(v)||0;persist();resetIdle();toast(VAULT.autolock?tr('toast.autolockPrefix')+VAULT.autolock+' '+tr('unit.min'):tr('toast.autolockOff'));}
@@ -2211,11 +2313,11 @@ const App = (function(){
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
   function closeHelp(){hide('help-overlay');}
   function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
-  function relabel(){ if(!VAULT) return; refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
+  function relabel(){ if(!VAULT) return; { const m=$('price-paste-msg'); if(m) m.textContent=pasteMsgText(); } refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,lockNow,cancelTotp,doBio,bioEnable,bioDisable,bioAlertOk,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
-    exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
+    exportSteuertool,exportSales,exportMetals,exportVault,importVault,doImportVault,cancelImport,importCsv,savePrices,pasteRates,pasteRatesEnter,setMetalUnit,setBtcUnit,setInputBtcUnit,setAutolock,setChartSeries,setChartRange,chartPoint,chartHideTip,
     totpStart,totpConfirm,totpCancel,totpDisable,saveQR,copyQR,changePass,theme,copy,wipeLocal,openHelp,closeHelp,toggleLang,relabel,
     openNachlass,closeNachlass,printNachlass,exportNachlassTxt,renderNachlass,
     pickFile,copySecret,copyOtpauth,meterSetup,meterCp,closeMenus,syncCombos,toggleCombo,chooseOpt,togglePass,enhancePassFields,deskKey,
@@ -2242,6 +2344,14 @@ document.addEventListener('change',ev=>{
   if(a==='setAutolock') return App.setAutolock(el.value);
   if(a==='importCsv'||a==='importVault') return App[a](ev);
   const fn=App[a]; if(typeof fn==='function') fn();
+});
+// Kurszeile (v3.9): ein echtes Einfügen ersetzt den ganzen Feldinhalt (kein Anhängen an einen abgewiesenen Rest, Audit run-9 A-2)
+// und darf die Rückfrage öffnen. Ohne lesbaren Text bleibt es beim Standard (das input-Ereignis zählt dann als Block).
+document.addEventListener('paste',ev=>{
+  const el=ev.target; if(!el||el.id!=='price-paste') return;
+  let txt=ev.clipboardData?ev.clipboardData.getData('text'):''; if(!txt) return;
+  txt=txt.slice(0,2000).replace(/\r\n|[\r\n]/g,' ');   // Umbrüche wie beim nativen Einfügen zu Leerzeichen (value= würde sie still löschen, run-9 R2-2)
+  ev.preventDefault(); el.value=txt; App.pasteRates(true);
 });
 document.addEventListener('input',ev=>{
   const el=ev.target.closest('[data-input]'); if(!el) return;

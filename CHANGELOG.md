@@ -3,6 +3,22 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.9 — 2026-10-09
+
+Aktuelle Kurse lassen sich jetzt aus Mission Control übernehmen, statt sie abzutippen. Der Tresor bleibt dabei ohne Netz: die Kurse kommen nur über
+Kopieren und Einfügen. Am Datei-Format, an der Verschlüsselung und an deinen Buchungen ändert sich nichts.
+- **Kurszeile aus Mission Control:** In Mission Control (alien-investor.org) kopiert die Karte „Sachwert-Tresor · Kurse kopieren“ eine Zeile mit dem
+  Bitcoin-Kurs in Euro und dem Gold- und Silberpreis in Euro je Unze. In der Übersicht fügst du sie ins neue Feld „Kurszeile aus Mission Control“ ein.
+  Der Tresor zeigt Abrufzeit und Werte und übernimmt sie erst nach „Übernehmen“; Preise, die in der Zeile fehlen, bleiben, wie sie sind. Liegt der
+  Abruf mehr als einen Tag zurück, steht ein Hinweis dabei. Die Rückfrage öffnet nur das Einfügen; bei einer von Hand getippten Zeile öffnet Enter sie.
+  Die Wertlinie im Verlauf bekommt wie bei der Handeingabe einen Stand für heute.
+- **Umrechnung nur in Mission Control:** Gold und Silber sind dort COMEX-Futures in US-Dollar (nicht der Spotpreis) und werden mit dem angezeigten
+  USD/EUR-Kurs umgerechnet. Der Kurs steht zur Kontrolle im Dialog, gespeichert wird er nicht. Der Tresor rechnet weiterhin nie selbst zwischen
+  Währungen um. Mission Control kopiert nur Kurse, deren Abruf höchstens 6 Minuten zurückliegt, und lädt sonst erst neu.
+- **Streng beim Lesen:** Zeilen mit anderem Aufbau, Komma statt Punkt oder einem Wert außerhalb plausibler Grenzen werden mit einer Meldung
+  abgewiesen (bei einer Grenze mit dem betroffenen Kurs), ohne dass sich etwas ändert. Das Format steht im README, die Zeile lässt sich auch aus
+  eigener Quelle erzeugen.
+
 ## v3.8 — 2026-10-04
 
 Kleine Korrekturen an der Zwischenablage der Linux-Desktop-Fassung, nachgezogen aus Alien Notes 1.8 und Alien Pass 1.19. Am Datei-Format, an der

@@ -133,12 +133,34 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
 - **Backup-Erinnerung** (seit v2.2): Die Übersicht warnt, wenn noch kein Backup existiert
   oder das letzte länger her ist und neue Buchungen dazukamen — rein lokal.
 - **Mehrwährung** (seit v2.1): Buchungen in **EUR, USD oder CHF**. Summen werden je Währung
-  getrennt ausgewiesen — die App rechnet bewusst nicht um (sie kennt keine Kurse, fragt
+  getrennt ausgewiesen — die App rechnet bewusst nicht um (sie kennt keine Wechselkurse, fragt
   keine ab). Optional lässt sich je Fremdwährungs-Buchung der **EUR-Gegenwert vom
   Buchungstag** (laut Abrechnung) miterfassen.
 - **Übersicht**: **Netto-Bestand** je Anlageklasse (Käufe − Verkäufe − Entnahmen),
   investierter Einstand, realisierte Erlöse. Optional aktuelle Preise manuell eintragen
   (bewusst **keine Netz-Abfrage**, OpSec) → aktueller Wert & G/V ggü. netto investiert.
+- **Kurse aus Mission Control** (seit v3.9): In [Mission Control](https://api.alien-investor.org/mission-control-v2.html)
+  die Karte „Sachwert-Tresor · Kurse kopieren“ antippen und die Zeile in der Übersicht ins Feld „Kurszeile aus Mission
+  Control“ einfügen. Der Tresor zeigt Abrufzeit und Werte und übernimmt erst nach „Übernehmen“. Er selbst bleibt **ohne Netz**:
+  die Kurse kommen nur über die Zwischenablage. Mission Control kopiert nur Kurse, deren Abruf höchstens 6 Minuten
+  zurückliegt, und rechnet Gold und Silber mit dem angezeigten USD/EUR-Kurs in Euro um. Gold und Silber sind dort
+  COMEX-Futures über Yahoo Finance (GC=F/SI=F, der jeweils aktive Kontrakt), nicht der Spotpreis. Der Tresor speichert
+  den Wechselkurs nicht. Das Format ist offen, die Zeile lässt sich auch aus eigener Quelle erzeugen (Beispielwerte):
+  ```
+  ALIEN-KURSE/1 t=2026-10-08T12:32Z btc=58123.45 gold=2312.10 silver=27.85 usdeur=0.8554
+  ```
+  - eine Zeile, höchstens 400 Zeichen, Felder `schlüssel=wert` durch Leerzeichen getrennt, Präfix genau `ALIEN-KURSE/1`
+  - `t` = Zeitpunkt des Abrufs in UTC, `YYYY-MM-DDTHH:MMZ` (Sekunden erlaubt, z. B. aus `date -u +%FT%TZ`, ohne
+    Sekundenbruchteile), Pflicht
+  - `btc` in €/BTC (100 bis 100 Mio.), `gold` (50 bis 100.000) und `silver` (0,5 bis 10.000) in € je Feinunze,
+    `usdeur` (0,1 bis 10) nur zur Anzeige; mindestens einer der drei Preise
+  - Zahlen mit Punkt statt Komma, ohne Vorzeichen und Exponent, bis 9 Stellen vor und 8 nach dem Punkt
+  - jeder Schlüssel höchstens einmal; unbekannte Schlüssel (1 bis 16 Kleinbuchstaben a–z, Wert ohne Leerzeichen, bis
+    40 Zeichen) werden übergangen, alles andere verwirft die Zeile
+
+  Fehlende Preise bleiben im Tresor unverändert. Liegt ein Wert außerhalb der Grenzen, wird die ganze Zeile verworfen,
+  und die Meldung nennt den betroffenen Kurs. Nur Einfügen öffnet die Rückfrage; bei einer von Hand getippten Zeile
+  öffnet Enter sie.
 - **Vermögensentwicklung** (seit v2.12): Jeder Preis, den du in der Übersicht einträgst, wird
   mit Datum gemerkt (ein Stand je Tag). Daraus zeichnet der Verlauf den **Wert deiner Bestände**
   neben dem gestrichelten **Einstand** — mit Zeitraum-Umschaltern (YTD/1J/3J/5J/MAX) und einem

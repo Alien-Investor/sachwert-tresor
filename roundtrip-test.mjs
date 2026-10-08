@@ -266,7 +266,8 @@ async function main(){
   const V = new Function('enc','dec','bufToB64','b64ToBuf',
     region + '\nreturn {MAGIC,FILE_VER,KDF_DEFAULT,KDF_BOUNDS,MAX_FILE_BYTES,rand,b64Bytes,passBytes,kdfOk,aad,'
            + 'deriveKek,newDek,wrapDek,unwrapDek,bioKey,parseBioBlob,serializeBioBlob,bioWrapOk,encryptBody,decryptBody,'
-           + 'serializeFile,parseFile,looksLegacy,MAX_ENTRIES,MAX_CSV_ROWS,parseCsv,csvKind,csvRowToEntry,sanitizeEntry};')(enc,dec,bufToB64,b64ToBuf);
+           + 'serializeFile,parseFile,looksLegacy,MAX_ENTRIES,MAX_CSV_ROWS,parseCsv,csvKind,csvRowToEntry,sanitizeEntry,'
+           + 'RATE_LINE_MAX,RATE_LIMITS,parseRateLine};')(enc,dec,bufToB64,b64ToBuf);
   const KDF_TEST={m:8192,t:1,p:1};                       // klein, damit die Suite schnell bleibt
   const mkKdf=()=>({...KDF_TEST, salt:V.rand(16)});
   const FIXPASS='fixture-passphrase-nicht-geheim';
@@ -415,6 +416,81 @@ async function main(){
     { const norm=f=>f.toString().replace(/\/\/[^\n]*/g,'').replace(/\s+/g,'');
       ok(norm(sanitizeEntry)===norm(V.sanitizeEntry),'Kopie von sanitizeEntry oben im Test (für [6]/[7]) gleicht der Region — driftet sie, fällt dieser Check'); }
     ok(B('2024-03-01','0.1','100','Bisq','ja').kyc===true&&V.csvRowToEntry('sell',['2024-03-01','0.1','100','','no_kyc'],'00ff').noKyc===true,'CSV: KYC-Flags unverändert'); }
+
+  console.log('\n[12] Kurszeile aus Mission Control (v3.9): parseRateLine der Sentinel-Region — streng, Grenzen, Fuzz');
+  { const P=V.parseRateLine, H='ALIEN-KURSE/1 t=2026-10-08T12:32Z ';
+    const KEY=i=>{ let k=''; i+=1; while(i>0){ k=String.fromCharCode(97+(i-1)%26)+k; i=Math.floor((i-1)/26); } return 'z'+k; };   // eindeutige unbekannte Schlüssel
+    const FILL=n=>Array.from({length:n},(_,i)=>KEY(i)+'=1').join(' ');
+    const r=P(H+'btc=58123.45 gold=2312.10 silver=27.85 usdeur=0.8554');
+    ok(r.ok&&r.t===Date.UTC(2026,9,8,12,32)&&r.btc===58123.45&&r.gold===2312.1&&r.silver===27.85&&r.usdeur===0.8554,'volle Zeile: alle Werte, t in UTC');
+    { const q=P(H+'btc=60000'); ok(q.ok&&q.btc===60000&&q.gold===null&&q.silver===null&&q.usdeur===null,'Teilzeile (nur BTC): fehlende Werte null'); }
+    ok(P('  '+H.replace(' t=','\t t=')+'  gold=2000   silver=25 ').ok,'Leerraum/Tab vorn, hinten und dazwischen toleriert');
+    ok(P(H+'btc=60000 chfeur=1.0712 src=mc').ok,'unbekannte Schlüssel werden übergangen (vorwärtskompatibel)');
+    ok(P(H+'btc=60000 constructor=1 tostring=2').ok&&!P(H+'btc=60000 __proto__=1').ok,'Objekt-Schlüsselnamen harmlos, __proto__ kein gültiges Token');
+    const inv=[['ohne t','ALIEN-KURSE/1 btc=60000'],['nur t',H.trim()],['nur Präfix','ALIEN-KURSE/1'],['nur usdeur',H+'usdeur=0.85'],
+      ['Komma',H+'btc=58123,45'],['negativ',H+'btc=-60000'],['Exponent',H+'btc=6e4'],['.5',H+'silver=.5'],['5.',H+'silver=5.'],['+',H+'btc=+60000'],
+      ['NaN',H+'btc=NaN'],['Infinity',H+'btc=Infinity'],['Hex',H+'btc=0x10'],['9 Nachkommastellen',H+'silver=25.123456789'],['10 Stellen',H+'btc=1000000000'],
+      ['doppelt btc',H+'btc=60000 btc=61000'],['doppelt t',H+'t=2026-10-08T12:33Z btc=60000'],['Großbuchstaben-Schlüssel',H+'BTC=60000'],['ohne =',H+'btc 60000'],
+      ['leerer Wert',H+'btc='],['30. Februar','ALIEN-KURSE/1 t=2026-02-30T12:00Z btc=60000'],['24:00','ALIEN-KURSE/1 t=2026-10-08T24:00Z btc=60000'],
+      ['Minute 60','ALIEN-KURSE/1 t=2026-10-08T12:60Z btc=60000'],['t ohne Z','ALIEN-KURSE/1 t=2026-10-08T12:32 btc=60000'],['Sekunde 60','ALIEN-KURSE/1 t=2026-10-08T12:32:60Z btc=60000'],['Sekunden einstellig','ALIEN-KURSE/1 t=2026-10-08T12:32:5Z btc=60000'],
+      ['Präfix klein','alien-kurse/1 t=2026-10-08T12:32Z btc=60000'],['Text davor','Kurse: '+H+'btc=60000'],['/1x','ALIEN-KURSE/1x t=2026-10-08T12:32Z btc=60000'],
+      ['/0','ALIEN-KURSE/0 t=2026-10-08T12:32Z btc=60000'],['/01','ALIEN-KURSE/01 t=2026-10-08T12:32Z btc=60000'],['HTML',H+'btc=<img/src=x>'],
+      ['NUL',H+'btc=60000'+String.fromCharCode(0)],['Zeilen ohne Umbruch verklebt',H+'btc=60000gold=2000'],['über 400 Zeichen',H+'btc=60000 '+FILL(100)],
+      ['leer',''],['null',null],['Zahl',42],['Objekt',{}]];
+    const badInv=inv.filter(([,l])=>{ const q=P(l); return q.ok||q.err!=='invalid'; }).map(([n])=>n);
+    ok(!badInv.length,inv.length+' kaputte Zeilen → invalid'+(badInv.length?' — durchgerutscht: '+badInv.join(', '):''));
+    const rng=[['BTC 0',H+'btc=0'],['BTC 99',H+'btc=99.99'],['BTC über 100 Mio.',H+'btc=100000001'],['Gold 49',H+'gold=49.99'],['Gold über 100.000',H+'gold=100000.01'],
+      ['Silber 0,4',H+'silver=0.4'],['Silber über 10.000',H+'silver=10000.5'],['usdeur 20',H+'btc=60000 usdeur=20'],['usdeur 0,05',H+'btc=60000 usdeur=0.05'],['ein Ausreißer kippt alles',H+'btc=60000 gold=2000 silver=99999']];
+    const badRng=rng.filter(([,l])=>P(l).err!=='range').map(([n])=>n);
+    ok(!badRng.length,rng.length+' Werte außerhalb der Grenzen → range, nichts teilweise übernommen'+(badRng.length?' — '+badRng.join(', '):''));
+    ok(P(H+'btc=100 gold=50 silver=0.5 usdeur=0.1').ok&&P(H+'btc=100000000 gold=100000 silver=10000 usdeur=10').ok,'Grenzwerte selbst sind gültig');
+    { const q=P('ALIEN-KURSE/1 t=2026-10-08T12:32:59Z btc=60000'); ok(q.ok&&q.t===Date.UTC(2026,9,8,12,32),'t mit Sekunden (date -u +%FT%TZ) wird angenommen, gelesen bis zur Minute'); }
+    ok(P(H+'btc=60000 silver=0.4').key==='silver'&&P(H+'usdeur=20 btc=60000').key==='usdeur','range nennt den Schlüssel (für die Meldung)');
+    ok(P('ALIEN-KURSE/2 t=2026-10-08T12:32Z btc=60000').err==='newer'&&P('ALIEN-KURSE/10 x=1').err==='newer','neuere Formatversion → newer (eigene Meldung)');
+    ok(P(H+'btc=12345678.12345678').btc===12345678.12345678,'8 Nachkommastellen werden gelesen');
+    { let l=H+'btc=60000'; for(let i=0;;i++){ const nx=l+' '+KEY(i)+'=1'; if(nx.length>400) break; l=nx; }
+      ok(V.RATE_LINE_MAX===400&&l.length>=395&&P(l).ok&&!P(l+' zzzzz=1').ok,'Längendeckel: '+l.length+' Zeichen gültig, darüber invalid'); }
+    ok(!P(H+'btc=60000 foo=1 foo=2').ok,'auch ein doppelter unbekannter Schlüssel verwirft die Zeile');
+    // Fuzz: deterministisch (LCG). Je Runde eine gültige Zeile aus Zufallszahlen (manchmal knapp außerhalb der Grenzen),
+    // dann 0–3 Mutationen (Zeichen ersetzen/einfügen/löschen, Token doppeln/vertauschen, Fremdtoken, Umbruch, Füllung).
+    // Zusicherung: kein Wurf, ok nur mit t und mindestens einem Preis, jeder Wert endlich und in den Grenzen, nie über 400 Zeichen.
+    let seed=20261009; const rnd=()=>{ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; }; const pick=a=>a[Math.floor(rnd()*a.length)];
+    const NUL=String.fromCharCode(0), JUNK=['=',' ','\t','\n',',','.','-','+','e','E','Z','T',':','/',NUL,' ','​','🙂','<','>','"','0','9'];
+    const num=k=>{ const [lo,hi]=V.RATE_LIMITS[k]; const v=rnd()<0.15?(rnd()<0.5?lo*(0.5+rnd()*0.49):hi*(1.01+rnd())):lo+rnd()*(hi-lo); return v.toFixed(Math.floor(rnd()*9)); };
+    const day=()=>{ const y=2000+Math.floor(rnd()*40), m=1+Math.floor(rnd()*12), d=1+Math.floor(rnd()*31), hh=Math.floor(rnd()*25), mm=Math.floor(rnd()*61);
+      const z=n=>String(n).padStart(2,'0'); return y+'-'+z(m)+'-'+z(d)+'T'+z(hh)+':'+z(mm)+'Z'; };
+    let n=0, oks=0, rngs=0, err=null; const t0=Date.now();
+    for(let i=0;i<20000&&!err;i++){
+      const toks=['t='+day()]; for(const k of ['btc','gold','silver','usdeur']) if(rnd()<0.6) toks.push(k+'='+num(k));
+      if(rnd()<0.2) toks.push('chfeur='+(rnd()*2).toFixed(4));
+      for(let j=toks.length-1;j>0;j--){ const r=Math.floor(rnd()*(j+1)); [toks[j],toks[r]]=[toks[r],toks[j]]; }
+      let line='ALIEN-KURSE/1 '+toks.join(' ');
+      const muts=Math.floor(rnd()*4);
+      for(let m=0;m<muts;m++){ const a=Math.floor(rnd()*(line.length+1)), c=rnd();
+        if(c<0.3) line=line.slice(0,a)+pick(JUNK)+line.slice(a+1);
+        else if(c<0.5) line=line.slice(0,a)+pick(JUNK)+line.slice(a);
+        else if(c<0.65) line=line.slice(0,a)+line.slice(a+1);
+        else if(c<0.75) line+=' '+pick(toks);
+        else if(c<0.85) line=line.replace('ALIEN-KURSE/1',pick(['ALIEN-KURSE/2','ALIEN-KURSE/','alien-kurse/1','ALIEN-KURSE/1 ALIEN-KURSE/1']));
+        else if(c<0.95) line+=' '+FILL(Math.floor(rnd()*120));
+        else line=pick([' ','\n','\t'])+line+pick([' ','\n','']); }
+      n++;
+      try{ const q=P(line);
+        if(!q||typeof q!=='object') throw new Error('kein Objekt');
+        if(!q.ok){ if(['invalid','newer','range'].indexOf(q.err)<0) throw new Error('err '+q.err); if(q.err==='range') rngs++; continue; }
+        oks++;
+        if(!Number.isFinite(q.t)) throw new Error('t');
+        if(q.btc==null&&q.gold==null&&q.silver==null) throw new Error('ok ohne Preis');
+        for(const kk of ['btc','gold','silver','usdeur']){ const v=q[kk]; if(v!==null&&!(Number.isFinite(v)&&v>=V.RATE_LIMITS[kk][0]&&v<=V.RATE_LIMITS[kk][1])) throw new Error(kk+'='+v); }
+        if(line.trim().length>400) throw new Error('über 400 Zeichen akzeptiert');
+        if(muts===0){ const t=line.match(/t=(\S+)/)[1]; if(q.t!==Date.parse(t.slice(0,16)+':00Z')) throw new Error('t falsch'); }
+      }catch(x){ err=x.message+' | '+JSON.stringify(line).slice(0,200); }
+    }
+    ok(!err,n+' zufällige Zeilen ('+oks+' gültig, '+rngs+' außerhalb der Grenzen) ohne Wurf, jede gültige mit t, Preis und in den Grenzen'+(err?' — '+err:''));
+    ok(oks>2000&&rngs>500&&Date.now()-t0<5000,'Fuzz trifft genug gültige und Grenz-Zeilen in unter 5 s ('+(Date.now()-t0)+' ms)');
+    // Gleichlauf mit Mission Control: deren buildTresorLine-Ausgabe (gemockte Kurse, verify-mc) muss hier gültig sein
+    ok(P('ALIEN-KURSE/1 t=2026-10-08T21:57Z btc=60000.50 gold=3421.60 silver=41.06 usdeur=0.8554').ok&&P('ALIEN-KURSE/1 t=2026-10-08T21:57Z btc=60000.50').ok,'Zeilen aus Mission Control (beide Formen) werden gelesen');
+  }
 
   console.log(`\n=== Ergebnis: ${pass} OK, ${fail} Fehler ===`);
   process.exit(fail?1:0);
