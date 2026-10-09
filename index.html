@@ -207,7 +207,7 @@ tr:hover td{color:var(--neon);}
 .help-head .logo{font-size:1.05rem}
 .help-inner h2{font-family:'Orbitron',sans-serif;color:var(--neon);font-size:.92rem;letter-spacing:2px;margin:24px 0 8px;text-transform:uppercase;}
 .help-inner p{font-size:.86rem;line-height:1.65;color:var(--text-mid);margin:6px 0;}
-.help-inner ul{margin:6px 0 6px 18px;}
+.help-inner ul,.help-inner ol{margin:6px 0 6px 18px;}
 .help-inner li{font-size:.86rem;line-height:1.6;color:var(--text-mid);margin:4px 0;}
 .help-inner strong{color:var(--neon);}
 .help-inner code{background:rgba(0,255,204,.1);padding:1px 5px;border-radius:3px;font-size:.82rem;}
@@ -687,7 +687,15 @@ tr:hover td{color:var(--neon);}
     </ul>
 
     <h2 data-i18n="help.h4">Übersicht & Werte</h2>
-    <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) oder kopierst sie in Mission Control (alien-investor.org, Karte „Sachwert-Tresor · Kurse kopieren“) und fügst die Zeile in der Übersicht ein — der Tresor zeigt sie dir vor der Übernahme, Gold und Silber kommen schon in Euro umgerechnet an → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
+    <p data-i18n-html="help.p4">Netto-Bestand je Anlageklasse (Käufe − Verkäufe − Entnahmen) plus investierter Einstand. Aktuelle Preise trägst du <strong>manuell</strong> ein (bewusst keine Netz-Abfrage) oder übernimmst sie aus Mission Control (nächster Abschnitt) → daraus errechnen sich aktueller Wert und Gewinn/Verlust. Der Verlauf-Tab zeigt die Vermögensentwicklung.</p>
+
+    <h2 data-i18n="help.hRates">Kurse aus Mission Control</h2>
+    <ol data-i18n-html="help.lRates">
+      <li>Auf alien-investor.org <strong>Mission Control</strong> öffnen und unten die Karte „Sachwert-Tresor · Kurse kopieren“ antippen.</li>
+      <li>Im Tresor in der Übersicht ins Feld „Kurszeile aus Mission Control“ einfügen (lange drücken → Einfügen, am Desktop Strg+V).</li>
+      <li>Abrufzeit und Werte prüfen, „Übernehmen“.</li>
+    </ol>
+    <p data-i18n-html="help.pRates">Der Tresor selbst geht dabei <strong>nie ins Netz</strong> – die Kurse kommen nur über die Zwischenablage. Mission Control kopiert nur Kurse, deren Abruf höchstens 6 Minuten zurückliegt, und rechnet Gold und Silber mit dem angezeigten USD/EUR-Kurs in Euro um (COMEX-Futures, nicht der Spotpreis). Den Wechselkurs speichert der Tresor nicht. Fehlt ein Preis in der Zeile, bleibt der bisherige stehen; liegt der Abruf über einen Tag zurück, warnt die Rückfrage. Eine von Hand getippte Zeile öffnet sie mit Enter.</p>
 
     <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
     <p class="only-desk" data-i18n-html="help.p5desk">Dein Bestand liegt verschlüsselt in einer Datei <em>dieses</em> Rechners: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. Sie übersteht Updates (deinstallieren + neu installieren) und geht nur mit „Lokale Daten löschen“ oder <code>flatpak uninstall --delete-data</code> verloren. Auch hier gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>.</p>
