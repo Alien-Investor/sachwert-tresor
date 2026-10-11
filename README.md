@@ -261,7 +261,10 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     in der Auswahl (Mittelklick fügt ein), auch aus einem verdeckten Passwortfeld, etwa nach Tab in die gefüllte Passphrase. Gelöscht wird nur,
     was noch von der App stammt; fremde Kopien bleiben stehen. Klipper kann jede Kopie zusätzlich in diese Mittelklick-Auswahl spiegeln
     (Einstellung „Auswahl und Zwischenablage synchronisieren“) — die App löscht sie dort mit. Markierter Text trägt die KDE-Markierung nicht: Wer in Klipper die Auswahl in
-    den Verlauf übernehmen lässt, sollte das abschalten.
+    den Verlauf übernehmen lässt, sollte das abschalten. Seit v3.10 markiert Strg+A nur den Inhalt eines gefüllten Text- oder Zahlenfeldes, nie die
+    ganze Seite, und die App löscht auch Markierungen über Knöpfe, Felder und das Diagramm hinweg sowie markierte Beträge und Mengen. Ausnahmen: Eine
+    Markierung, die über das Datumsfeld im Formular reicht (das angezeigte Datum kann die App nicht lesen), bleibt bis zur nächsten Markierung stehen,
+    ebenso der Text eines Zahlenfeldes, wenn man auf dessen Pfeile klickt, während dort etwas anderes als die reine Zahl steht (etwa „2500,“ oder „+5“).
   - **Spendenlink:** öffnet sich am Desktop im System-Browser. Die Hülle lässt genau die Spendenseite (DE/EN) durch, höchstens einmal je
     Sekunde; jede andere Adresse verpufft.
   - **Klartext verlässt den Käfig nur auf deinen Klick:** CSV-Exporte, der Nachlass-Anhang als `.txt` oder PDF sind unverschlüsselt —
@@ -273,7 +276,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     Strg+L sperrt sofort. „Hintergrund“ heißt am Desktop minimiert oder versteckt — ein Wechsel zu einem anderen Fenster sperrt nicht,
     leert aber getippte Passphrasen. Kein Fingerabdruck. Die Hülle besteht aus drei kleinen Dateien (`desktop/main.js`, `desktop/preload.js`,
     `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); die Hülle des Tresors wird mit Tests in
-    der echten Hülle geprüft, mit v3.7 kam ein internes Security-Audit der Änderungen dazu.
+    der echten Hülle geprüft, mit v3.7 kam ein internes Security-Audit der Änderungen dazu, vor v3.10 ein gezieltes internes Audit in vier
+    Runden.
 
 ## Open Source & selbst prüfen
 

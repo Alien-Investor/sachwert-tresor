@@ -3,6 +3,31 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.10 — 2026-10-11
+
+Sicherheitskorrektur für die Desktop-Fassung (Linux), dazu eine aktuelle Engine. Keine Änderung an Datei-Format, Verschlüsselung, Berechtigungen oder
+Buchungen. Das Netz war nie beteiligt, die App hat weiterhin keinen Netzzugang: Betroffen war die Mittelklick-Auswahl, die unter X11 jedes laufende
+Programm lesen kann. Wer in Klipper Markierungen in den Verlauf übernehmen lässt (nicht die Voreinstellung), sollte diesen Verlauf leeren. Auf Android
+ändert sich nur der Scrollbalken (letzter Punkt).
+- **Desktop — Strg+A außerhalb eines Textfeldes:** Bei entsperrter App markierte Strg+A ohne Fokus in einem Textfeld die ganze Seite, je nach Ansicht
+  samt Beständen, Bezugsquellen, Notizen und den Werten im Verlauf. Unter Linux landet jede Markierung in der Mittelklick-Auswahl, und genau diese
+  Markierung löschte die App weder nach 30 Sekunden noch beim Sperren. Auf dem Sperrbildschirm markierte Strg+A im leeren Passphrase-Feld die ganze
+  Sperrseite. Jetzt übernimmt die App Strg+A selbst: In einem gefüllten Text- oder Zahlenfeld markiert Strg+A wie gewohnt dessen Inhalt, sonst nichts,
+  auch bei nicht-lateinischer Tastaturbelegung. Auch diese Markierung löscht die App nach 30 Sekunden und beim Sperren, selbst wenn man Strg vor dem A
+  loslässt.
+- **Desktop — Beträge, Mengen und Kurse:** Was in diesen Zahlenfeldern markiert war, auch nach einem Klick auf die Pfeile im Feld, blieb bisher ohne
+  Frist in der Mittelklick-Auswahl, und Strg+C und Strg+X kopierten es ohne KDE-Markierung und ohne späteres Löschen. Jetzt behandelt die App
+  Zahlenfelder dabei wie Textfelder. Ausnahme: Steht im Feld etwas anderes als die reine Zahl (etwa „2500,“, „+5“ oder eine ungültige Eingabe) und
+  klickt man dann auf die Pfeile, bleibt dieser Text bis zur nächsten Markierung stehen.
+- **Desktop — Markierung mit der Maus:** Reichte eine Markierung über Knöpfe oder Felder hinweg, über das Diagramm im Verlauf, endete sie in der Lücke
+  zwischen zwei Absätzen oder enthielt sie geschützte Leerzeichen, blieb sie bisher ebenfalls stehen. Jetzt löscht die App auch sie nach 30 Sekunden
+  und beim Sperren. Dafür lässt sich das Diagramm am Desktop markieren wie anderer Text, und die Wertanzeige bleibt aus, solange die Maustaste
+  gedrückt ist, und ändert sich nicht, solange eine Markierung über dem Diagramm liegt. Ausnahme: Reicht eine Markierung über das Datumsfeld im
+  Formular, bleibt sie bis zur nächsten Markierung stehen (das angezeigte Datum kann die App nicht lesen).
+- **Desktop — Electron 44.7.0** (vorher 44.5.1): enthält die seither nachgereichten Sicherheitskorrekturen aus Chromium und V8.
+- **Scrollbalken:** Der Neon-Balken gilt jetzt nur noch bei Maus oder Trackpad (Desktop). Auf Touch-Geräten gilt überall, auch in Menüs und Dialogen,
+  der schmale Balken des Systems.
+
 ## v3.9 — 2026-10-09
 
 Aktuelle Kurse lassen sich jetzt aus Mission Control übernehmen, statt sie abzutippen. Der Tresor bleibt dabei ohne Netz: die Kurse kommen nur über

@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.9';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.10';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -122,7 +122,7 @@ const I18N = {
   "help.h9":"Security",
   "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>The Android app keeps its fields out of the Android autofill framework (since v3.6.1): another password manager set up as the autofill service does not see the passphrase fields and cannot offer to save them.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
   "help.hDesk":"Linux desktop (Flatpak)",
-  "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop, phone app and browser do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> what the app copies (the 2FA key, Ctrl+C and Ctrl+X) is marked as a password for KDE — Klipper keeps it out of its history (other clipboard managers may ignore the mark). The app clears its own copy after 30 seconds, on lock and on quit, but only if it is still there. The same applies to text you select in the app (on Linux instantly pasteable with a middle click), including a selected passphrase. Klipper can mirror every copy into this middle-click selection as well (setting “Keep the selection and clipboard the same”) — the app clears it there too. Selected text does not carry the KDE mark: if Klipper is set to keep the selection in its history, switch that off. Under X11 every running program can still read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
+  "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop, phone app and browser do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately, <strong>Ctrl+A</strong> only selects the content of a filled-in text or number field. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> what the app copies (the 2FA key, Ctrl+C and Ctrl+X) is marked as a password for KDE — Klipper keeps it out of its history (other clipboard managers may ignore the mark). The app clears its own copy after 30 seconds, on lock and on quit, but only if it is still there. The same applies to text you select in the app (on Linux instantly pasteable with a middle click), including a selected passphrase and selected amounts and quantities — but a selection that reaches across the date field in the entry form stays until the next selection. Klipper can mirror every copy into this middle-click selection as well (setting “Keep the selection and clipboard the same”) — the app clears it there too. Selected text does not carry the KDE mark: if Klipper is set to keep the selection in its history, switch that off. Under X11 every running program can still read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
   "help.h10":"Fingerprint (Android app)",
   "help.p10":"In Settings you can switch on unlocking by fingerprint (confirmed with the passphrase). <strong>Honestly:</strong> it is convenient, but it can be forced, and it is no additional protection — just a second way to the same key. The passphrase is required again after every restart of the phone (as long as the box is unticked), after a passphrase change (fingerprint unlock is then off and must be re-enabled), after 'Lock now' and as soon as a new fingerprint is enrolled in Android. In that last case the app switches fingerprint unlock off and shows a warning — if that was not you, check the fingerprints in Android settings. The restart rule is program code, not a cryptographic guarantee. If Aegis 2FA is on, the code is still required after the fingerprint.",
   "help.p10b":"<strong>The 'across a restart' switch (off by default):</strong> when enabling, you can tick that the fingerprint keeps working across a restart. The restart rule protects in one case only: someone knows or forces your device PIN and can force your finger — a restart then helps, because the app asks for the passphrase afterwards. GrapheneOS reboots by default once the phone stays locked for 18 hours in a row (adjustable from 10 minutes to 72 hours); whoever sets that counter short or often leaves the phone lying around types the passphrase accordingly often. With the box ticked, only the system's device-PIN requirement remains after a restart; the app then asks for the passphrase only after a passphrase change, on a new fingerprint and after 'Lock now'. Changing this is only possible by disabling and enabling again. When in doubt: restart the phone, then only the passphrase counts (if the box is unticked)."
@@ -998,9 +998,26 @@ const App = (function(){
   // läge sonst bis zur Frist weiter in PRIMARY (Querfund Alien Notes Release-Audit v1.8 B-1). Eine Markierung in Tabelle/Eintrag bleibt per Mittelklick nutzbar.
   if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur'){ const g=clipGateSel; clearGateInputs(); if((!DEK||g)&&clipOwned&&!clipCopied) clearClip(); } else if(h) onHidden(); else onShown(); });
   if(DESK&&typeof DESK.onLock==='function') DESK.onLock(()=>{ if(DEK||pendingUnlock) lock(); });   // Ruhezustand/Bildschirmsperre (im Flatpak tot, s. DESKTOP-INVARIANTEN.md)
-  // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung)
+  // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung), Strg+A siehe unten
   function deskKey(ev){ if(!DESK||!ev.ctrlKey||ev.altKey||ev.metaKey) return false;
     if((ev.key==='l'||ev.key==='L')&&(DEK||pendingUnlock)){ lockNow(); return true; }
+    // Strg+A übernimmt in der Hülle IMMER die App — Chromiums „Alles markieren“ läuft nie (v3.10, Querfund Alien Notes v1.10, Release-Audit run-8 a2-1;
+    // Regel wie Alien Pass v1.21 und Alien Notes v1.11). Außerhalb eines Textfelds (Fokus nirgends, Knopf, Reiter, Auswahlfeld) markierte es die GANZE
+    // Seite — je nach Reiter Übersicht, Bestandsliste mit Bezugsquellen und Notizen, Diagrammwerte —, und Chromium legt das in PRIMARY, lesbar für jedes X11-Programm, und
+    // anders, als die App es meldet (U+FFFC, NBSP, Diagramm unter user-select:none, angezeigter Wert des Datumsfelds — Frist und Sperre löschten es nie; gemessen 10.10.2026 in der
+    // echten Hülle). Chromium markiert dort, wo die AUSWAHL liegt, nicht wo der Fokus ist (Pass run-11 c-1): auch mit Fokus in einem Feld, leer ODER gefüllt,
+    // wenn keine Range darin liegt — darum keine Fallunterscheidung nach Chromiums Verhalten, sondern: immer sperren. Im GEFÜLLTEN Textfeld (auch Passphrase-
+    // Felder, seit v3.10 auch Zahlenfelder) markiert die App das Feld selbst per select() — im keydown, also im Eingabeereignis, das PRIMARY erreicht. Sonst nichts (leeres Feld,
+    // Datumsfeld, alle Ansichten, gesperrt, Rückfrage; Entscheidung Nutzer 10.10.2026: keine Ansicht, in der Strg+A etwas markiert, wie Pass).
+    // Erkannt am Tastencode 65 wie in Chromium, nicht nur am Zeichen (kyrillisch „ф“, griechisch „α“; Pass run-11 a-1/b-1). Steht vor der Rückfrage-Weiche
+    // wie in Pass; die Weiche schluckt Strg+A ebenso (die Rückfrage hat kein Textfeld).
+    if((ev.key||'').toLowerCase()==='a'||ev.keyCode===65){ const a=document.activeElement, num=numField(a), feld=a&&((a.tagName==='INPUT'&&typeof a.selectionStart==='number')||a.tagName==='TEXTAREA'||num);
+      // Sofort melden, nicht erst im keyup: wer Strg VOR dem A loslässt, schickt ein keyup ohne Strg — die per Strg+A markierte Passphrase lag sonst
+      // ungemeldet und ohne Frist in PRIMARY (Querfund Alien Notes v1.9 a-1, Pass run-11 e-3; das zweite Melden im keyup verdrängt nichts, gleicher Hash).
+      // Zahlenfeld (Betrag, Menge, Kurs; Entscheidung Nutzer 10.10.2026): ebenso markieren und den angezeigten Text melden; „gefüllt“ auch bei ungültiger
+      // Eingabe (value leer, Text steht im Feld — badInput)
+      if(feld&&(a.value.length>0||(num&&a.validity&&a.validity.badInput))){ a.select(); if(reportFieldSel) reportFieldSel(); }
+      return true; }
     if(dlgResolve) return true;   // offene Rückfrage: kein Strg-Kürzel daran vorbei (nur Sperren) — Muster Alien Pass v1.9
     return false; }
 
@@ -1616,6 +1633,11 @@ const App = (function(){
   // gestreckt. Für die Rückrechnung reicht die X-Achse — gesucht ist der Punkt zum angetippten Tag.
   function chartPoint(ev){
     if(!chartState || !VAULT) return;
+    // Desktop: mit gedrückter Taste (Maus, Stift — Markieren durchs Diagramm, Doppelklick) kein Tooltip — sein Text käme mitten in die Markierung, nachdem
+    // Chromium sie schon in PRIMARY gelegt hat: Meldung ≠ PRIMARY, die Achsenwerte blieben liegen (gemessen 10.10.2026 in der echten Hülle, Audit run-10;
+    // Stift: Runde 1 a-2/b-2). Ohne Taste friert er ein, solange eine Markierung das Diagramm schneidet (chartFrozen). Touch unverändert.
+    if(DESK&&ev.pointerType!=='touch'&&ev.buttons){ chartHideTip(); return; }
+    if(chartFrozen()) return;
     const wrap=$('chart-wrap'), tip=$('chart-tip'), svg=wrap&&wrap.querySelector('svg');
     if(!wrap||!tip||!svg) return;
     const r=svg.getBoundingClientRect(); if(!r.width) return;
@@ -1644,7 +1666,14 @@ const App = (function(){
     const left=Math.min(Math.max(8, ev.clientX-wr.left-tip.offsetWidth/2), Math.max(8, wr.width-tip.offsetWidth-8));
     tip.style.left=left+'px';
   }
-  function chartHideTip(){
+  // Desktop: steht eine (nicht leere) Markierung im Diagramm, ändert sich der Tooltip nicht — weder Text noch Sichtbarkeit. Sonst trug die Markierung in PRIMARY
+  // den alten Tooltip, die nächste Meldung (keyup nach Umschalt+Pfeil, jede Taste per Capture-keydown) den neuen: kein Hash passte, und nach 8 verschiedenen
+  // Fassungen fiel der richtige aus dem Ring (Audit run-10 Runde 1 a-2/b-1). Ein Mausdruck baut die Markierung neu auf — der blendet weiter aus (chartPoint).
+  function chartFrozen(){ if(!DESK) return false; const g=window.getSelection(), w=$('chart-wrap');
+    return !!(g&&g.rangeCount&&!g.isCollapsed&&w&&g.containsNode(w,true)); }
+  // nachMarkierung: Aufruf durch Verlassen des Diagramms oder Escape — respektiert chartFrozen; Klick daneben, Sperre usw. blenden immer aus
+  function chartHideTip(nachMarkierung){
+    if(nachMarkierung===true&&chartFrozen()) return;
     const tip=$('chart-tip'); if(tip) tip.classList.add('hidden');
     const cur=document.getElementById('chart-cursor'); if(cur) cur.classList.add('hidden');
   }
@@ -2137,6 +2166,9 @@ const App = (function(){
   // clipGateSel: die letzte Meldung kam aus einem Gate-Feld (GATE_IDS) — dann räumt auch entsperrt der Fensterwechsel (Notes v1.8 B-1). report setzt es je Meldung
   // frisch, eine Kopie auf false; clearClip setzt es bewusst NICHT zurück (Notes R2-A1: sonst nähme ein Löschen einer neueren Gate-Markierung das Flag).
   let clipTimer=null, clipOwned=false, clipCopied=false, clipGateSel=false;
+  // Desktop: meldet die Markierung des fokussierten Feldes an die Hülle (gesetzt im Zwischenablage-Block, nur mit DESK) — für Strg+A in deskKey (wie Alien Pass v1.21)
+  let reportFieldSel=null;
+  const numField=a=>!!a&&a.tagName==='INPUT'&&a.type==='number';   // Zahlenfeld: kein selectionStart, Markierung nur über getSelection() lesbar (v3.10)
   function armClip(){ clearTimeout(clipTimer); clipOwned=true; clipTimer=setTimeout(clearClip,CLIP_FRIST_MS); }
   function clearClip(){ clearTimeout(clipTimer); clipTimer=null; clipOwned=false; clipCopied=false;
     if(DESK) try{ const p=DESK.clip.clear(); if(p&&p.catch) p.catch(()=>{}); }catch(_){} }   // die Hülle schreibt ohne Fokus — kein Vertagen wie bei der Web-API in Notes
@@ -2149,6 +2181,9 @@ const App = (function(){
     let selFrom=null;   // Feld, aus dem selText zuletzt gelesen hat (für clipGateSel)
     const selText=()=>{ const a=document.activeElement; selFrom=null;
       if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number'){ selFrom=a; return a.value.substring(a.selectionStart,a.selectionEnd); }
+      // Zahlenfeld (type=number, kein selectionStart): Chromium legt den ANGEZEIGTEN Text in PRIMARY, am deutschen Desktop mit Komma („0,0421“, value „0.0421“) —
+      // String(getSelection()) liefert genau diesen Text (gemessen 10.10.2026 in der echten Hülle, Audit run-10). Bis v3.9 meldeten Zahlenfelder nie (v3.10, a2-1).
+      if(numField(a)){ selFrom=a; return String(window.getSelection()); }
       const g=window.getSelection(); if(!g||!g.rangeCount) return '';
       const r=g.getRangeAt(0);
       if(r.collapsed){ const n=r.startContainer&&r.startContainer.childNodes?r.startContainer.childNodes[r.startOffset]:null;
@@ -2166,20 +2201,44 @@ const App = (function(){
       let p=null; try{ p=DESK.clip.selected(t); }catch(_){ p=null; }
       if(p&&p.then) p.then(()=>{ if(!clipOwned) armClip(); },()=>{}); };
     const onSel=()=>{ const t=selText(); report(t,selFrom); };
+    reportFieldSel=()=>onSel();   // Strg+A in deskKey: das Feld hat den Fokus, selText liest Text- wie Zahlenfeld richtig
     document.addEventListener('mouseup',onSel);
     // Strg+C auf Markiertem: nicht Chromium kopieren lassen (ohne KDE-Hinweis, ohne Löschen → Klipper-Verlauf), sondern über die Brücke
     document.addEventListener('copy',ev=>{ const t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel')); });
     // Strg+X / Shift+Entf ebenso; danach die Markierung im Feld entfernen: execCommand('delete') hält Rückgängig intakt. Nur aus Textfeldern
     // (Fokus auf Knopf/Kästchen: nur kopieren — setRangeText warf dort, Notes Release-Audit v1.7 B-N1)
+    // Zahlenfelder (v3.10) ebenso — dort gibt es kein setRangeText, execCommand('delete') reicht (gemessen in der Hülle, Audit run-10)
     document.addEventListener('cut',ev=>{ const a=document.activeElement, t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel'));
-      if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||typeof a.selectionStart!=='number'||a.readOnly||a.disabled) return;
+      const num=numField(a);
+      if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||(typeof a.selectionStart!=='number'&&!num)||a.readOnly||a.disabled) return;
       let done=false; try{ done=document.execCommand('delete'); }catch(_){}
-      if(!done){ a.setRangeText('',a.selectionStart,a.selectionEnd,'end'); a.dispatchEvent(new Event('input',{bubbles:true})); } });
-    document.addEventListener('keyup',ev=>{ if(ev.shiftKey||ev.key==='Shift'||((ev.ctrlKey||ev.metaKey)&&(ev.key||'').toLowerCase()==='a')) onSel(); });
+      if(!done&&!num){ a.setRangeText('',a.selectionStart,a.selectionEnd,'end'); a.dispatchEvent(new Event('input',{bubbles:true})); } });
+    // Strg+A auch am Tastencode 65: bei nicht-lateinischer Belegung ist ev.key „ф“/„α“ (seit v3.10 übernimmt deskKey Strg+A und meldet selbst — hier Abwehr)
+    document.addEventListener('keyup',ev=>{ if(ev.shiftKey||ev.key==='Shift'||((ev.ctrlKey||ev.metaKey)&&((ev.key||'').toLowerCase()==='a'||ev.keyCode===65))) onSel(); });
     // Fokus in ein gefülltes Feld (Tab, focus()/select()) markiert dessen ganzen Inhalt — Chromium legt ihn auch aus type=password in PRIMARY (Alien Pass v1.18 B-1).
     // Nach JEDER Fokusbewegung melden, im Timer direkt vom Feld gelesen (ein Feld behält seine Markierung nach dem Blur). Nur Textfelder.
-    document.addEventListener('focusin',ev=>{ const a=ev.target; if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||typeof a.selectionStart!=='number') return;
+    document.addEventListener('focusin',ev=>{ const a=ev.target;
+      if(numField(a)){ setTimeout(()=>{ try{ if(document.activeElement===a) report(String(window.getSelection()),a); }catch(_){} },0); return; }   // Zahlenfeld (v3.10): angezeigter Text, nur solange fokussiert
+      if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||typeof a.selectionStart!=='number') return;
       setTimeout(()=>{ try{ report(a.value.substring(a.selectionStart,a.selectionEnd),a); }catch(_){} },0); });
+    // Zahlen-Pfeile (Audit run-10 Runde 1 a-1, gemessen 11.10.2026 in der echten Hülle): ein Klick auf den Pfeil eines GEFÜLLTEN Zahlenfelds markiert in Chromium
+    // erst den ganzen Wert (PRIMARY: „0,0421“ bzw. „2500“) und schaltet dann einen Schritt weiter — beides im mousedown; danach sieht die App nur noch einen
+    // Cursor, gemeldet wurde nichts. Darum: Capture-mousedown merkt den Wert, kommt im selben Mausdruck ein input OHNE inputType (= Pfeil-Schritt; Tippen,
+    // Ausschneiden, Einfügen haben einen), den alten Wert melden — mit Punkt und mit Komma (Chromium zeigt ihn je nach Gebietsschema so oder so an).
+    // Rest: ungültige Eingabe (value leer) und eine Anzeige, die vom Wert abweicht („2500,“ oder „+5“ sind gültig, value „2500“/„5“ — Audit run-10 d-1).
+    // Am Minimum ohne Schritt bleibt die Markierung stehen und läuft über mouseup.
+    // Der Pfeil-Schritt fällt in die mousedown-Aufgabe; danach gilt der gemerkte Wert nicht mehr: verworfen beim nächsten Zeitgeber-Lauf, bei jeder Taste,
+    // jedem Mausrad (Abwehr — headless kam das Rad stets nach dem Zeitgeber, Runde 4 e-1) und beim mouseup (Chromium lässt Tasten vor Zeitgebern laufen:
+    // Fenster 0–10 ms, Runde 3 d-2). Sonst meldete eine Pfeiltaste oder das Rad bei gehaltener Taste den alten Wert, ohne dass
+    // etwas markiert war — und `report` nahm einer markierten Passphrase das Gate-Flag (Audit run-10 Runde 2 c-1, Runde 3 d-2)
+    let spin=null;
+    document.addEventListener('mousedown',ev=>{ const a=ev.target, sp=(ev.button===0&&numField(a)&&a.value)?{a,v:a.value}:null; spin=sp;
+      if(sp) setTimeout(()=>{ if(spin===sp) spin=null; },0); },true);
+    document.addEventListener('keydown',()=>{ spin=null; },true);
+    document.addEventListener('wheel',()=>{ spin=null; },{capture:true,passive:true});
+    document.addEventListener('input',ev=>{ const sp=spin; if(!sp||ev.target!==sp.a||ev.inputType) return; spin=null;
+      report(sp.v,sp.a); if(sp.v.includes('.')) report(sp.v.replace('.',','),sp.a); },true);
+    document.addEventListener('mouseup',()=>{ spin=null; },true);
     // Vor jeder Taste synchron (Capture, vor der Standardaktion): Weitertippen klappt die Markierung zusammen, PRIMARY behält sie aber (Pass-Audit Runde 3)
     document.addEventListener('keydown',onSel,true);
   }
@@ -2366,7 +2425,7 @@ document.addEventListener('pointermove',ev=>{ if(ev.target.closest('#chart-wrap'
 document.addEventListener('keydown',ev=>{
   if(App.deskKey(ev)){ ev.preventDefault(); return; }   // Desktop: Strg+L sperrt (ohne Hülle immer false)
   if(App.dialogKey(ev)){ ev.preventDefault(); return; }   // offener Dialog: Escape bricht ab, Tab pendelt (v3.5)
-  if(ev.key==='Escape'){ App.closeMenus(); App.chartHideTip(); return; }
+  if(ev.key==='Escape'){ App.closeMenus(); App.chartHideTip(true); return; }
   if(ev.key!=='Enter') return;
   const el=ev.target.closest('[data-enter]'); if(!el) return;
   ev.preventDefault();   // sonst klickte Enter nach einem Fokuswechsel (Dialog schließt, Fokus geht zurück) den Knopf dahinter erneut (Alien Pass v1.9)
@@ -2376,7 +2435,7 @@ document.addEventListener('keydown',ev=>{
 window.addEventListener('DOMContentLoaded',()=>{
   if(!window.crypto||!crypto.subtle){document.body.innerHTML='<div class="container"><div class="card warn">Dieser Browser unterstützt kein WebCrypto (oder läuft nicht im sicheren Kontext). Öffne die Datei über https:// oder file:// in Vanadium/Brave/Firefox.</div></div>';return;}
   const cw=document.getElementById('chart-wrap');
-  if(cw) cw.addEventListener('pointerleave',()=>App.chartHideTip());   // bubbelt nicht: feuert nur beim Verlassen des Containers
+  if(cw) cw.addEventListener('pointerleave',()=>App.chartHideTip(true));   // bubbelt nicht: feuert nur beim Verlassen des Containers
   App.enhancePassFields();   // vor applyI18n: setzt die Augen-Beschriftung
   applyI18n();
   const dg=document.getElementById('dlg'); if(dg) dg.addEventListener('click',ev=>{ if(ev.target===dg) App.dialogCancel(); });   // Tippen auf den Hintergrund = Abbrechen (v3.5)
