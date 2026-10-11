@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.10';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.10.1';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -37,7 +37,7 @@ const I18N = {
   "add.eurRef":"EUR equivalent on transaction date (optional, from your statement — for the tax-tool export)",
   "add.form":"Form","add.formCoin":"Coin","add.formBar":"Bar","add.formOther":"Other",
   "add.weightPer":"Weight per piece","add.unitG":"Gram","add.unitOz":"Ounce (31.1035 g)","add.unitKg":"Kilogram",
-  "add.fineness":"Fineness (‰)","add.dealer":"Dealer","add.dealerPh":"Coin dealer, Pro Aurum ...",
+  "add.fineness":"Fineness (‰)","add.dealer":"Dealer","add.dealerPh":"Coin dealer, Pro Aurum ...","add.eurPh":"e.g. 2500.00","add.eurRefPh":"e.g. 2300.00",
   "add.noteLabel":"Note (optional)","add.notePh":"Free text, e.g. mintage / trade ID",
   "list.title":"Holdings","list.fAll":"All","list.fBtc":"Bitcoin","list.fGold":"Gold","list.fSilver":"Silver",
   "list.empty":"No entries yet. Get started in the “Add” tab.",
@@ -102,7 +102,7 @@ const I18N = {
   "help.h2":"First steps",
   "help.l2":"<li><strong>Passphrase</strong> — it encrypts the entire vault. Remember it well, note it down safely.</li><li>Optional <strong>2FA</strong> (Aegis/TOTP) as a second hurdle: Settings → Enable 2FA.</li><li><strong>Auto-lock</strong> on inactivity is configurable in the settings. It also applies while the file picker is open — a file chosen there is not lost, the import continues after unlocking.</li>",
   "help.h3":"Adding entries",
-  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li>",
+  "help.l3":"<li><strong>Bitcoin:</strong> buy / sell / withdrawal — amount, paid (EUR, USD or CHF), source/destination, KYC flag. Enter the amount in <strong>BTC or sats</strong> (toggle above the field); the display unit is set in the overview.</li><li><strong>Gold/Silver:</strong> count × denomination (e.g. 5 × 1 oz), form (coin/bar), fineness, dealer.</li><li><strong>KYC flag:</strong> marks buys via a KYC broker — important for the clean separation from the tax tool.</li><li><strong>Withdrawal</strong> = transfer/spend without a sale: reduces holdings but is not a taxable sale.</li><li>Duplicates (same type + date + amount) are warned and marked with ⚠.</li><li><strong>Enter sums of money without a thousands separator</strong>, e.g. 2500 or 2500.50: the number fields take both point and comma as the decimal sign, so “2.500” would be 2.50 €. That is why the app rejects sums with more than two decimal places, and sats or counts with a separator. After such a message the field is empty: re-enter the whole sum.</li>",
   "help.h4":"Overview & values",
   "help.p4":"Net holdings per asset class (buys − sells − withdrawals) plus invested cost. You enter current prices <strong>manually</strong> (deliberately no network lookup) or take them from Mission Control (next section) → from this, current value and profit/loss are computed. The History tab shows wealth development.",
   "help.hRates":"Prices from Mission Control",
@@ -187,6 +187,12 @@ const T = {
   "toast.failed":{de:"Fehlgeschlagen",en:"Failed"},
   "err.dateMissing":{de:"Datum fehlt.",en:"Date is missing."},
   "err.eurInvalid":{de:"Gültigen Betrag eingeben.",en:"Enter a valid amount."},
+  // Tausenderpunkt (v3.10.1): Chromiums Zahlenfeld nimmt Punkt UND Komma als Dezimalzeichen und verwirft jedes weitere Trennzeichen — „2.500“ wurde 2,50 €,
+  // „2.500,00“ ebenso (gemessen 11.10.2026 in der Hülle und am Handy mit der GrapheneOS-Tastatur). Mehr Stellen, als die Größe haben kann, = Tausenderpunkt.
+  "err.amountDots":{de:"Betrag bitte ohne Tausenderpunkt neu eingeben, z. B. 2500 oder 2500,50 — das Zahlenfeld liest den Punkt als Komma.",en:"Re-enter the sum without a thousands separator, e.g. 2500 or 2500.50 — the number field reads both point and comma as a decimal sign."},
+  "err.satsDots":{de:"Sats bitte als ganze Zahl ohne Punkt oder Komma eingeben, z. B. 21000.",en:"Enter sats as a whole number without separators, e.g. 21000."},
+  "err.countDots":{de:"Stückzahl bitte als ganze Zahl ohne Punkt oder Komma eingeben.",en:"Enter the count as a whole number without separators."},
+  "price.dots":{de:"Kurs nicht übernommen: Feld leeren und ohne Tausenderpunkt neu eingeben, z. B. 92000.",en:"Price not applied: clear the field and re-enter it without a thousands separator, e.g. 92000."},
   "val.noBaseHint":{de:"≈: {n} Fremdwährungs-Buchung(en) ohne EUR-Gegenwert fehlen in der EUR-Vergleichsbasis — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"≈: {n} foreign-currency entries without an EUR equivalent are missing from the EUR comparison base — edit the entry to add one."},
   "verlauf.priceHint":{de:"Wertlinie aus {n} selbst eingetragenen Preisständen seit {d} — keine Netzabfrage. Die Kurve ist so dicht, wie du Preise pflegst.",en:"Value line from {n} self-entered price points since {d} — no network lookup. The curve is as dense as your price keeping."},
   "verlauf.priceFirst":{de:"Die Linie zeigt deinen Einstand. Erster Preisstand gemerkt ({d}) — die zweite Linie mit dem Wert kommt dazu, sobald du einen geänderten Preis einträgst. Der Tresor rechnet nur mit deinen eigenen Ständen.",en:"The line shows your cost basis. First price point saved ({d}) — the second line with the value appears once you enter a changed price. The vault only uses your own entries."},
@@ -621,6 +627,7 @@ const App = (function(){
   // {vault, dek,kdf,wrap} oder {legacy:true, vault, kdf, kek, raw}. Vor dem Gate liegt NICHTS in DEK/VAULT.
   let pendingUnlock = null;
   let addType = 'btc', addDir = 'buy', listFilter = 'all', chartSeries = 'invested', chartRange = 'max', editId = null;
+  let priceMsgKey='', priceBad={}, editPre={};   // Tausenderpunkt (v3.10.1): Warnung an den Kursfeldern (für relabel), Kursfelder mit zurückgewiesenem Text, vorbelegte Werte im Bearbeiten-Modus
   let pasteLast='', pasteMsgKey='', pasteMsgArg='';   // Kurszeile (v3.9): Feldinhalt nach der letzten Auswertung, letzte Meldung (für relabel)
   let addBtcUnit = 'btc';   // Eingabe-Einheit im Erfassen-Formular (btc|sat) — gespeichert wird immer BTC
 
@@ -921,7 +928,7 @@ const App = (function(){
   }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
-    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert','price-paste-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert','price-paste-msg','price-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
     { const bk=$('bio-keep'); if(bk) bk.checked=false; }   // „auch nach Neustart“ nie stehen lassen (ab Werk aus)s H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     resetAddForm();
@@ -932,7 +939,7 @@ const App = (function(){
     chartState=null;                                     // aus Klartext abgeleitete Zeitreihe nicht im Heap lassen
     ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2',
      'nl-fassung','price-btc','price-gold','price-silver','price-paste'].forEach(i=>{const el=$(i);if(el)el.value='';});
-    pasteLast=''; pasteMsgKey=''; pasteMsgArg='';
+    pasteLast=''; pasteMsgKey=''; pasteMsgArg=''; priceMsgKey=''; priceBad={}; editPre={}; clearTimeout(savePrices._t); savePrices._t=null; savePrices._f=null; savePrices._base=null;
     $('totp-secret').textContent=''; App._otpauth='';
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup'); err('bio-err');
@@ -940,7 +947,9 @@ const App = (function(){
   function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
     bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
     if(DESK) clearClip();                                                // eigene Kopie und eigene Markierung (X11-Auswahl) aus der Zwischenablage nehmen
-    clearRendered(); maskInputs(); boot(); }
+    clearRendered(); maskInputs(); boot();
+    /(?:)/.exec('');   // RegExp.input/lastMatch leeren: hielten den letzten Treffer, nach Einrichten/Passphrasenwechsel die Passphrase (passStrength, Audit R2-4/Q-1)
+  }
   // „Jetzt sperren“ = die EINZIGE bewusste Nutzer-Sperre: setzt den Riegel (nächster Start nur mit Passphrase). Idle-Timer,
   // Hintergrund und interne Aufrufe bleiben bei lock() und setzen nie einen Riegel.
   function lockNow(){ if(BIO&&(bioArmed||bioBlob())) setBioHold(true); bioAuto=false; lock(); }
@@ -1064,6 +1073,7 @@ const App = (function(){
   function setInputBtcUnit(u){
     if(u!==addBtcUnit){
       const f=$('f-btc'), v=parseFloat(f.value);
+      if(addBtcUnit==='sat'&&f.value.includes('.')) return err('add-err',tr('err.satsDots'));   // Tausenderpunkt: „100.000“ Sats würden still 0,000001 BTC
       if(!isNaN(v)) f.value = u==='sat' ? String(Math.round(v*SATS)) : String(+(v/SATS).toFixed(8));
       addBtcUnit=u;
     }
@@ -1117,6 +1127,11 @@ const App = (function(){
     if(!sel||!sel.classList.contains('combo-native')||!Array.from(sel.options).some(o=>o.value===value)||sel.value===value) return;
     sel.value=value; syncCombo(sel.id);
     sel.dispatchEvent(new Event('change',{bubbles:true})); }   // die bestehende change-Delegation übernimmt von hier
+  // Tausenderpunkt (v3.10.1): input.value eines Zahlenfeldes trägt immer den Punkt als Dezimalzeichen, egal ob Punkt oder Komma getippt wurde
+  // (gemessen). Eine Tausendergruppe hinterlässt drei Stellen dahinter: „2.500“ → „2.500“, „2.500,00“ → „2.50000“, „1.234,56“ → „1.23456“.
+  const decs=v=>{ v=String(v||''); const i=v.indexOf('.'); return i<0?0:v.length-i-1; };   // ohne RegExp: der letzte Treffer bliebe über RegExp.input nach der Sperre lesbar (Audit R2-4)
+  // Im Bearbeiten-Modus zählt nur, was neu getippt wurde — ein unverändert vorbelegter Altwert (Import) soll das Speichern nicht blockieren
+  const typed=id=>{ const v=$(id).value; return editId&&editPre[id]===v?'':v; };
   async function addEntry(){
     err('add-err');
     const date=$('f-date').value;
@@ -1124,6 +1139,13 @@ const App = (function(){
     const eur=isWd?0:parseFloat($('f-eur').value);
     const cur=(!isWd && ['USD','CHF'].indexOf($('f-cur').value)>=0)?$('f-cur').value:'EUR';
     if(!date) return err('add-err',tr('err.dateMissing'));
+    // Abgewiesenes Geldfeld leeren und fokussieren: nur den Punkt zu löschen ergäbe den 100-fachen Betrag, das Komma dahinter hat das Feld
+    // schon verworfen („2.500,50“ → „2.50050“ → „250050“, Audit R2-3). Sats und Stückzahl haben keine Nachkommastellen, dort hilft Punkt löschen.
+    const redo=id=>{ const f=$(id); f.value=''; f.focus(); return err('add-err',tr('err.amountDots')); };
+    if(!isWd && decs(typed('f-eur'))>2) return redo('f-eur');
+    if(cur!=='EUR' && decs(typed('f-eurref'))>2) return redo('f-eurref');
+    if(addType==='btc' && addBtcUnit==='sat' && typed('f-btc').includes('.')) return err('add-err',tr('err.satsDots'));
+    if(addType!=='btc' && typed('f-count').includes('.')) return err('add-err',tr('err.countDots'));
     if(!isWd && !(eur>=0)) return err('add-err',tr('err.eurInvalid'));
     const e={id: editId||cryptoId(), type:addType, dir:addDir, date, eur, cur, note:$('f-note').value.trim()};
     if(cur!=='EUR'){ const r=parseFloat($('f-eurref').value); if(r>0) e.eurRef=r; }
@@ -1173,7 +1195,7 @@ const App = (function(){
       renderDash();
     });
   }
-  function exitEditMode(){ editId=null; $('add-btn').textContent=tr('add.btnAdd'); hide('add-cancel'); refreshAddLabels(); }
+  function exitEditMode(){ editId=null; editPre={}; $('add-btn').textContent=tr('add.btnAdd'); hide('add-cancel'); refreshAddLabels(); }
   function cancelEdit(){ resetAddForm(); exitEditMode(); tab('list'); }
   function editEntry(id){
     const e=VAULT.entries.find(x=>x.id===id); if(!e) return;
@@ -1202,6 +1224,7 @@ const App = (function(){
       updateMetalPreview();
     }
     syncCombos();
+    editPre={}; ['f-eur','f-eurref',e.type==='btc'?'f-btc':'f-count'].forEach(i=>editPre[i]=$(i).value);   // Tausenderpunkt-Prüfung: nur die aus e befüllten Altwerte (nicht Reste eines abgebrochenen Formulars)
     $('add-title').textContent=tr('add.titleEdit');
     $('add-btn').textContent=tr('add.btnSave');
     show('add-cancel');
@@ -1287,7 +1310,7 @@ const App = (function(){
     // Preise: intern €/g gespeichert, Anzeige in gewählter Einheit
     const dispG=v=>{const n=parseFloat(v);return isNaN(n)?'':String(u==='oz'?+(n*OZ_G).toFixed(2):+n.toFixed(4));};
     // fokussiertes Feld nicht überschreiben — der Nutzer tippt dort gerade (Debounce-Rerender)
-    const setIf=(id,v)=>{const el=$(id);if(document.activeElement!==el)el.value=v;};
+    const setIf=(id,v)=>{const el=$(id);if(document.activeElement!==el&&!priceBad[id])el.value=v;};   // zurückgewiesenen Kurs stehen lassen (v3.10.1)
     setIf('price-btc',VAULT.prices.btc||''); setIf('price-gold',dispG(VAULT.prices.gold)); setIf('price-silver',dispG(VAULT.prices.silver));
     const pb=parseFloat(VAULT.prices.btc), pg=parseFloat(VAULT.prices.gold), ps=parseFloat(VAULT.prices.silver); // pg/ps = €/g (intern)
     // Vergleichsbasis: netto investierte EUR-Basis der Klasse (EUR-Buchungen + EUR-Gegenwerte);
@@ -1307,9 +1330,34 @@ const App = (function(){
   function savePrices(){
     const u=VAULT.unit||'oz';
     const toG=v=>{v=(v||'').trim();if(v==='')return '';const n=parseFloat(v);if(isNaN(n))return '';return String(u==='oz'?n/OZ_G:n);};
-    VAULT.prices={btc:$('price-btc').value,gold:toG($('price-gold').value),silver:toG($('price-silver').value)};
-    persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(()=>{if(!VAULT)return;snapPrices();renderDash();},400);
+    // Tausenderpunkt (v3.10.1): „74.091,07“ steht als „74.09107“ im Feld. Ein Kurs in €/BTC oder €/oz hat höchstens zwei Nachkommastellen;
+    // in Gramm keine Prüfung (Anzeige mit vier Stellen). Ein solcher Kurs wird NICHT gespeichert — der alte bleibt, also auch kein Preisstand
+    // (Audit: nur „kein Preisstand“ reichte nicht, renderDash schrieb das Goldfeld gerundet neu, „3.76“, und der nächste Tastendruck nahm es an).
+    // Das Feld behält den getippten Text (renderDash überschreibt es nicht), bis er korrigiert ist. „Alt“ = Stand beim Betreten des Feldes
+    // (erster Tastendruck je Fokus), nicht der vorige Tastendruck und nicht der Anfang eines Tipp-Schubs: mit einer Pause von 400 ms nach „74.09“
+    // hätte der Zeitgeber den Zwischenstand gespeichert und er wäre zum „alten Kurs“ geworden (Audit-Nachprüfung N1). So setzt der nächste
+    // Zeitgeber den Kurs zurück, und snapPrices ersetzt den Zwischenpunkt des Tages.
+    const fe=document.activeElement;
+    if(savePrices._f!==fe){ savePrices._f=fe; savePrices._base=VAULT.prices||{}; }
+    const old=savePrices._base||{};
+    priceBad={}; ['price-btc','price-gold','price-silver'].forEach(id=>{ if(decs($(id).value)>2&&(id==='price-btc'||u==='oz')) priceBad[id]=true; });
+    VAULT.prices={btc:priceBad['price-btc']?(old.btc||''):$('price-btc').value,
+      gold:priceBad['price-gold']?(old.gold||''):toG($('price-gold').value), silver:priceBad['price-silver']?(old.silver||''):toG($('price-silver').value)};
+    setPriceMsg(Object.keys(priceBad).length?'price.dots':'');
+    // Das gerade getippte Feld ist zurückgesetzt: sofort in den Verlauf, sonst bliebe ein Zwischenpunkt des Tages („74.09“ nach einer Pause)
+    // stehen, wenn vor dem nächsten Zeitgeber gesperrt oder beendet wird (Audit R2-2). Nur für dieses Feld — andere könnten mitten im Tippen sein.
+    if(fe&&priceBad[fe.id]) snapPrices();
+    persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(()=>{savePrices._t=null;if(!VAULT)return;snapPrices();renderDash();},400);
   }
+  // Einheitenwechsel und übernommene Kurszeile verwerfen zurückgewiesenen Text: die Felder zeigen danach wieder die gespeicherten Kurse
+  function dropPriceBad(){ const a=document.activeElement; if(a&&priceBad[a.id]) a.blur(); priceBad={}; savePrices._f=null; savePrices._base=null; setPriceMsg(''); }   // blur: renderDash überschreibt kein fokussiertes Feld
+  // Feld verlassen = nächster Fokus merkt sich einen neuen Ausgangsstand (sonst gälte nach erneutem Betreten der Stand vom ersten Mal)
+  // focusout feuert auch beim Fensterwechsel (Alt+Tab, am Handy App-Wechsel), dann bleibt activeElement das Feld — dort NICHT zurücksetzen,
+  // sonst würde der nächste Tastendruck einen gültigen Zwischenstand zum Ausgangsstand machen (Audit R2-1). focusin fängt den Wechsel ab, der ohne
+  // focusout geschieht, während das Fenster weg ist.
+  document.addEventListener('focusout',ev=>{ if(ev.target===savePrices._f&&document.activeElement!==ev.target){ savePrices._f=null; savePrices._base=null; } });
+  document.addEventListener('focusin',ev=>{ if(savePrices._f&&ev.target!==savePrices._f){ savePrices._f=null; savePrices._base=null; } });
+  function setPriceMsg(key){ priceMsgKey=key||''; const m=$('price-msg'), t=priceMsgKey?tr(priceMsgKey):''; if(m&&m.textContent!==t) m.textContent=t; }
   // Datierter Preisstand fuer die Wertlinie. Laeuft NUR aus dem entprellten Timer von savePrices —
   // sonst landete jeder Tastendruck ("5", "58", "580") als eigener Stand in der Historie.
   // Ein Eintrag je Kalendertag, der letzte des Tages gewinnt; unveraenderte Preise erzeugen keinen Punkt.
@@ -1369,7 +1417,7 @@ const App = (function(){
     if(age>24*3600000) L.push('',tr(h<48?'rates.staleH':'rates.staleD').replace('{n}',h<48?h:Math.floor(h/24)));
     else if(age<-10*60000) L.push('',tr('rates.future'));
     if(!(await ask(L.join('\n'),{ok:'dlg.takeRates'})) || !VAULT) return;   // Sperre beantwortet die Frage mit false
-    clearTimeout(savePrices._t);                                            // offener Debounce aus savePrices: Preisstand/Neuzeichnen kommt gleich ohnehin
+    clearTimeout(savePrices._t); savePrices._t=null;                        // offener Debounce aus savePrices: Preisstand/Neuzeichnen kommt gleich ohnehin
     const before=VAULT.prices, p=Object.assign({btc:'',gold:'',silver:''},before);
     if(r.btc!=null) p.btc=String(r.btc);
     if(r.gold!=null) p.gold=String(r.gold/OZ_G);
@@ -1378,11 +1426,11 @@ const App = (function(){
     try{ await persist(); }
     catch(_){ if(VAULT&&VAULT.prices===p){ VAULT.prices=before; renderDash(); } return; }   // gesperrt oder Speicherfehler (persist meldet selbst)
     if(!VAULT) return;
-    snapPrices(); renderDash(); toast(tr('rates.taken'));
+    dropPriceBad(); snapPrices(); renderDash(); toast(tr('rates.taken'));
   }
   function pasteRatesEnter(){ return pasteRates('enter'); }
-  function setMetalUnit(u){VAULT.unit=u;persist();renderDash();}
-  function setBtcUnit(u){VAULT.btcUnit=(u==='sat'?'sat':'btc');addBtcUnit=VAULT.btcUnit;persist();renderDash();}
+  function setMetalUnit(u){VAULT.unit=u;dropPriceBad();persist();renderDash();}   // in Gramm würde „3.76263“ sonst ungeprüft als Grammpreis gelesen
+  function setBtcUnit(u){VAULT.btcUnit=(u==='sat'?'sat':'btc');setInputBtcUnit(VAULT.btcUnit);persist();renderDash();}   // rechnet den Formularwert mit um (Audit v3.10.1: vorher wurden 21000 Sats still 21000 BTC)
   function setAutolock(v){VAULT.autolock=parseInt(v)||0;persist();resetIdle();toast(VAULT.autolock?tr('toast.autolockPrefix')+VAULT.autolock+' '+tr('unit.min'):tr('toast.autolockOff'));}
 
   /* ---------- render list ---------- */
@@ -2375,7 +2423,7 @@ const App = (function(){
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
   function closeHelp(){hide('help-overlay');}
   function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
-  function relabel(){ if(!VAULT) return; { const m=$('price-paste-msg'); if(m) m.textContent=pasteMsgText(); } refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
+  function relabel(){ if(!VAULT) return; { const m=$('price-paste-msg'); if(m) m.textContent=pasteMsgText(); } setPriceMsg(priceMsgKey); refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,lockNow,cancelTotp,doBio,bioEnable,bioDisable,bioAlertOk,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,

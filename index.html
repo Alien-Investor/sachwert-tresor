@@ -370,6 +370,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
           <div><label id="price-gold-label">Gold €/oz</label><input id="price-gold" type="number" step="any" data-input="savePrices"></div>
           <div><label id="price-silver-label">Silber €/oz</label><input id="price-silver" type="number" step="any" data-input="savePrices"></div>
         </div>
+        <p id="price-msg" role="status" aria-live="polite" style="margin:4px 0 0;font-size:.8rem;color:var(--red)"></p>
         <label for="price-paste" style="margin-top:12px" data-i18n="dash.pasteLbl">Kurszeile aus Mission Control</label>
         <input id="price-paste" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Hier einfügen: ALIEN-KURSE/1 …" data-i18n-ph="dash.pastePh" data-input="pasteRates" data-enter="pasteRatesEnter" aria-describedby="price-paste-msg">
         <p id="price-paste-msg" class="muted" role="status" aria-live="polite" style="margin:4px 0 0;font-size:.8rem"></p>
@@ -399,10 +400,10 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
               <select class="combo-native" id="f-cur" data-change="onCurChange"><option value="EUR">EUR (€)</option><option value="USD">USD ($)</option><option value="CHF">CHF (Fr.)</option></select>
               <div id="cm-f-cur" class="combo-menu hidden"></div>
             </div></div>
-          <div id="f-eur-wrap"><label id="f-eur-label">Bezahlt (EUR, gesamt inkl. Gebühr)</label><input id="f-eur" type="number" step="any" placeholder="z.B. 250.00"></div>
+          <div id="f-eur-wrap"><label id="f-eur-label">Bezahlt (EUR, gesamt inkl. Gebühr)</label><input id="f-eur" type="number" step="any" placeholder="z.B. 2500,00" data-i18n-ph="add.eurPh"></div>
         </div>
         <div class="row hidden" id="f-eurref-wrap">
-          <div><label data-i18n="add.eurRef">EUR-Gegenwert am Buchungstag (optional, laut Abrechnung — für den Steuertool-Export)</label><input id="f-eurref" type="number" step="any" placeholder="z.B. 230.00"></div>
+          <div><label data-i18n="add.eurRef">EUR-Gegenwert am Buchungstag (optional, laut Abrechnung — für den Steuertool-Export)</label><input id="f-eurref" type="number" step="any" placeholder="z.B. 2300,00" data-i18n-ph="add.eurRefPh"></div>
         </div>
 
         <!-- BTC fields -->
@@ -692,6 +693,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
       <li><strong>KYC-Flag:</strong> markiert Käufe über einen KYC-Broker — wichtig für die saubere Trennung zum Steuertool.</li>
       <li><strong>Entnahme</strong> = Transfer/Ausgabe ohne Verkauf: reduziert den Bestand, ist aber kein steuerlicher Verkauf.</li>
       <li>Dubletten (gleicher Typ + Datum + Menge) werden gewarnt und mit ⚠ markiert.</li>
+      <li><strong>Beträge ohne Tausenderpunkt</strong> eingeben, also 2500 oder 2500,50: Die Zahlenfelder nehmen Punkt und Komma als Dezimalzeichen, „2.500“ wäre 2,50 €. Beträge mit mehr als zwei Nachkommastellen, Sats und Stückzahlen mit Trennzeichen weist die App deshalb zurück. Nach einer solchen Meldung ist das Betragsfeld leer: den ganzen Betrag neu eingeben.</li>
     </ul>
 
     <h2 data-i18n="help.h4">Übersicht & Werte</h2>

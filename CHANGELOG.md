@@ -3,6 +3,29 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.10.1 — 2026-10-11
+
+Korrekturen bei der Eingabe von Beträgen und beim Sperren, auf Android und am Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
+- **Tausenderpunkt im Betragsfeld:** Die Zahlenfelder nehmen Punkt und Komma als Dezimalzeichen und verwerfen jedes weitere Trennzeichen. Wer
+  „2.500“ oder „2.500,00“ eintippte, bekam ohne Warnung eine Buchung über 2,50 €, aus „1.234,56“ wurden 1,23 €. Der falsche Betrag ging in Einstand,
+  Gewinn/Verlust und den Export fürs Steuertool. Jetzt weist die App einen Betrag mit mehr als zwei Nachkommastellen zurück, auch den
+  EUR-Gegenwert bei USD- und CHF-Buchungen, ebenso Sats und Stückzahlen mit Trennzeichen (bisher wurden aus „21.000“ Sats 21 Sats, aus „1.000“ Stück
+  ein Stück). Das abgewiesene Betragsfeld wird dabei geleert, damit man den ganzen Betrag neu eingibt: Nur den Punkt zu löschen ergäbe ein Vielfaches
+  (aus „2.500,50“ würden 250.050 €), weil das Feld das Komma dahinter schon verworfen hat. Die übrigen Angaben bleiben stehen. Gewicht je Stück
+  und Feinheit prüft die App nicht, dort sind mehr Stellen normal.
+- **Kurse:** Einen BTC-Kurs oder einen Gold- oder Silberkurs je Unze mit mehr als zwei Nachkommastellen (etwa „74.091,07“) übernimmt die App nicht
+  mehr. Unter den Kursfeldern steht eine Warnung, es gilt weiter der vorige Kurs, und es entsteht kein Preisstand für die Wertlinie. Die Kurszeile aus
+  Mission Control war nie betroffen.
+- **Sats im Formular:** Wer eine Menge in Sats eintippte und vor dem Speichern in der Übersicht die Anzeige auf BTC umstellte, buchte die Zahl als BTC
+  (aus 21000 Sats wurden 21000 BTC). Jetzt rechnet die App den Wert im Formular mit um. Steht dort eine Sats-Zahl mit Trennzeichen, rechnet sie nicht um,
+  sondern meldet es, auch beim Umschalter über dem Feld.
+- **Sperren:** Nach dem Einrichten oder einem Passphrasenwechsel konnte die Passphrase als Rest einer internen Textprüfung im Speicher der Seite liegen
+  bleiben, auch nach dem Sperren. Die App räumt diesen Rest jetzt beim Sperren weg.
+- **Platzhalter und Handbuch:** Das Betragsfeld zeigt „z.B. 2500,00“, das Handbuch nennt die Regel.
+- **Alte Buchungen prüfen:** Wer Beträge mit Tausenderpunkt eingetippt hat, findet in der Liste verdächtig kleine Beträge (etwa 2,50 € statt
+  2.500,00 €) und korrigiert sie über „Bearbeiten“. Buchungen mit mehr Nachkommastellen, etwa aus einem CSV-Import, lassen sich weiter
+  bearbeiten, solange der Betrag unverändert bleibt.
+
 ## v3.10 — 2026-10-11
 
 Sicherheitskorrektur für die Desktop-Fassung (Linux), dazu eine aktuelle Engine. Keine Änderung an Datei-Format, Verschlüsselung, Berechtigungen oder
