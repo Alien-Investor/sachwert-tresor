@@ -177,7 +177,7 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   (Fassungsnummer, Datum, Vernichtungsvermerk, Hinweise in Erben-Sprache). Nur Mengen mit
   Stückelung, keine Preise, keine Händler, keine Standorte. Zusammenspiel: Der Tresor kennt
   die Mengen, der Planer kennt die Orte — der Anhang bringt beides in ein Erben-Paket, ohne
-  dass ein Werkzeug die Daten des anderen liest. PDF über den Speichern-Dialog (Linux-App) oder `.txt` (Handy).
+  dass ein Werkzeug die Daten des anderen liest. PDF über den Speichern-Dialog (Linux-App) oder `.txt` (Handy und Linux-App).
 - **Aegis-2FA mit QR**: QR scannen, als Bild speichern (Aegis kann ihn ohne Kamera aus der
   Galerie importieren), kopieren, oder den Base32-Schlüssel manuell eintragen.
 - **Dubletten-Schutz**: Warnung beim Erfassen, wenn Typ + Vorgang + Datum + Menge bereits

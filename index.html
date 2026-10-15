@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sachwert-Tresor — Bitcoin · Gold · Silber</title>
-<meta name="description" content="Lokaler, verschlüsselter Tresor für deine Bitcoin-, Gold- und Silberkäufe. Läuft komplett offline als Android-App und Linux-Desktop-App, deine Daten verlassen nie dein Gerät.">
+<meta name="description" content="Lokaler, verschlüsselter Tresor für deine Bitcoin-, Gold- und Silberkäufe. Läuft komplett offline als Android-App und Linux-Desktop-App, deine Daten verlassen dein Gerät nur, wenn du sie selbst exportierst.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#000000">
 <!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js).
@@ -709,7 +709,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
 
     <h2 data-i18n="help.h5">Backup & Sync (wichtig!)</h2>
     <p class="only-desk" data-i18n-html="help.p5desk">Dein Bestand liegt verschlüsselt in einer Datei <em>dieses</em> Rechners: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. Sie übersteht Updates (deinstallieren + neu installieren) und geht nur mit „Lokale Daten löschen“ oder <code>flatpak uninstall --delete-data</code> verloren. Auch hier gilt: <strong>ohne <code>.vault</code>-Backup ist der Bestand unwiederbringlich weg</strong>.</p>
-    <p class="no-desk" data-i18n-html="help.p5">Dein Bestand liegt verschlüsselt im geschützten App-Speicher <em>dieses</em> Geräts. Er übersteht Neustarts und Updates und geht nur bei „App-Daten löschen“ oder Deinstallation verloren. Wichtig: <strong>ohne <code>.vault</code>-Backup ist der Bestand dann unwiederbringlich weg</strong>.</p>
+    <p class="no-desk" data-i18n-html="help.p5">Dein Bestand liegt verschlüsselt im geschützten App-Speicher <em>dieses</em> Geräts. Er übersteht Neustarts und Updates und geht nur mit „Lokale Daten löschen“, „App-Daten löschen“ oder Deinstallation verloren. Wichtig: <strong>ohne <code>.vault</code>-Backup ist der Bestand dann unwiederbringlich weg</strong>.</p>
     <ul data-i18n-html="help.l5">
       <li><strong>Backup erstellen</strong> (Export & Sync) → verschlüsselte <code>.vault</code>-Datei. Leg sie in deinen Syncthing-Ordner.</li>
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>

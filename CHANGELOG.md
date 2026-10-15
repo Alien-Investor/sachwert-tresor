@@ -5,31 +5,35 @@ Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Code
 
 ## v3.11 — 2026-10-16
 
-Kurse aus dem Backup, eine Bitte an die Tastatur und Korrekturen aus den internen Security-Audits von Alien Pass und Alien Notes, auf Android und am
-Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
+Kurse aus dem Backup, eine Bitte an die Tastatur und Korrekturen aus den internen Security-Audits von Alien Pass, Alien Notes und des Tresors selbst,
+auf Android und am Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
 - **Kurse aus dem Backup:** Beim Wiederherstellen eines `.vault`-Backups übernimmt die Übersicht jetzt die Kurse, wenn das Backup Kurse von einem
   neueren Tag hat als das Gerät, und zwar nur die ausgefüllten (ein leerer Silberkurs im Backup löscht deinen nicht). Bisher kamen sie nur in den
   Verlauf, Wert und Gewinn/Verlust rechneten weiter mit dem alten Kurs. Ein älteres Backup ändert deine Kurse nie. Die Meldung nach dem Import nennt den Tag.
 - **Tastatur (Android):** Jedes Eingabefeld bittet die Tastatur-App, daraus nichts zu lernen (wie Alien Pass und Alien Notes). Gboard zeigt dann sein
   Inkognito-Symbol. Das ist nur eine Bitte: Nicht jede Tastatur hält sich daran, und mitlesen kann sie trotzdem.
-- **Rückfragen:** Wer im Dialog drückte und daneben losließ (etwa beim Markieren des Textes), brach die Rückfrage ab. Jetzt bricht nur ein Tipp ab, der
-  auch daneben beginnt. Strg+Z bei offener Rückfrage machte das zuletzt getippte Feld im Formular dahinter rückgängig, das ist gesperrt.
+- **Rückfragen:** Wer im Dialog die Maustaste drückte und erst daneben losließ (etwa beim Markieren des Textes), brach die Rückfrage ab. Jetzt bricht nur
+  noch ein Klick oder Tipp ab, der schon daneben beginnt.
 - **Rückgängig im Formular:** Nach „Bearbeiten“ konnte Strg+Umschalt+Z Text zurückholen, der vorher in einem verworfenen Formular getippt worden war,
   und „Speichern“ hätte ihn übernommen. Jetzt beginnt das Formular bei jedem Befüllen mit einem leeren Rückgängig-Verlauf.
-- **Sperren:** Nach dem Einrichten blieb die Passphrase als Rest einer internen Textprüfung bis zur ersten Sperre im Speicher der Seite. Die App räumt
-  ihn jetzt sofort weg, ebenso nach einem Passphrasenwechsel und beim Abbrechen der 2FA-Einrichtung.
-- **Linux-Desktop, Speichern:** Klartext-Exporte (Steuertool-CSV, Edelmetalle, Nachlass-Anhang als `.txt` und PDF) gehen erst nach der Wahl im
-  Speichern-Dialog an die Hülle. Sperrt die App, während der Dialog offen ist, wird nichts gespeichert, und ein Hinweis sagt es. Fehlermeldungen nennen
-  nur noch den Fehlercode, nicht den Pfad. Vor dem Überschreiben einer vorhandenen Datei verlangt die App die Rückfrage jetzt auch selbst (im Flatpak fragt
-  der Dialog des Systems ohnehin). Zwischendateien beim Speichern tragen
-  einen zufälligen Namen (eine Härtung, im Alltag ohne Wirkung).
-- **Linux-Desktop, Mittelklick-Auswahl:** Die App löscht jetzt auch Text, den Strg+Z oder Strg+Y in einem Feld erst nach Ablauf der 30 Sekunden
+- **Passphrase im Speicher:** Nach dem Einrichten und nach einem Passphrasenwechsel blieb die Passphrase als Rest einer internen Textprüfung bis zur
+  nächsten Sperre im Speicher der Seite. Die App räumt ihn jetzt sofort weg, beim Abbrechen der 2FA-Einrichtung vorsorglich ebenso.
+- **Linux-Desktop, Speichern:** Klartext-Exporte (Steuertool-CSV, Edelmetall-CSV, Nachlass-Anhang als `.txt` und PDF) gehen erst nach der Wahl im
+  Speichern-Dialog an die Hülle. Sperrt die App, während der Dialog offen ist, wird nichts gespeichert, und ein Hinweis sagt es. Fehlermeldungen beim
+  Speichern nennen den Pfad nicht mehr, nur den Fehlercode (etwa ENOENT). Vor dem Überschreiben einer vorhandenen Datei verlangt die App die Rückfrage
+  jetzt auch selbst (im Flatpak fragt der Dialog des Systems ohnehin). Zwischendateien beim Speichern tragen einen zufälligen Namen (eine Härtung, im
+  Alltag ohne Wirkung).
+- **Backup-Vermerk:** Die App vermerkt ein Backup erst, wenn die Datei gespeichert ist. Bisher stand der Vermerk schon vorher im Tresor: Auf Android blieb er
+  bei einem Schreibfehler stehen, am Linux-Desktop, wenn die App sperrte, während der Speichern-Dialog offen war, und danach abgebrochen wurde oder das Schreiben
+  scheiterte. Das Backup galt dann als gemacht, und die Backup-Erinnerung verschwand. Gelingt das Speichern erst nach einer Sperre, holt die App den Vermerk beim
+  nächsten Entsperren nach; einen Fehler nennt sie dann.
+- **Linux-Desktop, Mittelklick-Auswahl:** Die App löscht jetzt auch Text, den Strg+Z oder Strg+Y in einem Feld erst nach Ablauf der 30-Sekunden-Frist
   zurückholt (etwa eine überschriebene Markierung, auch aus einem Passphrase-Feld), und den 2FA-Schlüssel beim Einrichten, wenn man ihn mit der Maus zieht.
   Bisher blieb beides in der Mittelklick-Auswahl stehen.
-- **Linux-Desktop, Mausrad:** Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, beim BTC-Kurs der Übersicht wurde er sofort
+- **Linux-Desktop, Mausrad:** Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, bei den Kursen der Übersicht wurde er sofort
   gespeichert. Jetzt nimmt das Rad dem Feld nur den Fokus, der nächste Dreh scrollt die Seite.
 - **Linux-Desktop, Strg+L** sperrt auch bei kyrillischer Tastaturbelegung.
-- **Linux-Desktop, Engine:** Electron 44.7.2 (Sicherheits-Backports aus Chromium, V8, ANGLE und PDFium).
+- **Linux-Desktop, Engine:** Electron 44.7.2, vorher 44.7.0 (nachgezogene Korrekturen aus Chromium, V8, ANGLE und PDFium).
 - **Handbuch und Texte:** ohne die eingestellte Browser-Version; der Hilfe-Knopf ist für Bildschirmleser auch englisch beschriftet.
 
 ## v3.10.1 — 2026-10-11

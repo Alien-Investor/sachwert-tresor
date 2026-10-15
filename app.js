@@ -110,7 +110,7 @@ const I18N = {
   "help.pRates":"The vault itself <strong>never goes online</strong> – the prices only reach it through the clipboard. Mission Control only copies prices fetched within the last 6 minutes and converts gold and silver to euros with the USD/EUR rate it shows (COMEX futures, not the spot price). The vault does not store the exchange rate. If a price is missing from the line, the previous one stays; if the fetch is more than a day old, the confirmation warns you. A line typed by hand opens it with Enter.",
   "help.h5":"Backup & Sync (important!)",
   "help.p5desk":"Your holdings live encrypted in a file on <em>this</em> computer: <code>~/.var/app/org.alieninvestor.tresor/data/sachwert-tresor/vault.aisv</code>. It survives updates (uninstall + reinstall) and is lost only with “Delete local data” or <code>flatpak uninstall --delete-data</code>. Here too: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
-  "help.p5":"Your holdings live encrypted in <em>this</em> device's protected app storage. They survive restarts and updates and are lost only on “Clear app data” or uninstall. Important: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
+  "help.p5":"Your holdings live encrypted in <em>this</em> device's protected app storage. They survive restarts and updates and are lost only through “Delete local data”, “Clear app data” or uninstall. Important: <strong>without a <code>.vault</code> backup the holdings are irretrievably gone</strong>.",
   "help.l5":"<li><strong>Create backup</strong> (Export & Sync) → encrypted <code>.vault</code> file. Put it in your Syncthing folder.</li><li><strong>Syncthing</strong> syncs the file P2P between your devices — without cloud.</li><li><strong>Restore backup</strong> on the other device → choose the file → enter the <strong>file's passphrase</strong> (the source device's, not necessarily the local one).</li><li><strong>Merge:</strong> the import <strong>merges</strong> (new entries and price snapshots are added, your local passphrase stays). If the backup has prices from a <strong>newer day</strong> than yours, the overview takes them over; an older backup never changes your prices. Later edits and deletions do <em>not</em> sync — otherwise correct entries identically on both devices.</li><li><strong>If the app locks while the file picker is open</strong> (auto-lock), the chosen file is not lost: the lock screen shows “File chosen — unlock to import”, and after unlocking the import continues with exactly this file. Applies to <code>.vault</code> backups and CSV.</li>",
   "help.h6":"CSV import",
   "help.p6":"Export & Sync → Import CSV loads <code>manual_buys.csv</code> (buys) / <code>manual_sales.csv</code> (sells) in vault format. Duplicates are skipped — safe to import multiple times. <strong>Broker/exchange CSVs, by contrast, go directly into the BTC tax tool</strong> (it has its own broker parsers) — not here.",
@@ -924,7 +924,7 @@ const App = (function(){
   function enterApp(){ if(DESK&&clipOwned) clearClip();   // markierte Passphrase vom Sperr-/Einrichtungsbildschirm nicht mit in die Sitzung nehmen (Notes leaveGate)
     screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); runPendingFile();
     if(exportDropped){ exportDropped=false; toast(tr('exp.dropped'),{ms:8000}); }
-    runBackupUndo();   // Backup-Dialog war offen, als gesperrt wurde: Stempel zurück (run-11 c-1)   // Speichern-Dialog war offen, als gesperrt wurde: nichts geschrieben (v3.11)
+    runBackupLate();   // Backup-Dialog war offen, als gesperrt wurde: Stempel nachholen bzw. Fehler nennen (run-11 c-1/d-1)   // Speichern-Dialog war offen, als gesperrt wurde: nichts geschrieben (v3.11)
     if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
@@ -938,7 +938,7 @@ const App = (function(){
   }
   // Nach dem Sperren darf nichts Entschlüsseltes im (versteckten) DOM lesbar bleiben
   function clearRendered(){
-    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert','price-paste-msg','price-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
+    ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','nl-msg','setup-meter','cp-meter','bio-alert','price-paste-msg','price-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
     { const bk=$('bio-keep'); if(bk) bk.checked=false; }   // „auch nach Neustart“ nie stehen lassen (ab Werk aus)s H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
     ['f-src-btc','f-src-metal','f-date'].forEach(i=>{const el=$(i);if(el)el.value='';});   // VOR resetAddForm: dessen Klone ließen sonst die Werte in den abgehängten Altknoten (run-11 a-10)
@@ -1824,15 +1824,15 @@ const App = (function(){
   // geschrieben und es gesagt — gleich, wenn schon wieder entsperrt, sonst nach dem nächsten Entsperren (Notes d2-1). Meldungen nur bei offener Sitzung.
   // Liefert den Dateinamen oder null (abgebrochen/verworfen/Fehler, Meldung schon gesetzt). Der Text entsteht VOR dem Dialog (Aufrufer) — er bleibt im Speicher
   // der Seite wie bisher, verlässt sie aber erst nach der Prüfung.
-  let exportDropped=false;
+  let exportDropped=false, deskExportBusy=false;
   const deskAlive=s=>!!DEK&&VAULT===s;
   async function deskSaveText(name, content, m){ const s=VAULT;
-    if(deskSaveText._busy) return null; deskSaveText._busy=true;   // Doppelklick: ein Dialog zur Zeit (die Hülle meldete sonst „busy“ als Fehler, run-11 a-9)
+    if(deskExportBusy) return null; deskExportBusy=true;   // ein Klartext-Dialog zur Zeit, auch über CSV/TXT/PDF hinweg (die Hülle meldete sonst „busy“ als Fehler, run-11 a-9/d-7)
     try{ const tok=await DESK.saveText.pick(name); if(!tok) return null;
       if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped'),{ms:8000}); else exportDropped=true; return null; }
       const n=await DESK.saveText.write(tok, content); return deskAlive(s)?n:null; }
     catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } return null; }
-    finally{ deskSaveText._busy=false; } }
+    finally{ deskExportBusy=false; } }
   // Liefert true nur bei Erfolg in derselben offenen Sitzung — der Aufrufer hängt dann ggf. seine Warnung an (v3.11, run-11 a-5: sonst stand sie nach einer
   // Sperre bei offenem Dialog bzw. nach Abbrechen in der App). Meldungen nur bei offener Sitzung (run-11 a-6, auch Android nach dem Teilen-Dialog).
   async function saveCsv(name, csv){
@@ -1845,50 +1845,47 @@ const App = (function(){
       const n=await deskSaveText(name, '﻿'+csv, m); if(n){ if(m) m.textContent=n+tr('exp.savedDesk'); toast(tr('toast.exported')); return true; } return false;
     } else { downloadFile(name, csv); toast(tr('toast.exported')); return true; }
   }
-  // Backup-Stempel zurücknehmen, wenn die App sperrte, während der Desktop-Dialog offen war, und danach abgebrochen wurde oder das Schreiben scheiterte
-  // (v3.11, Release-Audit run-11 c-1): der Stempel steht schon vor dem Dialog in der Datei, die Rücknahme ging nach der Sperre nicht mehr — die Erinnerung
-  // „Noch kein Backup“ verschwand ohne Datei. Nachgeholt in enterApp(), nur solange der Stempel noch genau dieser ist; ein Fehler wird dann genannt.
-  let backupUndo=null;
-  function runBackupUndo(){ const u=backupUndo; backupUndo=null; if(!u||!VAULT) return;
-    if(VAULT.lastBackup===u.stamp&&VAULT.lastBackupCount===u.count){
-      if(u.prevBackup===undefined) delete VAULT.lastBackup; else VAULT.lastBackup=u.prevBackup;
-      if(u.prevCount===undefined) delete VAULT.lastBackupCount; else VAULT.lastBackupCount=u.prevCount; if(u.hadFresh) VAULT.needsFreshBackup=true;
-      persist().catch(()=>{}); renderDash(); }
-    if(u.err) toast((LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+u.err,{ms:8000}); }
+  // Backup (v3.11, Release-Audit run-11 c-1/d-1): Die Exportdatei entsteht aus einer GESTEMPELTEN KOPIE des Tresors (der Stempel wandert mit in die Datei —
+  // anders als Alien Pass), im Tresor gespeichert wird er aber erst NACH dem Erfolg. Bis v3.10.1 stand er schon vor dem Dialog in der Datei und wurde bei
+  // Abbruch oder Fehler zurückgenommen — nach einer Sperre im Dialog ging das nicht mehr, und die Backup-Erinnerung verschwand ohne Datei (auch nach Absturz).
+  // Gelingt das Speichern erst nach einer Sperre, holt enterApp() den Stempel nach (`backupLate`, nur im RAM; endet die App vorher, fehlt er — die sichere
+  // Richtung: eine Mahnung zu viel). Ein Fehler nach der Sperre wird beim Entsperren genannt. `wipeLocal` verwirft den Nachtrag.
+  let backupLate=null;
+  function applyBackupStamp(u){ VAULT.lastBackup=u.day; VAULT.lastBackupCount=u.count; delete VAULT.needsFreshBackup; }   // Backup im neuen Format liegt vor
+  function runBackupLate(){ const u=backupLate; backupLate=null; if(!u||!VAULT) return;
+    if(u.err) toast((LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+u.err,{ms:8000});
+    else { applyBackupStamp(u); persist().catch(()=>{}); renderDash(); } }
   async function exportVault(){
-    if(exportVault._busy) return;
-    let stored=null; try{ stored=vaultGet(); }catch(_){}
-    if(!stored)return;
-    // Backup-Stand für die Erinnerung merken — wandert mit in die Exportdatei. Vorwerte behalten: scheitert das Speichern
-    // (oder bricht der Desktop-Dialog ab), kommt der alte Stand zurück, sonst stünde „Backup von heute“ ohne Datei da.
-    const hadFresh=VAULT.needsFreshBackup, prevBackup=VAULT.lastBackup, prevCount=VAULT.lastBackupCount, v0=VAULT;
-    const revert=()=>{ if(VAULT!==v0) return; if(prevBackup===undefined) delete VAULT.lastBackup; else VAULT.lastBackup=prevBackup;
-      if(prevCount===undefined) delete VAULT.lastBackupCount; else VAULT.lastBackupCount=prevCount; if(hadFresh) VAULT.needsFreshBackup=true; };
-    VAULT.lastBackup=todayStr(); VAULT.lastBackupCount=VAULT.entries.length; delete VAULT.needsFreshBackup;   // Backup im neuen Format liegt vor
-    try{ await persist(); }catch(e){ if(!(e&&e.locked)) revert(); return; }
-    let raw; try{ raw=vaultGet(); }catch(_){ revert(); persist().catch(()=>{}); return; }
-    const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
-    if(DESK){
-      exportVault._busy=true;
-      const undo={stamp:VAULT.lastBackup, count:VAULT.lastBackupCount, prevBackup, prevCount, hadFresh, err:null};
-      try{ const n=await DESK.saveBackup(name, raw);
-        if(VAULT!==v0){ if(!n) backupUndo=undo; return; }   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (run-11 a-6); abgebrochen → Stempel beim Entsperren zurück (c-1)
-        if(!n){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=''; }   // abgebrochen: kein Stempel
-        else { $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
-      }catch(e){ if(VAULT!==v0){ undo.err=(e&&e.message)||String(e); backupUndo=undo; return; }
-        revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
-      finally{ exportVault._busy=false; if(VAULT===v0) renderDash(); }
-      return;
-    }
-    if(isNative){
-      try{ const uri=await nativeSaveAndShare(name, raw);
-        $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative');
-        toast(tr('toast.saved'));
-      }catch(e){ $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
-    } else {
-      downloadFile(name, raw, 'application/octet-stream', false);
-      $('export-msg').textContent=tr('exp.vaultSavedWeb');
-    }
+    if(exportVault._busy||!VAULT) return;
+    const v0=VAULT, dek=DEK, kdf=KDF, wrap=WRAP; if(!dek||!kdf||!wrap) return;
+    const stamp={day:todayStr(), count:VAULT.entries.length};
+    const copy=Object.assign({},VAULT,{lastBackup:stamp.day,lastBackupCount:stamp.count}); delete copy.needsFreshBackup;
+    exportVault._busy=true;
+    try{
+      let raw; try{ raw=serializeFile(kdf,wrap,await encryptBody(copy,dek,kdf)); }catch(_){ return; }
+      if(VAULT!==v0||DEK!==dek||KDF!==kdf||WRAP!==wrap) return;   // während des Verschlüsselns gesperrt oder Passphrase gewechselt: nichts anbieten
+      const name=`sachwert-tresor-${stamp.day}.vault`;
+      // Erfolg: Stempel jetzt in den Tresor; ein Speicherfehler dabei lässt nur die Mahnung stehen (persist meldet selbst)
+      const done=async()=>{ applyBackupStamp(stamp); await persist().catch(()=>{}); renderDash(); };
+      if(DESK){
+        try{ const n=await DESK.saveBackup(name, raw);
+          if(VAULT!==v0){ if(n) backupLate={...stamp}; return; }   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (a-6), Stempel beim Entsperren (c-1)
+          if(!n){ $('export-msg').textContent=''; return; }        // abgebrochen: kein Stempel
+          await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
+        }catch(e){ const m=(e&&e.message)||String(e); if(VAULT!==v0){ backupLate={err:m}; return; }
+          $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+m; }
+        return;
+      }
+      if(isNative){
+        try{ const uri=await nativeSaveAndShare(name, raw);
+          if(VAULT!==v0){ backupLate={...stamp}; return; }        // gesperrt, während der Teilen-Dialog offen war (run-11 d-3): Datei liegt, Stempel beim Entsperren
+          await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative'); toast(tr('toast.saved')); }
+        }catch(e){ if(VAULT===v0) $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+      } else {
+        downloadFile(name, raw, 'application/octet-stream', false);
+        await done(); if(VAULT===v0) $('export-msg').textContent=tr('exp.vaultSavedWeb');
+      }
+    } finally { exportVault._busy=false; }
   }
   // CSV-Bulk-Import im Tresor-Eigenformat (manual_buys.csv = Käufe, manual_sales.csv = Verkäufe).
   // CSV nur im Tresor-Format (date,btc_amount,eur_amount,…). Broker-CSVs gehoeren ins Steuertool, nicht hierher.
@@ -2000,7 +1997,12 @@ const App = (function(){
       // ändert die Kurse nie (sonst Rückfall beim Wiederherstellen); Zukunftsdaten fallen schon in sanitizeSnaps weg.
       const pd=typeof VAULT.pricesDay==='string'&&notFuture(VAULT.pricesDay)?VAULT.pricesDay:'';   // Tag der letzten Kursänderung (a-4), Zukunft zählt nicht
       const localDay=sanitizeSnaps(VAULT.priceHistory).reduce((m,x)=>x.d>m?x.d:m,pd);
-      const top=sanitizeSnaps(v.priceHistory).reduce((m,x)=>!m||x.d>m.d?x:m,null), takePrices=!!top&&top.d>localDay;
+      let top=sanitizeSnaps(v.priceHistory).reduce((m,x)=>!m||x.d>m.d?x:m,null);
+      // Backup-Seite von a-4 (run-11 d-4): trägt das Backup einen neueren Tag der letzten Kursänderung als seinen neuesten Preisstand (Kurs getippt, Sperre in der
+      // Entprellung), gelten seine Kursfelder mit diesem Tag — bereinigt wie ein Preisstand (sanitizeSnaps: gültiger Tag, nicht in der Zukunft, Zahlen > 0)
+      const vp=v.prices&&typeof v.pricesDay==='string'?sanitizeSnaps([{d:v.pricesDay,btc:v.prices.btc,gold:v.prices.gold,silver:v.prices.silver}])[0]:null;
+      if(vp&&(!top||vp.d>top.d)) top=vp;
+      const takePrices=!!top&&top.d>localDay;
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
       VAULT.priceHistory=mergeSnaps(VAULT.priceHistory, v.priceHistory);
@@ -2367,7 +2369,7 @@ const App = (function(){
     // Vor jeder Taste synchron (Capture, vor der Standardaktion): Weitertippen klappt die Markierung zusammen, PRIMARY behält sie aber (Pass-Audit Runde 3)
     document.addEventListener('keydown',onSel,true);
   }
-  async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true);try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
+  async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true); backupLate=null;try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
     try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
     dropPre3();lock();}
   // Nachgeholter Import (v3.6, Port aus Alien Pass v1.10, Gerätetest 26.09.2026): der Datei-Picker ist eine fremde Android-Activity (am Desktop
@@ -2481,20 +2483,20 @@ const App = (function(){
   // Desktop: window.print() liefe im Flatpak ohne cups-Socket ins Leere → die Hülle rendert die Seite mit dem Druck-CSS als PDF
   // (printToPDF im Hauptprozess, VOR dem Dialog — das Overlay ist dabei offen) und speichert über den Portal-Dialog.
   function printNachlass(){ renderNachlass(); nlRemember(); if(!DESK) return window.print();
-    if(printNachlass._busy) return; printNachlass._busy=true; const m=$('nl-msg'), s=VAULT;
+    if(deskExportBusy) return; deskExportBusy=true; const m=$('nl-msg'), s=VAULT;
     // zweistufig (v3.11): erst der Dialog, dann rendert die Hülle das offene Blatt — nur, wenn die Sitzung noch dieselbe und das Blatt noch offen ist
     (async()=>{ try{ const tok=await DESK.savePdf.pick('nachlass-anhang-'+nlToday()+'.pdf'); if(!tok) return;
         if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped'),{ms:8000}); else exportDropped=true; return; }
         if($('nachlass-overlay').classList.contains('hidden')) return;   // Blatt zu: nichts rendern (der Dialog ist modal, praktisch nur über die Sperre erreichbar)
         const n=await DESK.savePdf.write(tok); if(n&&deskAlive(s)){ if(m) m.textContent=n+tr('nl.pdfSaved'); toast(tr('toast.exported')); } }
       catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } }
-      finally{ printNachlass._busy=false; } })(); }
+      finally{ deskExportBusy=false; } })(); }
   async function exportNachlassTxt(){
     renderNachlass(); nlRemember();
     const name='nachlass-anhang-'+nlToday()+'.txt', txt=nachlassText(), m=$('nl-msg');
-    if(isNative){
-      try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE', txt); if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); }
-      catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
+    if(isNative){ const s=VAULT;   // Meldungen nur in derselben offenen Sitzung (run-11 d-3)
+      try{ const uri=await nativeSaveAndShare(name, txt, 'CACHE', txt); if(deskAlive(s)){ if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); } }
+      catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } }
     } else if(DESK){   // Klartext ohne BOM, nur per Dialog
       const n=await deskSaveText(name, txt, m); if(n){ if(m) m.textContent=n+tr('nl.savedWeb'); toast(tr('toast.exported')); }
     } else { downloadFile(name, txt, 'text/plain;charset=utf-8', false); if(m) m.textContent=name+tr('nl.savedWeb'); toast(tr('toast.exported')); }

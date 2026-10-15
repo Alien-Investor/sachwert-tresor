@@ -825,7 +825,9 @@ async function m311(){
     await fall('Strg+Z NACH Ablauf der Frist holt die überschriebene Markierung zurück ('+f+') — gemeldet, gelöscht (Pass run-12 c-1)', async()=>{
       const v=await vorbereiten(); await type('X'); await sleep(200); const weg1=await clear(); k('Z',['control']); await sleep(500); const fs1=await feldSel();
       return {ok:v.akt===f&&v.vor==='defgh'&&weg1&&fs1==='defgh'&&(await prim())==='defgh', akt:v.akt, vor:v.vor==='defgh', weg1, feld:fs1==='defgh'}; });
-    await fall('Strg+Y nach Strg+Z und Fristablauf holt sie erneut zurück ('+f+') — gemeldet, gelöscht (Pass run-12 d-1)', async()=>{
+    // Strg+Y-Folge als Regressionsschutz — gegen v3.10.1 ohne Befund (Strg+Y holt nur einen ABGELEGTEN Text zurück; der historyRedo-Zweig ist im Stub belegt,
+    // verify-v311 [7] „Strg+Y holt den abgelegten Text zurück“, run-11 c-3/e-6 — Ablegen per sendInputEvent ist in der Test-Hülle nicht verlässlich)
+    await fall('Strg+Y/Strg+Z-Folge nach Fristablauf ('+f+') — PRIMARY gelöscht (Regressionsschutz, gegen v3.10.1 ohne Befund)', async()=>{
       const v=await vorbereiten(); await type('X'); await sleep(200); k('Z',['control']); await sleep(400); k('Y',['control']); await sleep(300); k('Z',['control']); await sleep(300);
       const weg1=await clear(); k('Y',['control']); await sleep(300); k('Z',['control']); await sleep(500); const fs1=await feldSel();
       return {ok:v.akt===f&&weg1&&fs1==='defgh'&&(await prim())==='defgh', akt:v.akt, weg1, feld:fs1==='defgh'}; });
