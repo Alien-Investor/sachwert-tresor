@@ -4,8 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-EL_VER="44.7.0"
-EL_SHA="3ae7d5bdad61c664486c6ab61361dd084d064c8c08af8d13a687096e18ce555a"   # electron-v44.7.0-linux-x64.zip (SHASUMS256.txt des Release, gegengeprüft mit checksums.json aus npm electron@44.7.0; gleiche Engine wie Alien Pass v1.20 und Alien Notes v1.11)
+EL_VER="44.7.2"
+EL_SHA="777b26a64aee3d185acb9f93c04782bb51eae7c2c61c793963ef24374e5a1539"   # electron-v44.7.2-linux-x64.zip (SHASUMS256.txt des Release, gegengeprüft mit checksums.json aus npm electron@44.7.2; v3.11, gleiche Engine wie Alien Pass v1.22, dort am 15.10.2026 geprüft)
 APP_ID="org.alieninvestor.tresor"
 CACHE="$HOME/.cache/sachwert-tresor-desktop"
 ZIP="$CACHE/electron-v$EL_VER-linux-x64.zip"

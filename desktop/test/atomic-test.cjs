@@ -14,3 +14,48 @@ let threw=null; try{ writeAtomic(file,JSON.stringify({magic:'AISV2',body:'b'.rep
 R('zu großer Stand wirft', !!threw, threw);
 R('alte Datei unverändert', fs.readFileSync(file,'utf8')===good);
 R('keine Temp-Reste', fs.readdirSync(dir).every(n=>n==='vault.aisv'), fs.readdirSync(dir));
+
+// v3.11 (wortgleich Alien Pass v1.22 / Alien Notes 1.13, dort Audit run-10 b-6): Temp-Name mit Zufall, exklusiv und ohne Symlink-Folgen. Eigener Ordner neben dem obigen, dort gilt weiter „keine Temp-Reste“.
+const crypto=require('crypto');
+const d2=path.join(path.dirname(dir),'atomic-b6'); fs.rmSync(d2,{recursive:true,force:true}); fs.mkdirSync(d2,{recursive:true});
+const f2=path.join(d2,'vault.aisv'); const opened=[]; const realOpen=fs.openSync;
+fs.openSync=function(p,fl,mode){ if(String(p).includes('.tmp-')) opened.push({p:String(p),fl,mode}); return realOpen.apply(fs,arguments); };
+const realRnd=crypto.randomBytes;
+try{
+writeAtomic(f2,'eins'); writeAtomic(f2,'zwei');
+const names=opened.map(o=>path.basename(o.p));
+R('Temp-Name mit 12 Hex-Zeichen Zufall, nicht die PID', names.length===2&&names.every(n=>/^\.vault\.aisv\.tmp-[0-9a-f]{12}$/.test(n)&&!n.endsWith('-'+process.pid))&&names[0]!==names[1], names);
+const C=fs.constants, WANT=C.O_WRONLY|C.O_CREAT|C.O_EXCL|C.O_NOFOLLOW;
+R('Temp exklusiv ohne Symlink-Folgen (O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW), Rechte 0600', opened.length===2&&opened.every(o=>o.fl===WANT&&o.mode===0o600), opened.map(o=>[o.fl,o.mode]));
+R('Zieldatei mit Rechten 600 und neuem Inhalt', (fs.statSync(f2).mode&0o777)===0o600&&fs.readFileSync(f2,'utf8')==='zwei', (fs.statSync(f2).mode&0o777).toString(8));
+// Symlink am alten, vorhersagbaren Namen (bis v3.10.1: .tmp-<pid>) auf eine fremde Datei und ein hängender Link: beide lenken nichts mehr um
+const victim=path.join(d2,'opfer.txt'); fs.writeFileSync(victim,'OPFER'); const ghost=path.join(d2,'nicht-da.txt'); const pidTmp=path.join(d2,'.vault.aisv.tmp-'+process.pid);
+fs.symlinkSync(victim,pidTmp);
+let e3=null; try{ writeAtomic(f2,'drei'); }catch(e){ e3=e.code||e.message; }
+R('Symlink am alten PID-Namen lenkt nicht um', !e3&&fs.readFileSync(f2,'utf8')==='drei'&&fs.readFileSync(victim,'utf8')==='OPFER', e3);
+try{ fs.unlinkSync(pidTmp); }catch(_){} fs.symlinkSync(ghost,pidTmp);
+let e3b=null; try{ writeAtomic(f2,'drei-b'); }catch(e){ e3b=e.code||e.message; }
+R('hängender Symlink am alten PID-Namen legt nichts an', !e3b&&fs.readFileSync(f2,'utf8')==='drei-b'&&!fs.existsSync(ghost), e3b);
+// Symlink GENAU am Zufallsnamen (Zufall festgenagelt): Abbruch mit EEXIST, Ziel und fremde Datei unverändert
+crypto.randomBytes=n=>Buffer.alloc(n,0xab); const fixed=path.join(d2,'.vault.aisv.tmp-'+'ab'.repeat(6));
+fs.symlinkSync(victim,fixed);
+let e4=null; try{ writeAtomic(f2,'vier'); }catch(e){ e4=e.code||e.message; }
+R('Symlink am Zufallsnamen: EEXIST, nichts umgelenkt', e4==='EEXIST'&&fs.readFileSync(victim,'utf8')==='OPFER'&&fs.readFileSync(f2,'utf8')==='drei-b', e4);
+// Normale (längere) Datei genau am Zufallsnamen: ohne O_EXCL würde sie geöffnet statt abgewiesen
+try{ fs.unlinkSync(fixed); }catch(_){} fs.writeFileSync(fixed,'X'.repeat(100));
+let e5=null; try{ writeAtomic(f2,'fuenf'); }catch(e){ e5=e.code||e.message; }
+R('Datei am Zufallsnamen: EEXIST, Ziel unverändert', e5==='EEXIST'&&fs.readFileSync(f2,'utf8')==='drei-b', e5);
+// Absturz-Reste (alter und neuer Stil) sperren kein späteres Speichern
+try{ fs.unlinkSync(pidTmp); }catch(_){} fs.writeFileSync(pidTmp,'alt'); fs.writeFileSync(path.join(d2,'.vault.aisv.tmp-0123456789ab'),'alt');
+let e6=null; try{ writeAtomic(f2,'sechs'); }catch(e){ e6=e.code||e.message; }
+R('Absturz-Reste sperren kein Speichern', !e6&&fs.readFileSync(f2,'utf8')==='sechs', e6);
+}finally{ fs.openSync=realOpen; crypto.randomBytes=realRnd; }
+// v3.11: Die PDF (Nachlass-Anhang, saveVia) kommt als Buffer — Binärbytes byte-gleich, kein Umweg über UTF-8; ein zu großer Buffer wirft wie ein Text.
+const d3=path.join(path.dirname(dir),'atomic-buf'); fs.rmSync(d3,{recursive:true,force:true}); fs.mkdirSync(d3,{recursive:true}); const f3=path.join(d3,'anhang.pdf');
+const pdf=Buffer.concat([Buffer.from('%PDF-1.7\n','latin1'),Buffer.from([0x00,0xff,0xfe,0x80,0xc3,0x28,0x00,0x0a]),Buffer.alloc(3000,0xe9),Buffer.from('\n%%EOF\n','latin1')]);
+writeAtomic(f3,pdf);
+R('Buffer (PDF) byte-gleich geschrieben, Rechte 600', Buffer.compare(fs.readFileSync(f3),pdf)===0&&(fs.statSync(f3).mode&0o777)===0o600, fs.statSync(f3).size);
+let e7=null; try{ writeAtomic(f3,Buffer.alloc(200000,0x25)); }catch(e){ e7=e.code||e.message; }
+R('zu großer Buffer wirft, alte PDF unverändert, keine Temp-Reste', !!e7&&Buffer.compare(fs.readFileSync(f3),pdf)===0&&fs.readdirSync(d3).every(n=>n==='anhang.pdf'), [e7,fs.readdirSync(d3)]);
+// Endmarke: fehlt sie (Abbruch, z. B. Dateisystem ohne Symlinks), meldet verify-desktop [2c] den Schritt als unvollständig statt still weniger Prüfungen
+R('Schritt vollständig', true);

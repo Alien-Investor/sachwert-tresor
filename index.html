@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sachwert-Tresor — Bitcoin · Gold · Silber</title>
-<meta name="description" content="Lokaler, verschlüsselter Tresor für deine Bitcoin-, Gold- und Silberkäufe. Läuft offline im Browser, deine Daten verlassen nie dein Gerät.">
+<meta name="description" content="Lokaler, verschlüsselter Tresor für deine Bitcoin-, Gold- und Silberkäufe. Läuft komplett offline als Android-App und Linux-Desktop-App, deine Daten verlassen nie dein Gerät.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#000000">
 <!-- CSP: blockiert jede Netz-Verbindung (connect-src 'none'), fremde Quellen UND Inline-Script (kein 'unsafe-inline' in script-src — alle Handler laufen über Event-Delegation in app.js).
@@ -288,7 +288,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
 <div class="container">
   <div class="app-head">
     <div class="header-glow"></div>
-    <button class="help-btn" data-action="openHelp" title="Handbuch" aria-label="Hilfe / Handbuch">?</button>
+    <button class="help-btn" data-action="openHelp" title="Handbuch" data-i18n-title="help.title" aria-label="Hilfe / Handbuch" data-i18n-aria="aria.help">?</button>
     <button class="lang-btn" id="lang-btn" data-action="toggleLang" title="Sprache / Language">DE</button>
     <div class="logo">Sachwert-Tresor</div>
     <div class="tagline" data-i18n="tagline">Bitcoin · Gold · Silber — lokal &amp; verschlüsselt</div>
@@ -714,7 +714,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
       <li><strong>Backup erstellen</strong> (Export & Sync) → verschlüsselte <code>.vault</code>-Datei. Leg sie in deinen Syncthing-Ordner.</li>
       <li><strong>Syncthing</strong> synct die Datei P2P zwischen deinen Geräten — ohne Cloud.</li>
       <li><strong>Backup wiederherstellen</strong> auf dem anderen Gerät → Datei wählen → <strong>Passphrase der Datei</strong> eingeben (die des Quell-Geräts, nicht zwingend die lokale).</li>
-      <li><strong>Merge:</strong> Der Import <strong>führt zusammen</strong> (neue Einträge kommen dazu, deine lokale Passphrase bleibt). Nachträgliche Änderungen und Löschungen syncen <em>nicht</em> — korrigiere Einträge sonst auf beiden Geräten gleich.</li>
+      <li><strong>Merge:</strong> Der Import <strong>führt zusammen</strong> (neue Einträge und Preisstände kommen dazu, deine lokale Passphrase bleibt). Hat das Backup Kurse von einem <strong>neueren Tag</strong> als deine, übernimmt die Übersicht sie; ein älteres Backup ändert deine Kurse nie. Nachträgliche Änderungen und Löschungen syncen <em>nicht</em> — korrigiere Einträge sonst auf beiden Geräten gleich.</li>
       <li><strong>Sperrt die App, während der Datei-Picker offen ist</strong> (Auto-Sperre), geht die gewählte Datei nicht verloren: Auf dem Sperrbildschirm erscheint „Datei gewählt — zum Importieren entsperren“, und nach dem Entsperren läuft der Import mit genau dieser Datei weiter. Gilt für <code>.vault</code>-Backups und CSV.</li>
     </ul>
 
@@ -725,7 +725,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
     <p data-i18n-html="help.p7">Export & Sync erzeugt <code>manual_buys.csv</code> / <code>manual_sales.csv</code> exakt im Format des BTC-Steuertools (KYC-Käufe markiert, noKYC getrennt) plus <code>edelmetalle.csv</code> für die Metalle. Das Steuertool rechnet in EUR: Buchungen in USD/CHF landen nur im Export, wenn im Eintrag ein EUR-Gegenwert vom Buchungstag erfasst ist (laut Abrechnung) — sonst lässt der Export sie aus und zeigt eine Warnung.</p>
 
     <h2 data-i18n="help.h8">2FA und Backups</h2>
-    <p data-i18n-html="help.p8">Die 2FA-Hürde gilt <strong>nur auf diesem Gerät</strong>. Ein Backup trägt sie nie mit (seit v3.4): Das Wiederherstellen einer <code>.vault</code>-Datei führt Buchungen und Preisstände zusammen, schaltet 2FA aber weder ein noch aus. Richte 2FA auf jedem Gerät, auf dem du sie willst, getrennt ein. So bleibt ein Backup immer der Notausgang, wenn Aegis weg ist: neu einrichten, Backup importieren, kein Code nötig.</p>
+    <p data-i18n-html="help.p8">Die 2FA-Hürde gilt <strong>nur auf diesem Gerät</strong>. Ein Backup trägt sie nie mit (seit v3.4): Das Wiederherstellen einer <code>.vault</code>-Datei führt Buchungen und Preisstände zusammen (neuere Kurse inklusive), schaltet 2FA aber weder ein noch aus. Richte 2FA auf jedem Gerät, auf dem du sie willst, getrennt ein. So bleibt ein Backup immer der Notausgang, wenn Aegis weg ist: neu einrichten, Backup importieren, kein Code nötig.</p>
     <p data-i18n-html="help.p8b"><strong>Einordnung:</strong> Der Aegis-Code ist eine zusätzliche Hürde beim Entsperren auf diesem Gerät — <em>kein</em> zweiter Verschlüsselungsfaktor. Die Verschlüsselung selbst schützt allein die Passphrase: Wer an die Tresor-Daten oder eine <code>.vault</code>-Datei kommt, braucht die Passphrase (nicht den Code). Wähle sie entsprechend stark.</p>
 
     <h2 data-i18n="help.h9">Sicherheit</h2>

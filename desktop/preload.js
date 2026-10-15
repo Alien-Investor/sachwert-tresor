@@ -16,8 +16,11 @@ contextBridge.exposeInMainWorld('AlienDesktop',{
     del:()=>{ sync('store:del'); }
   },
   saveBackup:(name,content)=>ipcRenderer.invoke('backup:save',String(name),String(content)),   // .vault → Dateiname oder null (abgebrochen)
-  saveText:(name,content)=>ipcRenderer.invoke('export:save',String(name),String(content)),     // .csv/.txt (Klartext) → Dateiname oder null
-  savePdf:name=>ipcRenderer.invoke('print:pdf',String(name)),                                    // Nachlass-Anhang: Seite mit Druck-CSS → .pdf
+  // Klartext zweistufig (v3.11, wie Alien Notes 1.12): erst der Dialog → Kennung oder null, dann schreibt write nur, solange die App noch offen ist → Dateiname
+  saveText:{ pick:name=>ipcRenderer.invoke('export:pick',String(name)),                          // .csv/.txt
+             write:(tok,content)=>ipcRenderer.invoke('export:write',String(tok),String(content)) },
+  savePdf:{ pick:name=>ipcRenderer.invoke('print:pick',String(name)),                            // Nachlass-Anhang .pdf: die Hülle rendert erst bei write
+            write:tok=>ipcRenderer.invoke('print:write',String(tok)) },
   onLock:cb=>{ if(typeof cb==='function') ipcRenderer.on('lock',()=>cb()); },
   onBackground:cb=>{ if(typeof cb==='function') ipcRenderer.on('bg',(_e,h)=>cb(h==='blur'?'blur':!!h)); }   // Fenster minimiert/versteckt (true), zurück (false), Fensterwechsel ('blur': nur Gate-Hygiene, keine Sperre)
 });

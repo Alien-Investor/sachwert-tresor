@@ -180,44 +180,63 @@ else {
     try{ fs.unlinkSync(VAULT_FILE); e.returnValue={ok:true}; }catch(err){ e.returnValue={ok:!!(err&&err.code==='ENOENT')}; }
   });
 
-  // Speichern-Dialog (im Flatpak über das Portal) + Schreiben. null = abgebrochen. Die Bytes gehen 1:1 auf die Platte —
-  // einen BOM (CSV für Excel) setzt app.js selbst, nie diese Datei. Rückfall nur für ein NEUES Ziel (Portal ohne Temp-Datei daneben):
+  // Speichern-Dialog (im Flatpak über das Portal). null = abgebrochen. Die Bytes gehen 1:1 auf die Platte — einen BOM (CSV für Excel) setzt app.js selbst,
+  // nie diese Datei. showOverwriteConfirmation: ein bestehendes Ziel nur nach Rückfrage (Electron fragt sonst nicht; im Flatpak fragt das Portal ohnehin —
+  // v3.11, Querfund Alien Notes 1.12 run-10 b-5). Fehler gehen nur als Code an die Seite, nie mit Pfad — die Meldung stünde sonst in der Export-Zeile
+  // (v3.11, Notes run-10 b-8). Rückfall nur für ein NEUES Ziel (Portal-Backend ohne Temp-Datei daneben; KDE erlaubt Temp + rename, Notes-1.13-Gerätetest):
   // eine bestehende Datei nie direkt überschreiben (Alien Pass Audit run-6 #3).
-  async function saveVia(name,content,filters){
-    const r=await dialog.showSaveDialog(win,{defaultPath:name,filters});
-    if(r.canceled||!r.filePath) return null;
-    try{ writeAtomic(r.filePath,content); }
-    catch(err){
-      if(fs.existsSync(r.filePath)) throw err;
-      const fd=fs.openSync(r.filePath,'wx',0o600);
-      try{ writeFull(fd,content); }catch(e2){ fs.closeSync(fd); try{ fs.unlinkSync(r.filePath); }catch(_){} throw e2; }
-      fs.closeSync(fd);
-    }
-    return path.basename(r.filePath);
+  const pick=async(name,filters)=>{ const r=await dialog.showSaveDialog(win,{defaultPath:name,filters,properties:['showOverwriteConfirmation']}); return r.canceled||!r.filePath?null:r.filePath; };
+  function writeTo(file,content){
+    try{
+      try{ writeAtomic(file,content); }
+      catch(err){
+        if(fs.existsSync(file)) throw err;
+        const fd=fs.openSync(file,'wx',0o600);
+        try{ writeFull(fd,content); }catch(e2){ fs.closeSync(fd); try{ fs.unlinkSync(file); }catch(_){} throw e2; }
+        fs.closeSync(fd);
+      }
+    }catch(err){ throw new Error(String(err&&err.code||'write')); }
+    return path.basename(file);
   }
   const okContent=c=>typeof c==='string'&&!!c&&c.length<=FILE_MAX;
-  // Backup (.vault, verschlüsselt): app.js setzt den Backup-Stempel nur bei Dateiname, bei null nimmt es ihn zurück.
+  // Backup (.vault, verschlüsselt): app.js setzt den Backup-Stempel nur bei Dateiname, bei null nimmt es ihn zurück. Einstufig — der Inhalt ist verschlüsselt.
   ipcMain.handle('backup:save',async(e,name,content)=>{
     if(!fromApp(e)) throw new Error('denied');
     if(typeof name!=='string'||!/^[\w.-]{1,80}\.vault$/.test(name)||!okContent(content)) throw new Error('bad');
-    return saveVia(name,content,[{name:'Sachwert-Tresor Backup',extensions:['vault']}]);
+    const file=await pick(name,[{name:'Sachwert-Tresor Backup',extensions:['vault']}]); return file?writeTo(file,content):null;
   });
-  // Klartext-Exporte (Steuertool-CSV, Edelmetall-CSV, Nachlass-Anhang .txt) — der zweite Speicherpfad des Tresors. Nur per Dialog,
-  // nur diese Endungen; die Datei verlässt den Käfig genau dorthin, wo der Nutzer sie hinlegt.
-  ipcMain.handle('export:save',async(e,name,content)=>{
+  // Klartext-Exporte (Steuertool-CSV, Edelmetall-CSV, Nachlass-Anhang .txt und .pdf) — der zweite Speicherweg des Tresors, ZWEISTUFIG (v3.11, Vorlage Alien Notes
+  // 1.12 run-10 b-1, gemessen run-11 sichern): export:pick / print:pick öffnen nur den Dialog und liefern eine zufällige Kennung; den Text schickt die App erst
+  // danach mit export:write — und nur, wenn sie noch entsperrt ist. Das PDF rendert print:write erst dann (printToPDF mit dem Druck-CSS der App, das Blatt
+  // #nachlass-overlay muss offen sein; beim Sperren leert die App es). Sperrt die App, während der Dialog offen ist, kommt kein Text, und die Wahl verfällt
+  // (EXPORT_TTL, monotone Uhr). Ein Dialog zur Zeit, jede Kennung genau einmal, nur passend zur Art. window.print() liefe im Käfig ohne cups-Socket ins Leere
+  // (Entscheidung 23.09.2026: kein neues Recht). Die Datei liegt genau dort, wo der Nutzer sie hinlegt, und sonst nirgends.
+  const EXPORT_TTL=60000; let exportPending=null, exportPicking=false;
+  async function pickExport(e,name,kind){
     if(!fromApp(e)) throw new Error('denied');
-    if(typeof name!=='string'||!/^[\w.-]{1,80}\.(csv|txt)$/.test(name)||!okContent(content)) throw new Error('bad');
-    const csv=name.endsWith('.csv');
-    return saveVia(name,content,[csv?{name:'CSV',extensions:['csv']}:{name:'Text',extensions:['txt']}]);
+    if(typeof name!=='string'||!(kind==='pdf'?/^[\w.-]{1,80}\.pdf$/:/^[\w.-]{1,80}\.(csv|txt)$/).test(name)) throw new Error('bad');
+    if(exportPicking) throw new Error('busy');
+    exportPicking=true; exportPending=null;
+    try{ const ext=name.slice(name.lastIndexOf('.')+1), f=ext==='csv'?{name:'CSV',extensions:['csv']}:ext==='txt'?{name:'Text',extensions:['txt']}:{name:'PDF',extensions:['pdf']};
+      const file=await pick(name,[f]); if(!file) return null;
+      const tok=crypto.randomBytes(16).toString('hex'); exportPending={tok,file,kind,at:performance.now()}; return tok; }
+    finally{ exportPicking=false; }
+  }
+  const takeExport=(tok,kind)=>{ const p=exportPending; exportPending=null;   // jede Kennung genau einmal, auch bei Fehlern
+    if(!p||typeof tok!=='string'||tok!==p.tok||p.kind!==kind||performance.now()-p.at>EXPORT_TTL) throw new Error('stale'); return p; };
+  ipcMain.handle('export:pick',(e,name)=>pickExport(e,name,'text'));
+  ipcMain.handle('export:write',async(e,tok,content)=>{
+    if(!fromApp(e)) throw new Error('denied');
+    const p=takeExport(tok,'text'); if(!okContent(content)) throw new Error('bad');
+    return writeTo(p.file,content);
   });
-  // Nachlass-Anhang als PDF: window.print() liefe im Käfig ohne cups-Socket ins Leere (Entscheidung 23.09.2026: kein neues Recht).
-  // printToPDF rendert die Seite mit dem Druck-CSS der App (alles außer #nachlass-overlay ausgeblendet) — das Overlay muss offen sein.
-  ipcMain.handle('print:pdf',async(e,name)=>{
+  ipcMain.handle('print:pick',(e,name)=>pickExport(e,name,'pdf'));
+  ipcMain.handle('print:write',async(e,tok)=>{
     if(!fromApp(e)) throw new Error('denied');
-    if(typeof name!=='string'||!/^[\w.-]{1,80}\.pdf$/.test(name)||!win) throw new Error('bad');
+    const p=takeExport(tok,'pdf'); if(!win) throw new Error('bad');
     const buf=await win.webContents.printToPDF({pageSize:'A4',printBackground:false,preferCSSPageSize:false});
     if(!buf||buf.length<100||buf.length>FILE_MAX) throw new Error('bad');
-    return saveVia(name,buf,[{name:'PDF',extensions:['pdf']}]);
+    return writeTo(p.file,buf);
   });
 
   // Jede Webansicht: keine Navigation, keine neuen Fenster, keine <webview>. Bekannte Links gehen an den System-Browser.

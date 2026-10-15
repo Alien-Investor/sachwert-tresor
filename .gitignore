@@ -51,3 +51,6 @@ trailer/out-build.log
 
 # Desktop-Hülle: Electron-Entpackung, Flatpak-Builder-Zustand, Bundle + SHA256SUMS (regenerierbar, ~700 MB)
 desktop/build/
+# gebaute Pakete (auch Mess-APKs) nie ins Repo (v3.11, wie Alien Pass v1.22 / Alien Notes 1.13 Release-Audit b)
+*.apk
+*.idsig
