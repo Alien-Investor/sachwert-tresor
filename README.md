@@ -177,7 +177,7 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   (Fassungsnummer, Datum, Vernichtungsvermerk, Hinweise in Erben-Sprache). Nur Mengen mit
   Stückelung, keine Preise, keine Händler, keine Standorte. Zusammenspiel: Der Tresor kennt
   die Mengen, der Planer kennt die Orte — der Anhang bringt beides in ein Erben-Paket, ohne
-  dass ein Werkzeug die Daten des anderen liest. Druck (Browser), PDF über den Speichern-Dialog (Linux-App) oder `.txt` (Handy).
+  dass ein Werkzeug die Daten des anderen liest. PDF über den Speichern-Dialog (Linux-App) oder `.txt` (Handy).
 - **Aegis-2FA mit QR**: QR scannen, als Bild speichern (Aegis kann ihn ohne Kamera aus der
   Galerie importieren), kopieren, oder den Base32-Schlüssel manuell eintragen.
 - **Dubletten-Schutz**: Warnung beim Erfassen, wenn Typ + Vorgang + Datum + Menge bereits
@@ -221,6 +221,9 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
 - **Kein fremdes Autofill** (ab v3.6.1): Die App nimmt ihre WebView vom Android-Autofill-Framework aus. Ein anderer Passwort-Manager,
   der als Autofill-Dienst eingerichtet ist, sieht die Passphrase-Felder nicht und kann nicht anbieten, sie zu speichern —
   `autocomplete="off"` im HTML hält das nicht auf (Querfund aus dem Gerätetest von Alien Pass).
+- **Tastatur-Bitte** (ab v3.11): Die Tastatur-App am Handy sieht alles, was du tippst. Jedes Eingabefeld der App bittet sie, daraus nichts zu
+  lernen (Gboard zeigt dann sein Inkognito-Symbol). Das ist nur eine Bitte: Nicht jede Tastatur hält sich daran, und mitlesen kann sie trotzdem.
+  Wer sichergehen will, nutzt eine Tastatur ohne personalisiertes Lernen oder schaltet es dort ab.
 - **Rückfragen im eigenen Dialog** (ab v3.5): Löschen, mögliche Duplikate, 2FA/Fingerabdruck abschalten und
   „Lokale Daten löschen“ fragen in einem Dialog innerhalb der App nach, nicht über den Android-Systemdialog.
   Der Systemdialog erbt FLAG_SECURE nicht — ein Screenshot bei offener Rückfrage hätte den Dialogtext gezeigt,
@@ -268,7 +271,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   - **Spendenlink:** öffnet sich am Desktop im System-Browser. Die Hülle lässt genau die Spendenseite (DE/EN) durch, höchstens einmal je
     Sekunde; jede andere Adresse verpufft.
   - **Klartext verlässt den Käfig nur auf deinen Klick:** CSV-Exporte, der Nachlass-Anhang als `.txt` oder PDF sind unverschlüsselt —
-    nach Gebrauch löschen.
+    nach Gebrauch löschen. Seit v3.11 geht der Text erst nach der Wahl im Speichern-Dialog an die Hülle: Sperrt die App, während der Dialog
+    offen ist, wird nichts gespeichert.
   - **Grenzen:** Die App liefert ihre Browser-Engine (Electron 44) selbst mit — Sicherheits-Updates dafür kommen nur mit einer neuen
     App-Version, nicht über das System. **Kein Schutz vor Bildschirmfotos** (Linux kennt kein Gegenstück zu FLAG_SECURE). Unter **X11** kann
     jedes laufende Programm Tastatur und Zwischenablage mitlesen, Wayland trennt Programme besser. Bei **Bildschirmsperre und Ruhezustand

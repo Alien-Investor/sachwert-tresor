@@ -466,7 +466,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
             </div>
           </div>
           <div class="row hidden" id="f-custom-wrap">
-            <div><label data-i18n="add.weightPer">Gewicht je Stück</label><input id="f-qty" type="number" step="any" placeholder="z.B. 2.5" data-input="updateMetalPreview"></div>
+            <div><label data-i18n="add.weightPer">Gewicht je Stück</label><input id="f-qty" type="number" step="any" placeholder="z.B. 2.5" data-i18n-ph="add.qtyPh" data-input="updateMetalPreview"></div>
             <div><label data-i18n="lbl.unit">Einheit</label>
               <div class="combo">
                 <button class="combo-btn" data-action="toggleCombo" data-arg="f-unit"><span id="cb-f-unit"></span><span class="caret">▾</span></button>
@@ -734,6 +734,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
       <li>Tresore und <code>.vault</code>-Backups aus Versionen vor 3.0 öffnen weiter. Der Tresor auf dem Gerät wird beim ersten Entsperren automatisch umgestellt.</li>
       <li>Keine Netz-Abfragen, keine Tracker, keine externen CDNs. Alles offline. Die Android-App hat keine INTERNET-Berechtigung; ihre einzige System-Berechtigung gilt dem Fingerabdruck.</li>
       <li>Die Android-App nimmt ihre Felder vom Android-Autofill-Framework aus (seit v3.6.1): Ein anderer Passwort-Manager, der als Autofill-Dienst eingerichtet ist, sieht die Passphrase-Felder nicht und kann nicht anbieten, sie zu speichern.</li>
+      <li class="no-desk"><strong>Tastatur:</strong> Die Tastatur-App am Handy sieht alles, was du tippst. Die Android-App bittet sie seit v3.11, daraus nichts zu lernen (Gboard zeigt dann sein Inkognito-Symbol). Das ist nur eine Bitte: Nicht jede Tastatur hält sich daran, und mitlesen kann sie trotzdem. Wer sichergehen will, nutzt eine Tastatur ohne personalisiertes Lernen oder schaltet es dort ab.</li>
       <li>Nach 3 falschen Versuchen wächst eine Wartezeit (bis 30 Sekunden) — ein Riegel gegen Durchprobieren am Gerät, kein Krypto-Schutz.</li>
       <li>Die <code>.vault</code>-Datei ist verschlüsselt — selbst wenn sie irgendwo landet, ist ohne Passphrase nichts lesbar.</li>
     </ul>
@@ -768,7 +769,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
         <button class="btn ghost" data-action="exportNachlassTxt"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> <span data-i18n="nl.save">Als Datei speichern (.txt)</span></button>
       </div>
       <p class="muted only-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howtoDesk">Das Blatt wird als PDF über den Speichern-Dialog abgelegt (Klartext): ausdrucken, danach die Datei löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
-      <p class="muted no-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howto">Desktop: Drucken. Handy: Es öffnet sich der Teilen-Dialog, dort eine Drucker-App wählen (druckt das Blatt direkt) oder ein Datei-Ziel, dort drucken und die Datei danach löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
+      <p class="muted no-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howto">„Als Datei speichern“ öffnet den Teilen-Dialog: dort eine Drucker-App wählen (druckt das Blatt direkt) oder ein Datei-Ziel, dort drucken und die Datei danach löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
       <p id="nl-msg" class="muted" style="margin-top:6px;font-size:.8em"></p>
     </div>
     <div id="nl-sheet" class="nl-sheet"></div>

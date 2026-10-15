@@ -3,6 +3,33 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.11 — 2026-10-16
+
+Kurse aus dem Backup, eine Bitte an die Tastatur und Korrekturen aus den internen Security-Audits von Alien Pass und Alien Notes, auf Android und am
+Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
+- **Kurse aus dem Backup:** Beim Wiederherstellen eines `.vault`-Backups übernimmt die Übersicht jetzt die Kurse, wenn das Backup Kurse von einem
+  neueren Tag hat als das Gerät, und zwar nur die ausgefüllten (ein leerer Silberkurs im Backup löscht deinen nicht). Bisher kamen sie nur in den
+  Verlauf, Wert und Gewinn/Verlust rechneten weiter mit dem alten Kurs. Ein älteres Backup ändert deine Kurse nie. Die Meldung nach dem Import nennt den Tag.
+- **Tastatur (Android):** Jedes Eingabefeld bittet die Tastatur-App, daraus nichts zu lernen (wie Alien Pass und Alien Notes). Gboard zeigt dann sein
+  Inkognito-Symbol. Das ist nur eine Bitte: Nicht jede Tastatur hält sich daran, und mitlesen kann sie trotzdem.
+- **Rückfragen:** Wer im Dialog drückte und daneben losließ (etwa beim Markieren des Textes), brach die Rückfrage ab. Jetzt bricht nur ein Tipp ab, der
+  auch daneben beginnt. Strg+Z bei offener Rückfrage machte das zuletzt getippte Feld im Formular dahinter rückgängig, das ist gesperrt.
+- **Rückgängig im Formular:** Nach „Bearbeiten“ konnte Strg+Umschalt+Z Text zurückholen, der vorher in einem verworfenen Formular getippt worden war,
+  und „Speichern“ hätte ihn übernommen. Jetzt beginnt das Formular bei jedem Befüllen mit einem leeren Rückgängig-Verlauf.
+- **Sperren:** Nach dem Einrichten blieb die Passphrase als Rest einer internen Textprüfung bis zur ersten Sperre im Speicher der Seite. Die App räumt
+  ihn jetzt sofort weg, ebenso nach einem Passphrasenwechsel und beim Abbrechen der 2FA-Einrichtung.
+- **Linux-Desktop, Speichern:** Klartext-Exporte (Steuertool-CSV, Edelmetalle, Nachlass-Anhang als `.txt` und PDF) gehen erst nach der Wahl im
+  Speichern-Dialog an die Hülle. Sperrt die App, während der Dialog offen ist, wird nichts gespeichert, und ein Hinweis sagt es. Fehlermeldungen nennen
+  nur noch den Fehlercode, nicht den Pfad. Die Rückfrage beim Überschreiben verlangt die App jetzt auch selbst. Zwischendateien beim Speichern tragen
+  einen zufälligen Namen (eine Härtung, im Alltag ohne Wirkung).
+- **Linux-Desktop, Mittelklick-Auswahl:** [MESSUNG HÜLLE] Strg+Z oder Strg+Y holten eine überschriebene Markierung zurück, auch aus einem Passphrase-Feld, und
+  lief die 30-Sekunden-Frist vorher ab, blieb sie danach in der Mittelklick-Auswahl. Ebenso das Ziehen am 2FA-Schlüssel. Beides löscht die App jetzt mit.
+- **Linux-Desktop, Mausrad:** [MESSUNG HÜLLE] Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, beim BTC-Kurs der Übersicht wurde er sofort
+  gespeichert. Jetzt nimmt das Rad dem Feld nur den Fokus, der nächste Dreh scrollt die Seite.
+- **Linux-Desktop, Strg+L** sperrt auch bei kyrillischer Tastaturbelegung.
+- **Linux-Desktop, Engine:** Electron 44.7.2 (Sicherheits-Backports aus Chromium, V8, ANGLE und PDFium).
+- **Handbuch und Texte:** ohne die eingestellte Browser-Version; der Hilfe-Knopf ist für Bildschirmleser auch englisch beschriftet.
+
 ## v3.10.1 — 2026-10-11
 
 Korrekturen bei der Eingabe von Beträgen und beim Sperren, auf Android und am Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.

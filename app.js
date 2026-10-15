@@ -86,7 +86,7 @@ const I18N = {
   "foot.line1":"Alien Investor · Sachwert-Tresor · 100% local · no cloud · no telemetry",
   "foot.line2":"Encryption: AES-256-GCM · Argon2id (64 MiB) · WebCrypto · TOTP RFC 6238",
   "foot.donate":"Charge energy · Donate",
-  "help.title":"Manual","aria.help":"Help / manual","help.closeX":"Close ✕","help.close":"Close",
+  "help.title":"Manual","aria.help":"Help / manual","add.qtyPh":"e.g. 2.5","help.closeX":"Close ✕","help.close":"Close",
   "exp.nlTitle":"Estate appendix (holdings sheet for the heir package)",
   "exp.nlIntro":"One sheet with your current <strong>net holdings</strong> (Bitcoin, gold, silver with denominations) laid out like the <strong>Estate Planner</strong>: version number, date, destruction note. Quantities only, no prices, no dealers, no locations. The planner is deliberately blind to amounts; this sheet is attached to it as a class B annex.",
   "exp.nlWarn":"⚠ This sheet states holdings in plain text. Keep it confidential, separate from the existence notice and the access guide. Destroy the old version.",
@@ -95,7 +95,7 @@ const I18N = {
   "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice and the access guide, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
   "nl.fassungLbl":"Version","nl.print":"Print","nl.printDesk":"Save as PDF","nl.save":"Save as file (.txt)",
   "nl.howtoDesk":"The sheet is saved as a PDF via the save dialog (plain text): print it, then delete the file. Raise the version number before every printout.",
-  "nl.howto":"Desktop: print. Phone: the Share dialog opens; pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
+  "nl.howto":"“Save as file” opens the Share dialog: pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
   "help.p1":"A <strong>local, encrypted vault</strong> for your Bitcoin, gold and silver holdings. Runs fully <strong>offline</strong> — no cloud, no server, no telemetry, no price lookups over the network. Your data never leaves the device in plaintext. The vault is available as an <strong>Android app (APK)</strong> and for the <strong>Linux desktop (Flatpak)</strong>.",
   "help.warn":"⚠ There is no reset and no backdoor. If you forget your passphrase, the data is irretrievably lost. Make regular backups.",
@@ -120,7 +120,7 @@ const I18N = {
   "help.p8":"The 2FA hurdle applies <strong>only to this device</strong>. A backup never carries it along (since v3.4): restoring a <code>.vault</code> file merges entries and price history (newer prices included), but never switches 2FA on or off. Set up 2FA separately on every device you want it on. That way a backup is always the way out if Aegis is gone: reinstall, import the backup, no code required.",
   "help.p8b":"<strong>Perspective:</strong> The Aegis code is an additional hurdle when unlocking on this device — <em>not</em> a second encryption factor. The encryption itself is protected by the passphrase alone: anyone who obtains the vault data or a <code>.vault</code> file needs the passphrase (not the code). Choose it accordingly strong.",
   "help.h9":"Security",
-  "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>The Android app keeps its fields out of the Android autofill framework (since v3.6.1): another password manager set up as the autofill service does not see the passphrase fields and cannot offer to save them.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
+  "help.l9":"<li>AES-256-GCM via native WebCrypto. The key is derived from your passphrase with <strong>Argon2id</strong> (64 MiB of memory, 3 passes): every guess costs memory, which makes brute-forcing on GPUs and specialised chips expensive. Argon2id comes from the open-source library hash-wasm (MIT), bundled and checked against a pinned SHA-256 at build time.</li><li>Vaults and <code>.vault</code> backups from versions before 3.0 keep opening. The vault on the device is switched over automatically on the first unlock.</li><li>No network requests, no trackers, no external CDNs. Everything offline. The Android app has no INTERNET permission; its only system permission is for the fingerprint.</li><li>The Android app keeps its fields out of the Android autofill framework (since v3.6.1): another password manager set up as the autofill service does not see the passphrase fields and cannot offer to save them.</li><li class=\"no-desk\"><strong>Keyboard:</strong> The keyboard app on your phone sees everything you type. Since v3.11 the Android app asks it not to learn from what you type (Gboard then shows its incognito icon). This is only a request: not every keyboard honours it, and the keyboard still sees what you type. To be sure, use a keyboard without personalised learning or turn it off there.</li><li>After 3 wrong attempts a growing wait kicks in (up to 30 seconds) — a bolt against guessing on the device, not cryptographic protection.</li><li>The <code>.vault</code> file is encrypted — even if it ends up somewhere, nothing is readable without the passphrase.</li>",
   "help.hDesk":"Linux desktop (Flatpak)",
   "help.lDesk":"<li><strong>No network, enforced by the system.</strong> The Flatpak has no network permission and no access to your files. Backup, CSV export, estate sheet and import go through the system file dialog, which only grants the chosen file. Verifiable with <code>flatpak info --show-permissions org.alieninvestor.tresor</code>.</li><li><strong>Separate stores:</strong> desktop and phone app do not know each other — sync via <code>.vault</code> backups (e.g. Syncthing); the same applies to a 2FA secret.</li><li><strong>Ctrl+L</strong> locks immediately, <strong>Ctrl+A</strong> only selects the content of a filled-in text or number field. “Background” means minimised or hidden — switching windows does not lock, but it clears typed passphrases. On screen lock and suspend the app does not lock by itself: use the system lock plus a short inactivity lock.</li><li><strong>Clipboard:</strong> what the app copies (the 2FA key, Ctrl+C and Ctrl+X) is marked as a password for KDE — Klipper keeps it out of its history (other clipboard managers may ignore the mark). The app clears its own copy after 30 seconds, on lock and on quit, but only if it is still there. The same applies to text you select in the app (on Linux instantly pasteable with a middle click), including a selected passphrase and selected amounts and quantities — but a selection that reaches across the date field in the entry form stays until the next selection. Klipper can mirror every copy into this middle-click selection as well (setting “Keep the selection and clipboard the same”) — the app clears it there too. Selected text does not carry the KDE mark: if Klipper is set to keep the selection in its history, switch that off. Under X11 every running program can still read clipboard and keyboard.</li><li><strong>Plain-text files:</strong> CSV exports and the estate sheet (<code>.txt</code> or PDF) are unencrypted — delete them after use. No fingerprint, no protection against screenshots. The app ships its browser engine (Electron) itself; security updates for it arrive with a new app version.</li>",
   "help.h10":"Fingerprint (Android app)",
@@ -940,6 +940,7 @@ const App = (function(){
     ['dash-stats','dash-value','chart-head','chart-wrap','export-msg','setup-meter','cp-meter','bio-alert','price-paste-msg','price-msg'].forEach(id=>{const el=$(id);if(el)el.innerHTML='';});   // bio-alert: Rückmeldung Alien Pas
     { const bk=$('bio-keep'); if(bk) bk.checked=false; }   // „auch nach Neustart“ nie stehen lassen (ab Werk aus)s H3
     const t=$('list-tbl'); t.querySelector('thead').innerHTML=''; t.querySelector('tbody').innerHTML=''; closeMenus();
+    ['f-src-btc','f-src-metal','f-date'].forEach(i=>{const el=$(i);if(el)el.value='';});   // VOR resetAddForm: dessen Klone ließen sonst die Werte in den abgehängten Altknoten (run-11 a-10)
     resetAddForm();
     // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
     // Ohne das blieb das Nachlass-Blatt (Klasse B) nach dem Sperren auf dem Schirm stehen — und weil das
@@ -1083,7 +1084,7 @@ const App = (function(){
     if(u!==addBtcUnit){
       const f=$('f-btc'), v=parseFloat(f.value);
       if(addBtcUnit==='sat'&&f.value.includes('.')) return err('add-err',tr('err.satsDots'));   // Tausenderpunkt: „100.000“ Sats würden still 0,000001 BTC
-      if(!isNaN(v)) f.value = u==='sat' ? String(Math.round(v*SATS)) : String(+(v/SATS).toFixed(8));
+      if(!isNaN(v)){ f.value = u==='sat' ? String(Math.round(v*SATS)) : String(+(v/SATS).toFixed(8)); freshFields(); }   // per Programm umgerechnet: Rückgängig darf keinen Mischwert bauen (run-11 a-3)
       addBtcUnit=u;
     }
     refreshBtcInputUI();
@@ -1122,7 +1123,9 @@ const App = (function(){
   // Beim Befüllen per Programm bekommen die Textfelder frische Klone (alte Stapel-Einträge zeigen dann auf abgehängte Knoten; Muster Alien Notes v1.8).
   // Ereignisse laufen über die Delegation am document, an den Feldern selbst hängt nichts.
   const FORM_TEXT=['f-date','f-eur','f-eurref','f-btc','f-src-btc','f-count','f-qty','f-fine','f-src-metal','f-note'];
-  function freshFields(){ const a=document.activeElement; FORM_TEXT.forEach(id=>{ const o=$(id); if(!o) return; const n=o.cloneNode(false); n.value=o.value; o.replaceWith(n); if(a===o) n.focus(); }); }
+  function freshFields(){ const a=document.activeElement; FORM_TEXT.forEach(id=>{ const o=$(id); if(!o) return; const n=o.cloneNode(false); n.value=o.value;
+    const c=_i18nCache.get(o); if(c) _i18nCache.set(n,c);   // deutscher Original-Platzhalter wandert mit (sonst blieb nach EN → DE der englische stehen, run-11 a-1)
+    o.replaceWith(n); if(a===o) n.focus(); }); }
   function onCurChange(){ refreshAddLabels(); }
 
   /* ---------- eigene Auswahlfelder (v2.10, Muster Alien Pass v1.5) ----------
@@ -1353,11 +1356,15 @@ const App = (function(){
     // hätte der Zeitgeber den Zwischenstand gespeichert und er wäre zum „alten Kurs“ geworden (Audit-Nachprüfung N1). So setzt der nächste
     // Zeitgeber den Kurs zurück, und snapPrices ersetzt den Zwischenpunkt des Tages.
     const fe=document.activeElement;
-    if(savePrices._f!==fe){ savePrices._f=fe; savePrices._base=VAULT.prices||{}; }
+    if(savePrices._f!==fe){ savePrices._f=fe; savePrices._base=VAULT.prices||{}; savePrices._baseDay=VAULT.pricesDay; }
     const old=savePrices._base||{};
     priceBad={}; ['price-btc','price-gold','price-silver'].forEach(id=>{ if(decs($(id).value)>2&&(id==='price-btc'||u==='oz')) priceBad[id]=true; });
     VAULT.prices={btc:priceBad['price-btc']?(old.btc||''):$('price-btc').value,
       gold:priceBad['price-gold']?(old.gold||''):toG($('price-gold').value), silver:priceBad['price-silver']?(old.silver||''):toG($('price-silver').value)};
+    // Tag der Kursänderung (Backup-Vergleich, run-11 a-4) gemessen am Ausgangsstand dieses Fokus: endet ein Tippen wieder beim Ausgangsstand (abgewiesener
+    // Tausenderpunkt, zurückgetippt), gilt auch wieder der alte Tag — Zwischenstände allein machen ein älteres Backup nicht „älter“.
+    if(['btc','gold','silver'].some(k=>(old[k]||'')!==VAULT.prices[k])) markPricesDay(todayStr());
+    else if(savePrices._baseDay===undefined) delete VAULT.pricesDay; else VAULT.pricesDay=savePrices._baseDay;
     setPriceMsg(Object.keys(priceBad).length?'price.dots':'');
     // Das gerade getippte Feld ist zurückgesetzt: sofort in den Verlauf, sonst bliebe ein Zwischenpunkt des Tages („74.09“ nach einer Pause)
     // stehen, wenn vor dem nächsten Zeitgeber gesperrt oder beendet wird (Audit R2-2). Nur für dieses Feld — andere könnten mitten im Tippen sein.
@@ -1365,13 +1372,16 @@ const App = (function(){
     persist();clearTimeout(savePrices._t);savePrices._t=setTimeout(()=>{savePrices._t=null;if(!VAULT)return;snapPrices();renderDash();},400);
   }
   // Einheitenwechsel und übernommene Kurszeile verwerfen zurückgewiesenen Text: die Felder zeigen danach wieder die gespeicherten Kurse
-  function dropPriceBad(){ const a=document.activeElement; if(a&&priceBad[a.id]) a.blur(); priceBad={}; savePrices._f=null; savePrices._base=null; setPriceMsg(''); }   // blur: renderDash überschreibt kein fokussiertes Feld
+  function dropPriceBad(){ const a=document.activeElement; if(a&&priceBad[a.id]) a.blur(); priceBad={}; savePrices._f=null; savePrices._base=null; savePrices._baseDay=undefined; setPriceMsg(''); }   // blur: renderDash überschreibt kein fokussiertes Feld
   // Feld verlassen = nächster Fokus merkt sich einen neuen Ausgangsstand (sonst gälte nach erneutem Betreten der Stand vom ersten Mal)
   // focusout feuert auch beim Fensterwechsel (Alt+Tab, am Handy App-Wechsel), dann bleibt activeElement das Feld — dort NICHT zurücksetzen,
   // sonst würde der nächste Tastendruck einen gültigen Zwischenstand zum Ausgangsstand machen (Audit R2-1). focusin fängt den Wechsel ab, der ohne
   // focusout geschieht, während das Fenster weg ist.
   document.addEventListener('focusout',ev=>{ if(ev.target===savePrices._f&&document.activeElement!==ev.target){ savePrices._f=null; savePrices._base=null; } });
   document.addEventListener('focusin',ev=>{ if(savePrices._f&&ev.target!==savePrices._f){ savePrices._f=null; savePrices._base=null; } });
+  // Tag der letzten Kursänderung (v3.11, run-11 a-4): der Backup-Import vergleicht mit dem neueren aus Verlauf und diesem Tag — tippte man einen Kurs und
+  // sperrte innerhalb der 400-ms-Entprellung, stand der Kurs gespeichert, der Preisstand des Tages aber fehlte, und ein älteres Backup galt als neuer.
+  function markPricesDay(d){ if(VAULT&&validDay(d)) VAULT.pricesDay=d; }
   function setPriceMsg(key){ priceMsgKey=key||''; const m=$('price-msg'), t=priceMsgKey?tr(priceMsgKey):''; if(m&&m.textContent!==t) m.textContent=t; }
   // Datierter Preisstand fuer die Wertlinie. Laeuft NUR aus dem entprellten Timer von savePrices —
   // sonst landete jeder Tastendruck ("5", "58", "580") als eigener Stand in der Historie.
@@ -1437,9 +1447,9 @@ const App = (function(){
     if(r.btc!=null) p.btc=String(r.btc);
     if(r.gold!=null) p.gold=String(r.gold/OZ_G);
     if(r.silver!=null) p.silver=String(r.silver/OZ_G);
-    VAULT.prices=p;
+    const beforeDay=VAULT.pricesDay; VAULT.prices=p; markPricesDay(todayStr());   // Tag der Kursänderung (run-11 a-4)
     try{ await persist(); }
-    catch(_){ if(VAULT&&VAULT.prices===p){ VAULT.prices=before; renderDash(); } return; }   // gesperrt oder Speicherfehler (persist meldet selbst)
+    catch(_){ if(VAULT&&VAULT.prices===p){ VAULT.prices=before; if(beforeDay===undefined) delete VAULT.pricesDay; else VAULT.pricesDay=beforeDay; renderDash(); } return; }   // gesperrt oder Speicherfehler (persist meldet selbst)
     if(!VAULT) return;
     dropPriceBad(); snapPrices(); renderDash(); toast(tr('rates.taken'));
   }
@@ -1764,7 +1774,7 @@ const App = (function(){
     }
     const warn=skipped?tr('exp.fxSkipped').replace('{n}',skipped):'';
     if(!rows){ $('export-msg').textContent=warn; return toast(tr('toast.failed')); }
-    saveCsv(name,csv).then(()=>{ if(warn){const m=$('export-msg'); m.textContent=(m.textContent?m.textContent+' — ':'')+warn;} });
+    const s=VAULT; saveCsv(name,csv).then(ok=>{ if(ok&&warn&&deskAlive(s)){const m=$('export-msg'); m.textContent=(m.textContent?m.textContent+' — ':'')+warn;} });
   }
   function exportSteuertool(){
     const buys=VAULT.entries.filter(e=>e.type==='btc'&&entryDir(e)==='buy');
@@ -1816,19 +1826,23 @@ const App = (function(){
   let exportDropped=false;
   const deskAlive=s=>!!DEK&&VAULT===s;
   async function deskSaveText(name, content, m){ const s=VAULT;
+    if(deskSaveText._busy) return null; deskSaveText._busy=true;   // Doppelklick: ein Dialog zur Zeit (die Hülle meldete sonst „busy“ als Fehler, run-11 a-9)
     try{ const tok=await DESK.saveText.pick(name); if(!tok) return null;
       if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped')); else exportDropped=true; return null; }
       const n=await DESK.saveText.write(tok, content); return deskAlive(s)?n:null; }
-    catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } return null; } }
+    catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } return null; }
+    finally{ deskSaveText._busy=false; } }
+  // Liefert true nur bei Erfolg in derselben offenen Sitzung — der Aufrufer hängt dann ggf. seine Warnung an (v3.11, run-11 a-5: sonst stand sie nach einer
+  // Sperre bei offenem Dialog bzw. nach Abbrechen in der App). Meldungen nur bei offener Sitzung (run-11 a-6, auch Android nach dem Teilen-Dialog).
   async function saveCsv(name, csv){
-    const m=$('export-msg');
+    const m=$('export-msg'), s=VAULT;
     if(isNative){
-      try{ const uri=await nativeSaveAndShare(name, '﻿'+csv, 'CACHE');
-        if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported'));
-      }catch(e){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); }
+      try{ const uri=await nativeSaveAndShare(name, '﻿'+csv, 'CACHE'); if(!deskAlive(s)) return false;
+        if(m) m.textContent=name+' ('+uri+')'+tr('exp.savedShareSfx'); toast(tr('toast.exported')); return true;
+      }catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } return false; }
     } else if(DESK){   // Desktop: Speichern-Dialog (Portal), Downloads sind in der Hülle gesperrt. BOM für Excel setzt die App, nie die Hülle.
-      const n=await deskSaveText(name, '﻿'+csv, m); if(n){ if(m) m.textContent=n+tr('exp.savedDesk'); toast(tr('toast.exported')); }
-    } else { downloadFile(name, csv); toast(tr('toast.exported')); }
+      const n=await deskSaveText(name, '﻿'+csv, m); if(n){ if(m) m.textContent=n+tr('exp.savedDesk'); toast(tr('toast.exported')); return true; } return false;
+    } else { downloadFile(name, csv); toast(tr('toast.exported')); return true; }
   }
   async function exportVault(){
     if(exportVault._busy) return;
@@ -1846,9 +1860,10 @@ const App = (function(){
     if(DESK){
       exportVault._busy=true;
       try{ const n=await DESK.saveBackup(name, raw);
+        if(VAULT!==v0) return;   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (run-11 a-6)
         if(!n){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=''; }   // abgebrochen: kein Stempel
         else { $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
-      }catch(e){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+      }catch(e){ if(VAULT!==v0) return; revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
       finally{ exportVault._busy=false; if(VAULT===v0) renderDash(); }
       return;
     }
@@ -1965,30 +1980,32 @@ const App = (function(){
       // Zustand vor dem Zusammenfuehren merken: scheitert persist(), darf die Anzeige nicht fremde
       // Buchungen zeigen, die nie gespeichert wurden — der naechste persist() schriebe sie sonst
       // dauerhaft fest (Audit run-3, Fund B-3; gleiches Muster wie importCsv seit run-2).
-      const beforeEntries=VAULT.entries, beforeSnaps=VAULT.priceHistory, beforePrices=VAULT.prices;
+      const beforeEntries=VAULT.entries, beforeSnaps=VAULT.priceHistory, beforePrices=VAULT.prices, beforeDay=VAULT.pricesDay;
       // Kurse (v3.11, Nutzer 12.10.2026): Der Verlauf übernahm Preisstände schon immer, die Kursfelder (Wert, G/V der Übersicht) nie — nach einem Backup vom
       // Handy zeigte der Verlauf am Desktop den neuen Kurs, die Übersicht den alten. Ist der neueste Preisstand des Backups von einem NEUEREN Tag als der neueste
       // lokale, kommen seine Kurse in die Felder, nur nicht-leere (ein leeres Silber im Backup löscht das lokale nicht). Ein älteres oder gleich altes Backup
       // ändert die Kurse nie (sonst Rückfall beim Wiederherstellen); Zukunftsdaten fallen schon in sanitizeSnaps weg.
-      const localDay=sanitizeSnaps(VAULT.priceHistory).reduce((m,x)=>x.d>m?x.d:m,'');
+      const pd=typeof VAULT.pricesDay==='string'&&notFuture(VAULT.pricesDay)?VAULT.pricesDay:'';   // Tag der letzten Kursänderung (a-4), Zukunft zählt nicht
+      const localDay=sanitizeSnaps(VAULT.priceHistory).reduce((m,x)=>x.d>m?x.d:m,pd);
       const top=sanitizeSnaps(v.priceHistory).reduce((m,x)=>!m||x.d>m.d?x:m,null), takePrices=!!top&&top.d>localDay;
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;
       VAULT.priceHistory=mergeSnaps(VAULT.priceHistory, v.priceHistory);
-      if(takePrices){ const p={btc:'',gold:'',silver:'',...(VAULT.prices||{})}; ['btc','gold','silver'].forEach(k=>{ if(top[k]) p[k]=top[k]; }); VAULT.prices=p; }
+      if(takePrices){ const p={btc:'',gold:'',silver:'',...(VAULT.prices||{})}; ['btc','gold','silver'].forEach(k=>{ if(top[k]) p[k]=top[k]; }); VAULT.prices=p; markPricesDay(top.d); }
       // Die Aegis-Hürde (VAULT.totp) fasst der Import NIE an (seit v3.4, Muster Alien Pass): Sie gilt nur auf diesem Gerät.
       // Bis v3.3 konnte ein Backup sie nach Rückfrage mitbringen — wer den Aegis-Eintrag nicht mehr hatte, sperrte sich damit
       // beim Wiederherstellen selbst aus. Jetzt bleibt ein Backup immer der Notausgang: neu einrichten, importieren, ohne Code.
       try{ await persist(); }
       catch(ex){
-        if(!(ex&&ex.locked)){ VAULT.entries=beforeEntries; VAULT.priceHistory=beforeSnaps; VAULT.prices=beforePrices; renderAll(); renderDash(); }
+        if(ex&&ex.locked) return;   // inzwischen gesperrt: keine Meldung in die gesperrte App (run-11 a-6)
+        VAULT.entries=beforeEntries; VAULT.priceHistory=beforeSnaps; VAULT.prices=beforePrices; if(beforeDay===undefined) delete VAULT.pricesDay; else VAULT.pricesDay=beforeDay; renderAll(); renderDash();
         $('export-msg').textContent=tr('msg.importSaveFailed');
         return;
       }
       pendingImportBlob=null; hide('import-pass-box'); $('import-pass').value='';
       $('export-msg').textContent=`${tr('msg.merged')}: ${added} ${tr('msg.entriesNew')} (${tr('msg.total')} ${VAULT.entries.length}). ${tr('msg.passKept')}`+(takePrices?' '+tr('msg.pricesTaken').replace('{d}',top.d):'');
       if(takePrices) dropPriceBad();   // zurückgewiesener Kurstext darf die übernommenen Kurse nicht verdecken (renderDash überspringt priceBad-Felder)
-      renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):tr('msg.upToDate'));
+      renderAll();renderDash();toast(added?(added+' '+tr('msg.entriesNew')):takePrices?tr('msg.pricesTaken').replace('{d}',top.d):tr('msg.upToDate'));
     }catch(e){ if(!(e&&e.locked)&&VAULT===session) $('export-msg').textContent=openErrMsg(e,'msg.importBad'); }
     finally{ if(btn){btn.disabled=false;btn.textContent=orig;} }
   }
@@ -2295,14 +2312,15 @@ const App = (function(){
     // Rückgängig/Wiederholen holt in einem Eingabefeld eine überschriebene Markierung zurück, und Chromium legt sie in PRIMARY — ohne Taste, die sie meldet.
     // Lief die Frist zwischen Überschreiben und Strg+Z ab, kannte die Hülle den Hash nicht mehr: die Markierung (auch aus type=password) blieb nach Frist und
     // Sperre stehen (v3.11, Alien Pass v1.22 run-12 c-1; gemessen run-11 m311). Beim input steht die Auswahl schon. Nur das fokussierte Feld (Notes R3a-3).
-    document.addEventListener('input',ev=>{ const a=ev.target, t=ev.inputType;
-      if((t==='historyUndo'||t==='historyRedo')&&a&&a===document.activeElement&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number') report(a.value.substring(a.selectionStart,a.selectionEnd),a); });
+    document.addEventListener('input',ev=>{ const a=ev.target, t=ev.inputType; if((t!=='historyUndo'&&t!=='historyRedo')||!a||a!==document.activeElement) return;
+      if(numField(a)) report(String(window.getSelection()),a);   // Zahlenfeld: angezeigter Text über getSelection (kein selectionStart; run-11 a-2)
+      else if((a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number') report(a.value.substring(a.selectionStart,a.selectionEnd),a); });
     // Strg+C auf Markiertem: nicht Chromium kopieren lassen (ohne KDE-Hinweis, ohne Löschen → Klipper-Verlauf), sondern über die Brücke
-    document.addEventListener('copy',ev=>{ const t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel')); });
+    document.addEventListener('copy',ev=>{ const t=selText(); selFrom=null; if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel')); });
     // Strg+X / Shift+Entf ebenso; danach die Markierung im Feld entfernen: execCommand('delete') hält Rückgängig intakt. Nur aus Textfeldern
     // (Fokus auf Knopf/Kästchen: nur kopieren — setRangeText warf dort, Notes Release-Audit v1.7 B-N1)
     // Zahlenfelder (v3.10) ebenso — dort gibt es kein setRangeText, execCommand('delete') reicht (gemessen in der Hülle, Audit run-10)
-    document.addEventListener('cut',ev=>{ const a=document.activeElement, t=selText(); if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel'));
+    document.addEventListener('cut',ev=>{ const a=document.activeElement, t=selText(); selFrom=null; if(!t) return; ev.preventDefault(); copy(t,tr('copy.sel'));
       const num=numField(a);
       if(!a||(a.tagName!=='INPUT'&&a.tagName!=='TEXTAREA')||(typeof a.selectionStart!=='number'&&!num)||a.readOnly||a.disabled) return;
       let done=false; try{ done=document.execCommand('delete'); }catch(_){}
