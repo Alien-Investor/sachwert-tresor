@@ -816,7 +816,7 @@ async function m311(){
   // (13) Strg+Z/Strg+Y nach einer überschriebenen Markierung — Notiz (Text) und neue Passphrase (Passwortfeld). Reihenfolge wie Pass run-12 c-1:
   // markieren → überschreiben → Frist ablaufen (Brücke löscht, wie nach 30 s) → Strg+Z. Dazu der ältere Fall OHNE Fristablauf (HISTORIE (2), in Pass ohne Befund).
   for(const [f,tabName] of [['f-note','add'],['cp1','settings']]){
-    const vorbereiten=async()=>{ await js(`App.tab(${JSON.stringify(tabName)}); const n=document.getElementById(${JSON.stringify(f)}); n.value=''; n.scrollIntoView({block:'center'}); true`); await sleep(250);
+    const vorbereiten=async()=>{ await js(`(()=>{ App.tab(${JSON.stringify(tabName)}); const n=document.getElementById(${JSON.stringify(f)}); n.value=''; n.scrollIntoView({block:'center'}); return true; })()`); await sleep(250);
       const p=await at('#'+f); await ensureFocus(); await mclick(p); await type(f==='cp1'?'geheim-defgh':'abc-defgh');
       for(let i=0;i<5;i++){ k('Left',['shift']); await sleep(40); } await sleep(300); return {akt:await js(`document.activeElement.id`),vor:await prim()}; };
     const feldSel=()=>js(`(()=>{const n=document.getElementById(${JSON.stringify(f)}); return n.value.substring(n.selectionStart,n.selectionEnd);})()`);
@@ -831,18 +831,22 @@ async function m311(){
       const v=await vorbereiten(); await type('X'); await sleep(200); k('Z',['control']); await sleep(500); const fs1=await feldSel();
       return {ok:v.akt===f&&fs1==='defgh'&&(await prim())==='defgh', akt:v.akt, feld:fs1==='defgh'}; });
     await js(`(()=>{ const n=document.getElementById(${JSON.stringify(f)}); n.value=''; n.blur(); n.dispatchEvent(new Event('input',{bubbles:true})); return true; })()`); await sleep(200); }
-  // (16) Mausrad über einem fokussierten Zahlenfeld (Audit v3.10.1 Q2, bisher nur headless): Betrag im Formular und BTC-Kurs der Übersicht; Gegenprobe ohne Fokus
-  const rad=async(p,dy)=>{ wc.sendInputEvent({type:'mouseMove',x:p.x,y:p.y}); await sleep(120);
-    wc.sendInputEvent({type:'mouseWheel',x:p.x,y:p.y,deltaX:0,deltaY:dy,wheelTicksX:0,wheelTicksY:dy>0?1:-1,accelerationRatioX:1,accelerationRatioY:1,hasPreciseScrollingDeltas:false,canScroll:true}); await sleep(500); };
+  // (16) Mausrad über einem FOKUSSIERTEN Zahlenfeld (Audit v3.10.1 Q2, bisher nur headless): Betrag im Formular und BTC-Kurs der Übersicht; Gegenprobe ohne Fokus.
+  // Rad und Bewegung per In-Process-CDP (webContents.debugger) — per sendInputEvent kommen Mausereignisse in der Test-Hülle nicht zuverlässig an (run-10);
+  // Vorbedingung: das Rad kommt an (die Seite scrollt, wenn kein Zahlenfeld den Fokus hat).
+  if(!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+  const rad=async(p,dy)=>{ await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,button:'none'}); await sleep(80);
+    await wc.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseWheel',x:p.x,y:p.y,deltaX:0,deltaY:dy}); await sleep(400); };
   for(const [f,tabName,wert] of [['f-eur','add','2500'],['price-btc','dash','91234']]){
     await js(`App.tab(${JSON.stringify(tabName)}); true`); await sleep(250);
     await fill(f,wert); const p=await at('#'+f); await ensureFocus(); await mclick(p);
     const foc=await js(`document.activeElement.id`); const v0=await js(`document.getElementById(${JSON.stringify(f)}).value`);
-    await rad(p,120); await rad(p,-120); await rad(p,-120); const v1=await js(`document.getElementById(${JSON.stringify(f)}).value`);
-    R('Mausrad über fokussiertem Zahlenfeld '+f+' ändert den Wert nicht (Q2)', foc===f&&v0===wert&&v1===wert, {foc,v0,v1});
-    await js(`document.activeElement.blur(); true`); await sleep(200); await rad(p,-120); const v2=await js(`document.getElementById(${JSON.stringify(f)}).value`);
-    R('Gegenprobe: Mausrad ohne Fokus über '+f+' ändert den Wert nicht', v2===wert, {v2}); }
-  await fill('f-eur','');
+    await rad(p,-120); await rad(p,-120); const v1=await js(`document.getElementById(${JSON.stringify(f)}).value`);
+    R('Mausrad über fokussiertem Zahlenfeld '+f+' ändert den Wert nicht (Q2)', foc===f&&v0===wert&&v1===wert, {foc,v0,v1,akt:await js(`document.activeElement.id`)});
+    await js(`document.activeElement.blur(); window.scrollTo(0,0); true`); await sleep(200); const y0=await js(`Math.round(window.scrollY)`);
+    await rad(p,120); await rad(p,120); const v2=await js(`document.getElementById(${JSON.stringify(f)}).value`), y1=await js(`Math.round(window.scrollY)`);
+    R('Gegenprobe: Mausrad ohne Fokus über '+f+' ändert den Wert nicht, das Rad kommt an (Seite scrollt)', v2===wert&&y1!==y0, {v2,y0,y1}); }
+  await fill('f-eur',''); wc.debugger.detach();
   // (14) Ziehen am Aegis-Schlüssel (.secret-box, user-select:all): Chromium startet ein Ziehen-und-Ablegen ohne mouseup (Pass run-12 c-2). Als LETZTES —
   // danach nimmt die Seite im Test keine Klicks mehr an.
   { await js(`App.tab('settings'); true`); await sleep(300); await click('[data-action="totpStart"]'); await sleep(500);
@@ -880,13 +884,14 @@ async function sichern(){
     dlgNext={canceled:false,filePath:path.join(dir,'fehlt','k.csv')}; await click('button[data-action="exportSteuertool"]'); await sleep(1200); const t=await msg();
     R('CSV Schreibfehler: Meldung mit Code, ohne Pfad', /ENOENT/.test(t)&&!t.includes(dir)&&!t.includes('fehlt'), t.split(dir).join('<DIR>')); }
   { await js(`document.getElementById('export-msg').textContent='x'; true`); cancelDialog=true; await click('button[data-action="exportSteuertool"]'); await sleep(900); cancelDialog=false;
-    R('CSV abgebrochen: Meldung unverändert, keine Datei', (await msg())==='x'); }
+    R('CSV abgebrochen: keine Meldung (exportTaxCsv leert die Zeile vorab), keine neue Datei', (await msg())===''&&fs.readdirSync(dir).filter(n=>/\.csv$/.test(n)).length===1, {msg:await msg(),dateien:fs.readdirSync(dir)}); }
   { dialogs.length=0; await click('button[data-action="openNachlass"]'); await until(visible('nachlass-overlay'),5000); const zp=path.join(dir,'n.pdf'); dlgNext={canceled:false,filePath:zp};
     await click('button[data-action="printNachlass"]'); await until(`/\\.pdf/.test(document.getElementById('nl-msg').textContent)`,20000); const o=dialogs[0]||{}, b=fs.existsSync(zp)?fs.readFileSync(zp):Buffer.alloc(0);
     R('PDF: Option showOverwriteConfirmation, %PDF-Kopf, Rechte 600', ow(o)&&b.slice(0,5).toString()==='%PDF-'&&(fs.statSync(zp).mode&0o777)===0o600, {props:o.properties,len:b.length});
     await click('#nachlass-overlay button[data-action="closeNachlass"]'); }
-  // Kennungen (v3.11): jede genau einmal, nur passend zur Art (Text ≠ PDF), unbekannte abgewiesen — direkt über die Brücke
-  { const t1=path.join(dir,'t1.txt'), t2=path.join(dir,'t2.txt'); dlgNext={canceled:false,filePath:t1};
+  // Kennungen (v3.11): jede genau einmal, nur passend zur Art (Text ≠ PDF), unbekannte abgewiesen — direkt über die Brücke (nur mit der zweistufigen Brücke;
+  // die Messung gegen v3.10.1 überspringt den Block, damit die Sperr-Fälle danach auch dort laufen)
+  if(await js(`typeof AlienDesktop.saveText==='object'`)){ const t1=path.join(dir,'t1.txt'), t2=path.join(dir,'t2.txt'); dlgNext={canceled:false,filePath:t1};
     const r1=await js(`(async()=>{ const o={}; const tok=await AlienDesktop.saveText.pick('t1.txt'); o.form=typeof tok==='string'&&/^[0-9a-f]{32}$/.test(tok);
       try{ await AlienDesktop.savePdf.write(tok); o.art='geschrieben'; }catch(e){ o.art=/stale/.test(e.message); }
       try{ await AlienDesktop.saveText.write(tok,'x'); o.danach='geschrieben'; }catch(e){ o.danach=/stale/.test(e.message); }

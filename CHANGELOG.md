@@ -22,9 +22,9 @@ Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
   Speichern-Dialog an die Hülle. Sperrt die App, während der Dialog offen ist, wird nichts gespeichert, und ein Hinweis sagt es. Fehlermeldungen nennen
   nur noch den Fehlercode, nicht den Pfad. Die Rückfrage beim Überschreiben verlangt die App jetzt auch selbst. Zwischendateien beim Speichern tragen
   einen zufälligen Namen (eine Härtung, im Alltag ohne Wirkung).
-- **Linux-Desktop, Mittelklick-Auswahl:** [MESSUNG HÜLLE] Strg+Z oder Strg+Y holten eine überschriebene Markierung zurück, auch aus einem Passphrase-Feld, und
+- **Linux-Desktop, Mittelklick-Auswahl:** Strg+Z oder Strg+Y holten eine überschriebene Markierung zurück, auch aus einem Passphrase-Feld, und
   lief die 30-Sekunden-Frist vorher ab, blieb sie danach in der Mittelklick-Auswahl. Ebenso das Ziehen am 2FA-Schlüssel. Beides löscht die App jetzt mit.
-- **Linux-Desktop, Mausrad:** [MESSUNG HÜLLE] Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, beim BTC-Kurs der Übersicht wurde er sofort
+- **Linux-Desktop, Mausrad:** Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, beim BTC-Kurs der Übersicht wurde er sofort
   gespeichert. Jetzt nimmt das Rad dem Feld nur den Fokus, der nächste Dreh scrollt die Seite.
 - **Linux-Desktop, Strg+L** sperrt auch bei kyrillischer Tastaturbelegung.
 - **Linux-Desktop, Engine:** Electron 44.7.2 (Sicherheits-Backports aus Chromium, V8, ANGLE und PDFium).
