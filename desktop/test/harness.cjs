@@ -44,6 +44,8 @@ async function fresh(){
   R('kein Node im Renderer', await js(`typeof require==='undefined'&&typeof process==='undefined'&&typeof module==='undefined'`));
   const keys=await js(`Object.keys(window.AlienDesktop).sort().join(',')`);
   R('Brücke hat genau clip, onBackground, onLock, saveBackup, savePdf, saveText, store', keys==='clip,onBackground,onLock,saveBackup,savePdf,saveText,store', keys);
+  { const sub=await js(`['clip','store','saveText','savePdf'].map(k=>k+':'+Object.keys(AlienDesktop[k]).sort().join('+')).join(' ')`);
+    R('Unterschlüssel der Brücke genau (seit v3.11 saveText/savePdf = pick+write, run-11 c-5)', sub==='clip:clear+selected+write store:del+read+write saveText:pick+write savePdf:pick+write', sub); }
   R('clip hat genau clear, selected, write', await js(`Object.keys(window.AlienDesktop.clip).sort().join(',')`)==='clear,selected,write');
   R('Scrollbalken im Neon-Look greift in der echten Hülle: (hover:hover) and (pointer:fine) trifft zu (v3.10, wie Alien Pass Review v1.20 H-5; Audit run-10 b-3)', await js(`matchMedia('(hover:hover) and (pointer:fine)').matches`));
   R('fetch nach außen scheitert', await js(`fetch('https://example.org/').then(()=>false,()=>true)`));
@@ -900,7 +902,18 @@ async function sichern(){
     dlgNext={canceled:false,filePath:t2};
     const r2=await js(`(async()=>{ const o={}; const tok=await AlienDesktop.saveText.pick('t2.txt'); o.n=await AlienDesktop.saveText.write(tok,'zwei');
       try{ await AlienDesktop.saveText.write(tok,'nochmal'); o.zweimal='geschrieben'; }catch(e){ o.zweimal=/stale/.test(e.message); } return o; })()`);
-    R('Kennung genau einmal: erster write schreibt (600), zweiter abgewiesen', r2.n==='t2.txt'&&r2.zweimal===true&&fs.readFileSync(t2,'utf8')==='zwei'&&(fs.statSync(t2).mode&0o777)===0o600, r2); }
+    R('Kennung genau einmal: erster write schreibt (600), zweiter abgewiesen', r2.n==='t2.txt'&&r2.zweimal===true&&fs.readFileSync(t2,'utf8')==='zwei'&&(fs.statSync(t2).mode&0o777)===0o600, r2);
+    // run-11 c-2: fremde Kennung WÄHREND einer offenen Wahl → abgewiesen, und die Wahl verfällt; Frist (EXPORT_TTL 60 s) per vorgestellter Uhr des Hauptprozesses
+    const t3=path.join(dir,'t3.txt'); dlgNext={canceled:false,filePath:t3};
+    const r3=await js(`(async()=>{ const o={}; const tok=await AlienDesktop.saveText.pick('t3.txt');
+      try{ await AlienDesktop.saveText.write('a'.repeat(32),'x'); o.fremd='geschrieben'; }catch(e){ o.fremd=/stale/.test(e.message); }
+      try{ await AlienDesktop.saveText.write(tok,'x'); o.danach='geschrieben'; }catch(e){ o.danach=/stale/.test(e.message); } return o; })()`);
+    R('Kennung: fremde Kennung bei offener Wahl abgewiesen, die Wahl verfällt (c-2)', r3.fremd===true&&r3.danach===true&&!fs.existsSync(t3), r3);
+    const t4=path.join(dir,'t4.txt'); dlgNext={canceled:false,filePath:t4}; const tok4=await js(`AlienDesktop.saveText.pick('t4.txt')`);
+    const realNow=performance.now.bind(performance); Object.defineProperty(performance,'now',{value:()=>realNow()+61000,configurable:true,writable:true});
+    let r4=null, vor=false; try{ vor=performance.now()>realNow()+60000; r4=await js(`AlienDesktop.saveText.write(${JSON.stringify(tok4)},'x').then(()=>'geschrieben',e=>/stale/.test(e.message))`); }
+    finally{ delete performance.now; }
+    R('Kennung nach Ablauf der Frist (Uhr +61 s) abgewiesen (c-2)', vor&&r4===true&&!fs.existsSync(t4), {vor,r4}); }
   // Sperre, während der Speichern-Dialog offen ist (Auto-Sperre, Strg+L vor dem Dialog-Fokus): danach darf kein Klartext mehr auf die Platte (Notes 1.12 b-1)
   const offen=async w=>{ for(let i=0;i<100&&!w.frei;i++) await sleep(100); return !!w.frei; };
   { const w={}; dlgWait=w; const zs=path.join(dir,'nach-sperre.csv'); await click('button[data-action="exportSteuertool"]'); const o1=await offen(w);

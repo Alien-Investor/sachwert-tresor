@@ -923,7 +923,8 @@ const App = (function(){
 
   function enterApp(){ if(DESK&&clipOwned) clearClip();   // markierte Passphrase vom Sperr-/Einrichtungsbildschirm nicht mit in die Sitzung nehmen (Notes leaveGate)
     screen('app'); tab('dash'); renderAll(); resetIdle(); adoptPrices(); runPendingFile();
-    if(exportDropped){ exportDropped=false; toast(tr('exp.dropped')); }   // Speichern-Dialog war offen, als gesperrt wurde: nichts geschrieben (v3.11)
+    if(exportDropped){ exportDropped=false; toast(tr('exp.dropped'),{ms:8000}); }
+    runBackupUndo();   // Backup-Dialog war offen, als gesperrt wurde: Stempel zurück (run-11 c-1)   // Speichern-Dialog war offen, als gesperrt wurde: nichts geschrieben (v3.11)
     if(bioRearmDek){ const d=bioRearmDek; bioRearmDek=null; bioArm(d, KDF, WRAP, true).then(ok=>{ if(ok) toast(tr('bio.rearmed')); if(VAULT) renderSettings(); }); } }   // if(VAULT): während der Neu-Einrichtung gesperrt → sonst TypeError (Kurz-Review, Test [20] B)   // nach Neustart: Slot mit frischem Zufall neu bewaffnen
   // Tresore von vor v2.12 haben gepflegte Preise (VAULT.prices), aber noch keine datierte Historie.
   // Ohne das stuende im Verlauf "Trage Preise ein", obwohl welche eingetragen SIND — der erste Stand
@@ -1828,7 +1829,7 @@ const App = (function(){
   async function deskSaveText(name, content, m){ const s=VAULT;
     if(deskSaveText._busy) return null; deskSaveText._busy=true;   // Doppelklick: ein Dialog zur Zeit (die Hülle meldete sonst „busy“ als Fehler, run-11 a-9)
     try{ const tok=await DESK.saveText.pick(name); if(!tok) return null;
-      if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped')); else exportDropped=true; return null; }
+      if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped'),{ms:8000}); else exportDropped=true; return null; }
       const n=await DESK.saveText.write(tok, content); return deskAlive(s)?n:null; }
     catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } return null; }
     finally{ deskSaveText._busy=false; } }
@@ -1844,6 +1845,16 @@ const App = (function(){
       const n=await deskSaveText(name, '﻿'+csv, m); if(n){ if(m) m.textContent=n+tr('exp.savedDesk'); toast(tr('toast.exported')); return true; } return false;
     } else { downloadFile(name, csv); toast(tr('toast.exported')); return true; }
   }
+  // Backup-Stempel zurücknehmen, wenn die App sperrte, während der Desktop-Dialog offen war, und danach abgebrochen wurde oder das Schreiben scheiterte
+  // (v3.11, Release-Audit run-11 c-1): der Stempel steht schon vor dem Dialog in der Datei, die Rücknahme ging nach der Sperre nicht mehr — die Erinnerung
+  // „Noch kein Backup“ verschwand ohne Datei. Nachgeholt in enterApp(), nur solange der Stempel noch genau dieser ist; ein Fehler wird dann genannt.
+  let backupUndo=null;
+  function runBackupUndo(){ const u=backupUndo; backupUndo=null; if(!u||!VAULT) return;
+    if(VAULT.lastBackup===u.stamp&&VAULT.lastBackupCount===u.count){
+      if(u.prevBackup===undefined) delete VAULT.lastBackup; else VAULT.lastBackup=u.prevBackup;
+      if(u.prevCount===undefined) delete VAULT.lastBackupCount; else VAULT.lastBackupCount=u.prevCount; if(u.hadFresh) VAULT.needsFreshBackup=true;
+      persist().catch(()=>{}); renderDash(); }
+    if(u.err) toast((LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+u.err,{ms:8000}); }
   async function exportVault(){
     if(exportVault._busy) return;
     let stored=null; try{ stored=vaultGet(); }catch(_){}
@@ -1859,11 +1870,13 @@ const App = (function(){
     const d=todayStr(); const name=`sachwert-tresor-${d}.vault`;
     if(DESK){
       exportVault._busy=true;
+      const undo={stamp:VAULT.lastBackup, count:VAULT.lastBackupCount, prevBackup, prevCount, hadFresh, err:null};
       try{ const n=await DESK.saveBackup(name, raw);
-        if(VAULT!==v0) return;   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (run-11 a-6)
+        if(VAULT!==v0){ if(!n) backupUndo=undo; return; }   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (run-11 a-6); abgebrochen → Stempel beim Entsperren zurück (c-1)
         if(!n){ revert(); await persist().catch(()=>{}); $('export-msg').textContent=''; }   // abgebrochen: kein Stempel
         else { $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
-      }catch(e){ if(VAULT!==v0) return; revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+      }catch(e){ if(VAULT!==v0){ undo.err=(e&&e.message)||String(e); backupUndo=undo; return; }
+        revert(); await persist().catch(()=>{}); $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
       finally{ exportVault._busy=false; if(VAULT===v0) renderDash(); }
       return;
     }
@@ -2471,7 +2484,7 @@ const App = (function(){
     if(printNachlass._busy) return; printNachlass._busy=true; const m=$('nl-msg'), s=VAULT;
     // zweistufig (v3.11): erst der Dialog, dann rendert die Hülle das offene Blatt — nur, wenn die Sitzung noch dieselbe und das Blatt noch offen ist
     (async()=>{ try{ const tok=await DESK.savePdf.pick('nachlass-anhang-'+nlToday()+'.pdf'); if(!tok) return;
-        if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped')); else exportDropped=true; return; }
+        if(!deskAlive(s)){ if(DEK) toast(tr('exp.dropped'),{ms:8000}); else exportDropped=true; return; }
         if($('nachlass-overlay').classList.contains('hidden')) return;   // Blatt zu: nichts rendern (der Dialog ist modal, praktisch nur über die Sperre erreichbar)
         const n=await DESK.savePdf.write(tok); if(n&&deskAlive(s)){ if(m) m.textContent=n+tr('nl.pdfSaved'); toast(tr('toast.exported')); } }
       catch(e){ if(deskAlive(s)){ if(m) m.textContent=exportErr(e); toast(tr('toast.failed')); } }

@@ -20,10 +20,12 @@ Desktop. Keine Änderung an Datei-Format, Verschlüsselung oder Berechtigungen.
   ihn jetzt sofort weg, ebenso nach einem Passphrasenwechsel und beim Abbrechen der 2FA-Einrichtung.
 - **Linux-Desktop, Speichern:** Klartext-Exporte (Steuertool-CSV, Edelmetalle, Nachlass-Anhang als `.txt` und PDF) gehen erst nach der Wahl im
   Speichern-Dialog an die Hülle. Sperrt die App, während der Dialog offen ist, wird nichts gespeichert, und ein Hinweis sagt es. Fehlermeldungen nennen
-  nur noch den Fehlercode, nicht den Pfad. Die Rückfrage beim Überschreiben verlangt die App jetzt auch selbst. Zwischendateien beim Speichern tragen
+  nur noch den Fehlercode, nicht den Pfad. Vor dem Überschreiben einer vorhandenen Datei verlangt die App die Rückfrage jetzt auch selbst (im Flatpak fragt
+  der Dialog des Systems ohnehin). Zwischendateien beim Speichern tragen
   einen zufälligen Namen (eine Härtung, im Alltag ohne Wirkung).
-- **Linux-Desktop, Mittelklick-Auswahl:** Strg+Z oder Strg+Y holten eine überschriebene Markierung zurück, auch aus einem Passphrase-Feld, und
-  lief die 30-Sekunden-Frist vorher ab, blieb sie danach in der Mittelklick-Auswahl. Ebenso das Ziehen am 2FA-Schlüssel. Beides löscht die App jetzt mit.
+- **Linux-Desktop, Mittelklick-Auswahl:** Die App löscht jetzt auch Text, den Strg+Z oder Strg+Y in einem Feld erst nach Ablauf der 30 Sekunden
+  zurückholt (etwa eine überschriebene Markierung, auch aus einem Passphrase-Feld), und den 2FA-Schlüssel beim Einrichten, wenn man ihn mit der Maus zieht.
+  Bisher blieb beides in der Mittelklick-Auswahl stehen.
 - **Linux-Desktop, Mausrad:** Über einem angeklickten Zahlenfeld änderte das Mausrad den Wert, beim BTC-Kurs der Übersicht wurde er sofort
   gespeichert. Jetzt nimmt das Rad dem Feld nur den Fokus, der nächste Dreh scrollt die Seite.
 - **Linux-Desktop, Strg+L** sperrt auch bei kyrillischer Tastaturbelegung.
