@@ -26,7 +26,7 @@ auf Android und am Desktop. Keine Änderung an Datei-Format, Verschlüsselung od
 - **Backup-Vermerk:** Die App vermerkt ein Backup erst, wenn die Datei gespeichert ist. Bisher stand der Vermerk schon vorher im Tresor: Auf Android blieb er
   bei einem Schreibfehler stehen, am Linux-Desktop, wenn die App sperrte, während der Speichern-Dialog offen war, und danach abgebrochen wurde oder das Schreiben
   scheiterte. Das Backup galt dann als gemacht, und die Backup-Erinnerung verschwand. Gelingt das Speichern erst nach einer Sperre, holt die App den Vermerk beim
-  nächsten Entsperren nach; einen Fehler nennt sie dann.
+  nächsten Entsperren nach; scheitert es, nennt die Desktop-Fassung dann den Fehler.
 - **Linux-Desktop, Mittelklick-Auswahl:** Die App löscht jetzt auch Text, den Strg+Z oder Strg+Y in einem Feld erst nach Ablauf der 30-Sekunden-Frist
   zurückholt (etwa eine überschriebene Markierung, auch aus einem Passphrase-Feld), und den 2FA-Schlüssel beim Einrichten, wenn man ihn mit der Maus zieht.
   Bisher blieb beides in der Mittelklick-Auswahl stehen.
