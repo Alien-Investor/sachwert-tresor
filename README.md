@@ -268,6 +268,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     ganze Seite, und die App löscht auch Markierungen über Knöpfe, Felder und das Diagramm hinweg sowie markierte Beträge und Mengen. Ausnahmen: Eine
     Markierung, die über das Datumsfeld im Formular reicht (das angezeigte Datum kann die App nicht lesen), bleibt bis zur nächsten Markierung stehen,
     ebenso der Text eines Zahlenfeldes, wenn man auf dessen Pfeile klickt, während dort etwas anderes als die reine Zahl steht (etwa „2500,“ oder „+5“).
+    Seit v3.11 löscht die App auch Text, den Strg+Z oder Strg+Y erst nach Ablauf der 30 Sekunden zurückholt, und den 2FA-Schlüssel, wenn man ihn beim
+    Einrichten mit der Maus zieht.
   - **Spendenlink:** öffnet sich am Desktop im System-Browser. Die Hülle lässt genau die Spendenseite (DE/EN) durch, höchstens einmal je
     Sekunde; jede andere Adresse verpufft.
   - **Klartext verlässt den Käfig nur auf deinen Klick:** CSV-Exporte, der Nachlass-Anhang als `.txt` oder PDF sind unverschlüsselt —
@@ -281,7 +283,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     leert aber getippte Passphrasen. Kein Fingerabdruck. Die Hülle besteht aus drei kleinen Dateien (`desktop/main.js`, `desktop/preload.js`,
     `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); die Hülle des Tresors wird mit Tests in
     der echten Hülle geprüft, mit v3.7 kam ein internes Security-Audit der Änderungen dazu, vor v3.10 ein gezieltes internes Audit in vier
-    Runden.
+    Runden, vor v3.11 ein internes Release-Audit der Änderungen in zwei Runden mit Nachprüfung; v3.11 übernimmt dazu Funde aus den internen Audits
+    der Schwester-Apps Alien Pass und Alien Notes.
 
 ## Open Source & selbst prüfen
 
