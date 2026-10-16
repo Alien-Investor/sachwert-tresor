@@ -34,6 +34,8 @@ auf Android und am Desktop. Keine Änderung an Datei-Format, Verschlüsselung od
   gespeichert. Jetzt nimmt das Rad dem Feld nur den Fokus, der nächste Dreh scrollt die Seite.
 - **Linux-Desktop, Strg+L** sperrt auch bei kyrillischer Tastaturbelegung.
 - **Linux-Desktop, Engine:** Electron 44.7.2, vorher 44.7.0 (nachgezogene Korrekturen aus Chromium, V8, ANGLE und PDFium).
+- **Nachlass-Anhang (Android):** Der Knopf „Drucken“ tat in der App nichts und ist ausgeblendet. Zum Drucken bleibt „Als Datei speichern“: Im
+  Teilen-Dialog eine Drucker-App oder ein Datei-Ziel wählen.
 - **Handbuch und Texte:** ohne die eingestellte Browser-Version; der Hilfe-Knopf ist für Bildschirmleser auch englisch beschriftet.
 
 ## v3.10.1 — 2026-10-11

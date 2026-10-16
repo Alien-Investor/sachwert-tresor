@@ -93,7 +93,7 @@ const I18N = {
   "exp.nlOpen":"Create holdings sheet",
   "nl.title":"Estate appendix",
   "nl.warn":"⚠ Class B, confidential: this sheet states holdings in plain text. Keep it separate from the existence notice and the access guide, destroy the old version. Locations do not belong here; they go handwritten into the Estate Planner.",
-  "nl.fassungLbl":"Version","nl.print":"Print","nl.printDesk":"Save as PDF","nl.save":"Save as file (.txt)",
+  "nl.fassungLbl":"Version","nl.printDesk":"Save as PDF","nl.save":"Save as file (.txt)",
   "nl.howtoDesk":"The sheet is saved as a PDF via the save dialog (plain text): print it, then delete the file. Raise the version number before every printout.",
   "nl.howto":"“Save as file” opens the Share dialog: pick a printer app (it prints the sheet directly) or a file target, print there and delete the file afterwards. Raise the version number before every printout.",
   "help.h1":"What is the Sachwert-Tresor?",
@@ -2489,9 +2489,9 @@ const App = (function(){
   function nlRemember(){ const f=nlFassung(); if(VAULT.nlFassung!==f){ VAULT.nlFassung=f; persist().catch(()=>{}); } }
   function openNachlass(){ if(!VAULT) return; const f=$('nl-fassung'); if(f&&!f.value&&VAULT.nlFassung) f.value=VAULT.nlFassung; const m=$('nl-msg'); if(m) m.textContent=''; renderNachlass(); show('nachlass-overlay'); const o=$('nachlass-overlay'); if(o) o.scrollTop=0; }
   function closeNachlass(){ hide('nachlass-overlay'); const el=$('nl-sheet'); if(el) el.innerHTML=''; }
-  // Desktop: window.print() liefe im Flatpak ohne cups-Socket ins Leere → die Hülle rendert die Seite mit dem Druck-CSS als PDF
-  // (printToPDF im Hauptprozess, VOR dem Dialog — das Overlay ist dabei offen) und speichert über den Portal-Dialog.
-  function printNachlass(){ renderNachlass(); nlRemember(); if(!DESK) return window.print();
+  // Nur Desktop (Knopf .only-desk): window.print() liefe im Flatpak ohne cups-Socket ins Leere, im Android-WebView tut es nichts (Gerätetest 16.10.2026;
+  // dort druckt „Als Datei speichern“ → Drucker-App). Die Hülle rendert die Seite mit dem Druck-CSS als PDF und speichert über den Portal-Dialog.
+  function printNachlass(){ if(!DESK) return; renderNachlass(); nlRemember();
     if(deskExportBusy) return; deskExportBusy=true; const m=$('nl-msg'), s=VAULT;
     // zweistufig (v3.11): erst der Dialog, dann rendert die Hülle das offene Blatt — nur, wenn die Sitzung noch dieselbe und das Blatt noch offen ist
     (async()=>{ try{ const tok=await DESK.savePdf.pick('nachlass-anhang-'+nlToday()+'.pdf'); if(!tok) return;

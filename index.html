@@ -139,6 +139,7 @@ input[type=checkbox]:disabled{opacity:.4;cursor:default;}
 .hidden{display:none!important;}
 /* Desktop-Hülle (html.desk, gesetzt von app.js bei window.AlienDesktop): .only-desk nur dort, .no-desk nirgends dort. revert = Standard-Anzeige des Elements */
 .only-desk{display:none;} html.desk .only-desk{display:revert;} html.desk .no-desk{display:none!important;}
+html.desk .btn.only-desk{display:inline-flex;}   /* revert hieße beim Knopf inline-block (UA-Stil) statt .btn-Flex */
 .center{text-align:center;}
 a{color:var(--neon);}
 
@@ -765,7 +766,7 @@ html.desk .chart-wrap{-webkit-user-select:text;user-select:text;}
       <p class="warn" data-i18n="nl.warn">⚠ Klasse B, vertraulich: Dieses Blatt nennt Bestände im Klartext. Getrennt von Existenzhinweis und Zugangsanleitung verwahren, alte Fassung vernichten. Standorte gehören nicht hierher, sondern handschriftlich in den Nachlassplaner.</p>
       <div class="row" style="margin-top:12px;align-items:flex-end">
         <label style="flex:0 0 auto"><span data-i18n="nl.fassungLbl">Fassung</span><br><input id="nl-fassung" type="text" inputmode="numeric" maxlength="12" placeholder="1" autocomplete="off" data-input="renderNachlass" style="width:90px"></label>
-        <button class="btn" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span class="no-desk" data-i18n="nl.print">Drucken</span><span class="only-desk" data-i18n="nl.printDesk">Als PDF speichern</span></button>
+        <button class="btn only-desk" data-action="printNachlass"><svg class="ic" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg> <span data-i18n="nl.printDesk">Als PDF speichern</span></button>
         <button class="btn ghost" data-action="exportNachlassTxt"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="M8 11.5l4 4 4-4"/><path d="M5 19.5h14"/></svg> <span data-i18n="nl.save">Als Datei speichern (.txt)</span></button>
       </div>
       <p class="muted only-desk" style="margin-top:8px;font-size:.8em" data-i18n="nl.howtoDesk">Das Blatt wird als PDF über den Speichern-Dialog abgelegt (Klartext): ausdrucken, danach die Datei löschen. Vor jedem Ausdruck die Fassungsnummer erhöhen.</p>
