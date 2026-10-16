@@ -199,7 +199,7 @@ else {
     return path.basename(file);
   }
   const okContent=c=>typeof c==='string'&&!!c&&c.length<=FILE_MAX;
-  // Backup (.vault, verschlüsselt): app.js setzt den Backup-Stempel nur bei Dateiname, bei null nimmt es ihn zurück. Einstufig — der Inhalt ist verschlüsselt.
+  // Backup (.vault, verschlüsselt): app.js setzt den Backup-Stempel erst nach dem Erfolg (Dateiname), bei null bleibt er unverändert (v3.11). Einstufig — der Inhalt ist verschlüsselt.
   ipcMain.handle('backup:save',async(e,name,content)=>{
     if(!fromApp(e)) throw new Error('denied');
     if(typeof name!=='string'||!/^[\w.-]{1,80}\.vault$/.test(name)||!okContent(content)) throw new Error('bad');

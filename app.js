@@ -1851,36 +1851,44 @@ const App = (function(){
   // Gelingt das Speichern erst nach einer Sperre, holt enterApp() den Stempel nach (`backupLate`, nur im RAM; endet die App vorher, fehlt er — die sichere
   // Richtung: eine Mahnung zu viel). Ein Fehler nach der Sperre wird beim Entsperren genannt. `wipeLocal` verwirft den Nachtrag.
   let backupLate=null;
+  const vaultSid=()=>KDF&&KDF.salt?bufToB64(KDF.salt):'';   // Kennung des Tresors für den Nachtrag: Salz der Datei (run-11 n-1)
   function applyBackupStamp(u){ VAULT.lastBackup=u.day; VAULT.lastBackupCount=u.count; delete VAULT.needsFreshBackup; }   // Backup im neuen Format liegt vor
+  // Nachtrag nur für DENSELBEN Tresor und nie über einen gleich alten oder neueren Stempel (run-11 n-1: sonst bekam ein nach dem Löschen neu eingerichteter
+  // Tresor den Stempel des alten, und ein später Nachtrag überschrieb ein inzwischen echt gemachtes Backup)
+  function lateStamp(u){ if(!VAULT||u.sid!==vaultSid()||(VAULT.lastBackup&&VAULT.lastBackup>=u.day)) return; applyBackupStamp(u); persist().catch(()=>{}); renderDash(); }
   function runBackupLate(){ const u=backupLate; backupLate=null; if(!u||!VAULT) return;
-    if(u.err) toast((LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+u.err,{ms:8000});
-    else { applyBackupStamp(u); persist().catch(()=>{}); renderDash(); } }
+    if(u.err){ if(u.sid===vaultSid()) toast((LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+u.err,{ms:8000}); }
+    else lateStamp(u); }
   async function exportVault(){
     if(exportVault._busy||!VAULT) return;
     const v0=VAULT, dek=DEK, kdf=KDF, wrap=WRAP; if(!dek||!kdf||!wrap) return;
-    const stamp={day:todayStr(), count:VAULT.entries.length};
+    const stamp={day:todayStr(), count:VAULT.entries.length, sid:bufToB64(kdf.salt)};
     const copy=Object.assign({},VAULT,{lastBackup:stamp.day,lastBackupCount:stamp.count}); delete copy.needsFreshBackup;
+    const fail=m=>(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+m;
+    // gespeichert, aber die Sitzung ist nicht mehr dieselbe: schon wieder entsperrt → sofort (gleicher Tresor), sonst beim nächsten Entsperren
+    const late=()=>{ if(VAULT) lateStamp(stamp); else backupLate={...stamp}; };
+    // Erfolg in derselben Sitzung: Stempel in den Tresor. Fällt die Sperre in dieses persist(), holt enterApp ihn nach — keine Fehlermeldung (run-11 n-2)
+    const done=async()=>{ applyBackupStamp(stamp); try{ await persist(); }catch(e){ if(e&&e.locked){ late(); return; } } if(VAULT===v0) renderDash(); };
     exportVault._busy=true;
     try{
       let raw; try{ raw=serializeFile(kdf,wrap,await encryptBody(copy,dek,kdf)); }catch(_){ return; }
       if(VAULT!==v0||DEK!==dek||KDF!==kdf||WRAP!==wrap) return;   // während des Verschlüsselns gesperrt oder Passphrase gewechselt: nichts anbieten
       const name=`sachwert-tresor-${stamp.day}.vault`;
-      // Erfolg: Stempel jetzt in den Tresor; ein Speicherfehler dabei lässt nur die Mahnung stehen (persist meldet selbst)
-      const done=async()=>{ applyBackupStamp(stamp); await persist().catch(()=>{}); renderDash(); };
       if(DESK){
-        try{ const n=await DESK.saveBackup(name, raw);
-          if(VAULT!==v0){ if(n) backupLate={...stamp}; return; }   // während des Dialogs gesperrt: keine Meldung in die gesperrte App (a-6), Stempel beim Entsperren (c-1)
-          if(!n){ $('export-msg').textContent=''; return; }        // abgebrochen: kein Stempel
-          await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
-        }catch(e){ const m=(e&&e.message)||String(e); if(VAULT!==v0){ backupLate={err:m}; return; }
-          $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+m; }
+        let n; try{ n=await DESK.saveBackup(name, raw); }
+        catch(e){ const m=(e&&e.message)||String(e);
+          if(VAULT!==v0){ if(VAULT){ if(stamp.sid===vaultSid()) toast(fail(m),{ms:8000}); } else backupLate={err:m,sid:stamp.sid}; return; }   // keine Meldung in die gesperrte App (a-6)
+          $('export-msg').textContent=fail(m); return; }
+        if(!n){ if(VAULT===v0) $('export-msg').textContent=''; return; }   // abgebrochen: kein Stempel
+        if(VAULT!==v0){ late(); return; }                                    // während des Dialogs gesperrt: Stempel nachholen (c-1/d-1)
+        await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.vaultSavedDesk').replace('{n}',n); toast(tr('toast.saved')); }
         return;
       }
       if(isNative){
-        try{ const uri=await nativeSaveAndShare(name, raw);
-          if(VAULT!==v0){ backupLate={...stamp}; return; }        // gesperrt, während der Teilen-Dialog offen war (run-11 d-3): Datei liegt, Stempel beim Entsperren
-          await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative'); toast(tr('toast.saved')); }
-        }catch(e){ if(VAULT===v0) $('export-msg').textContent=(LANG==='en'?'Backup failed: ':'Backup fehlgeschlagen: ')+((e&&e.message)||e); }
+        let uri; try{ uri=await nativeSaveAndShare(name, raw); }
+        catch(e){ if(VAULT===v0) $('export-msg').textContent=fail((e&&e.message)||e); return; }
+        if(VAULT!==v0){ late(); return; }                                    // gesperrt, während der Teilen-Dialog offen war (d-3): Datei liegt
+        await done(); if(VAULT===v0){ $('export-msg').textContent=tr('exp.backupSavedPre')+uri+')'+tr('exp.vaultSavedNative'); toast(tr('toast.saved')); }
       } else {
         downloadFile(name, raw, 'application/octet-stream', false);
         await done(); if(VAULT===v0) $('export-msg').textContent=tr('exp.vaultSavedWeb');
@@ -2001,7 +2009,8 @@ const App = (function(){
       // Backup-Seite von a-4 (run-11 d-4): trägt das Backup einen neueren Tag der letzten Kursänderung als seinen neuesten Preisstand (Kurs getippt, Sperre in der
       // Entprellung), gelten seine Kursfelder mit diesem Tag — bereinigt wie ein Preisstand (sanitizeSnaps: gültiger Tag, nicht in der Zukunft, Zahlen > 0)
       const vp=v.prices&&typeof v.pricesDay==='string'?sanitizeSnaps([{d:v.pricesDay,btc:v.prices.btc,gold:v.prices.gold,silver:v.prices.silver}])[0]:null;
-      if(vp&&(!top||vp.d>top.d)) top=vp;
+      // gleicher Tag: die Kursfelder sind neuer als der Preisstand (n-3); leere Felder ergänzt der neueste Preisstand des Backups
+      if(vp&&(!top||vp.d>=top.d)) top={d:vp.d, btc:vp.btc||(top?top.btc:''), gold:vp.gold||(top?top.gold:''), silver:vp.silver||(top?top.silver:'')};
       const takePrices=!!top&&top.d>localDay;
       const {entries, added}=mergeEntries(VAULT.entries, v.entries);
       VAULT.entries=entries;

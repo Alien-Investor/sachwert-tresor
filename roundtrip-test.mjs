@@ -17,7 +17,7 @@ const ITER = 600000;
 { const {readFileSync}=await import('node:fs');
   const vn=(readFileSync('VERSION','utf8').match(/^VERSION_NAME=(.+)$/m)||[])[1]?.trim(), cl=readFileSync('CHANGELOG.md','utf8');
   const i=cl.indexOf('\n## v'+vn+' '), j=i<0?-1:cl.indexOf('\n## v',i+5), sec=i<0?'':cl.slice(i,j<0?undefined:j);
-  const ph=sec.match(/\[[A-Za-zÄÖÜäöü][^\]\n]{0,60}\](?!\()|\b(TODO|FIXME|XXX)\b/);
+  const ph=sec.match(/\[\s*[A-Za-zÄÖÜäöü][^\]\n]{0,60}\](?!\()|\b(TODO|TBD|FIXME|XXX)\b/);
   if(ph) throw new Error(`Platzhalter im CHANGELOG-Abschnitt v${vn}: ${ph[0]}`);
   console.log('  ✓ CHANGELOG v'+vn+(i<0?' (noch kein Abschnitt)':'')+' ohne Platzhalter'); }
 
