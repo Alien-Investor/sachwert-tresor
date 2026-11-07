@@ -350,5 +350,13 @@ KYC-Käufe bekommen `kyc=ja` (landen im Finanzamt-Report), noKYC bleibt leer (nu
 Report). Edelmetalle sind in DE nach 1 Jahr Haltefrist steuerfrei und brauchen das Steuertool
 nicht — dafür gibt es die separate `edelmetalle.csv`.
 
+## App-Symbol
+
+Das Alien im App-Symbol basiert auf dem Emoji „Alien“ (U+1F47D) aus [Twemoji](https://github.com/twitter/twemoji),
+Copyright 2019 Twitter, Inc and other contributors, lizenziert unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.de).
+Übernommen sind die Umrisse von Kopf und Augen. Ergänzt sind Antennen, Farbverlauf, Kontur und Leuchteffekt, geändert sind die
+Farben, der Mund des Originals ist ersetzt oder entfällt. Die Urheber übernehmen keine Gewährleistung (Abschnitt 5 der Lizenz).
+Alle Lizenzangaben: https://alien-investor.org/lizenzen.html
+
 ---
 100 % lokal · Alien Investor Stil · keine Konto-, keine Server-Abhängigkeit.
