@@ -249,6 +249,7 @@ const T = {
   "rates.newer":{de:"Diese Kurszeile stammt aus einer neueren Version — bitte den Tresor aktualisieren.",en:"This price line comes from a newer version — please update the vault."},
   "rates.range":{de:"Ein Kurs liegt außerhalb des plausiblen Bereichs ({k}) — nichts übernommen.",en:"A price is outside the plausible range ({k}) — nothing applied."},
   "rates.taken":{de:"Kurse übernommen",en:"Prices applied"},
+  "rates.jump":{de:"Achtung: Großer Sprung bei {k} (ab 15 %) — Kurszeile vor dem Übernehmen prüfen.",en:"Note: large jump for {k} (15 % or more) — check the price line before applying."},
   "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
   "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
   "msg.importSaveFailed":{de:"Entschlüsselt, aber Speichern fehlgeschlagen — nichts übernommen. Speicher voll?",en:"Decrypted, but saving failed — nothing was imported. Storage full?"},
@@ -302,6 +303,7 @@ const T = {
   "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
   "err.fileFormat":{de:"Keine gültige Tresor-Datei.",en:"Not a valid vault file."},
   "err.fileNewer":{de:"Diese Datei stammt aus einer neueren App-Version. Bitte die App aktualisieren.",en:"This file comes from a newer app version. Please update the app."},
+  "err.fileBody":{de:"Die Passphrase stimmt, aber der Inhalt der Datei ist beschädigt oder wurde verändert. Am Tresor wurde nichts verändert.",en:"The passphrase is correct, but the file content is damaged or has been altered. Nothing in the vault was changed."},
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
   "err.tooMany":{de:"Zu viele Zeilen oder Buchungen (höchstens 40.000 Zeilen, 10.000 Buchungen).",en:"Too many rows or entries (at most 40,000 rows, 10,000 entries)."},
@@ -461,12 +463,16 @@ function bioKey(raw){ if(!(raw instanceof Uint8Array)||raw.length!==32) throw ne
 // sonst könnte ein manipulierter wrap per Fingerabdruck-Sitzung stillschweigend weitergeschrieben werden (Alien-Pass-Audit run-3 #3)
 // `wi` (v3.2, Alien-Pass-Audit run-8 #1) = b64 der Wrap-IV, OPTIONAL: Slots von ≤ v3.1.1 tragen nur `w` und laufen unverändert weiter; neue Slots binden
 // IV + Ciphertext, damit eine gekippte IV nicht ungeprüft in die Sitzung und mit dem nächsten persist() in Datei und Backups wandert.
+// `k` (v3.12, Querfund Alien Notes v1.14 a2-1/a3-1) = KDF-Kopf der Datei als AAD-Zeichenkette der Rolle wrap, OPTIONAL wie `wi`: ein verändertes m/t/p/Salz ließ das
+// Auspacken des Slots an der AAD scheitern, doBio hielt das für einen ungültigen Schlüssel und löschte Blob und Keystore-Slot (auch nach dem Zurückspielen
+// des Backups blieb er weg). Mit `k` landet ein veränderter Kopf im wrapMismatch-Zweig: Slot bleibt, ehrliche Meldung. Nur Kopfdaten, kein Geheimnis.
 function parseBioBlob(raw){ if(typeof raw!=='string'||raw.length>512) return null; let o; try{ o=JSON.parse(raw); }catch(_){ return null; } if(!o||typeof o!=='object') return null; const iv=b64Bytes(o.iv), ct=b64Bytes(o.ct), w=b64Bytes(o.w); if(!(iv&&iv.length===12&&ct&&ct.length===48&&w&&w.length===48)) return null;
-  if(o.wi===undefined||o.wi===null) return {iv,ct,w:o.w,wi:null}; const wi=b64Bytes(o.wi); return (wi&&wi.length===12)?{iv,ct,w:o.w,wi:o.wi}:null; }
-function serializeBioBlob(blob, wrapCt, wrapIv){ if(!(wrapCt instanceof Uint8Array)||wrapCt.length!==48) throw new Error('bioblob'); if(wrapIv!==undefined&&!(wrapIv instanceof Uint8Array&&wrapIv.length===12)) throw new Error('bioblob');
-  const o={iv:bufToB64(blob.iv), ct:bufToB64(blob.ct), w:bufToB64(wrapCt)}; if(wrapIv) o.wi=bufToB64(wrapIv); return JSON.stringify(o); }
-// Passt der Passphrase-Slot der Datei zum Fingerabdruck-Blob? Ciphertext immer, IV nur wenn der Blob sie kennt (Übergang ≤ v3.1.1)
-function bioWrapOk(blob, wrap){ return !!blob&&!!wrap&&blob.w===bufToB64(wrap.ct)&&(!blob.wi||blob.wi===bufToB64(wrap.iv)); }
+  let k=null; if(o.k!==undefined&&o.k!==null){ if(typeof o.k!=='string'||!o.k||o.k.length>200) return null; k=o.k; }
+  if(o.wi===undefined||o.wi===null) return {iv,ct,w:o.w,wi:null,k}; const wi=b64Bytes(o.wi); return (wi&&wi.length===12)?{iv,ct,w:o.w,wi:o.wi,k}:null; }
+function serializeBioBlob(blob, wrapCt, wrapIv, kdf){ if(!(wrapCt instanceof Uint8Array)||wrapCt.length!==48) throw new Error('bioblob'); if(wrapIv!==undefined&&!(wrapIv instanceof Uint8Array&&wrapIv.length===12)) throw new Error('bioblob');
+  const o={iv:bufToB64(blob.iv), ct:bufToB64(blob.ct), w:bufToB64(wrapCt)}; if(wrapIv) o.wi=bufToB64(wrapIv); if(kdf) o.k=dec.decode(aad(kdf,'wrap')); return JSON.stringify(o); }
+// Passt der Passphrase-Slot der Datei zum Fingerabdruck-Blob? Ciphertext immer, IV und KDF-Kopf nur wenn der Blob sie kennt (Übergang ≤ v3.1.1 bzw. ≤ v3.11)
+function bioWrapOk(blob, wrap, kdf){ return !!blob&&!!wrap&&blob.w===bufToB64(wrap.ct)&&(!blob.wi||blob.wi===bufToB64(wrap.iv))&&(!blob.k||(!!kdf&&blob.k===dec.decode(aad(kdf,'wrap')))); }
 async function encryptBody(obj, dek, kdf){ const iv=rand(12); const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad(kdf,'body')}, dek, enc.encode(JSON.stringify(obj)))); return {iv,ct}; }
 async function decryptBody(body, dek, kdf){ const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:body.iv,additionalData:aad(kdf,'body')}, dek, body.ct); return JSON.parse(dec.decode(pt)); }
 function serializeFile(kdf, wrap, body){
@@ -560,6 +566,22 @@ function sanitizeEntry(e){
   }
   return out;
 }
+// Vorwärts-Abwehr (v3.12, Querfund Alien Notes v1.14/Alien Pass v1.23): Buchungen mit gültiger ID, aber unbekanntem Feld, Typ, Richtung, Währung oder
+// Einheit stammen aus einer NEUEREN App-Version. Bisher kürzte sanitizeEntry sie still (Import) bzw. baute addEntry sie ohne die Felder neu (Bearbeiten),
+// eine GBP-Buchung galt als EUR. Jetzt: Entsperren und Import melden „neuere App-Version“, nichts wird übernommen; persist() schreibt so etwas nie.
+// ENTRY_KEYS = Vereinigung ALLER Feldsätze v1.0–v3.12, aus den Tags abgeleitet (genau zwei: v1.0–v2.0, ab v2.1 dazu cur/eurRef) — verify-v312 [5].
+// Neue Felder: HIER und in sanitizeEntry eintragen, sonst sperrt die App den eigenen Tresor.
+const ENTRY_KEYS=['id','type','dir','date','eur','cur','eurRef','note','source','btc','kyc','noKyc','grams','qty','unit','count','form','fineness'];
+function newerEntry(e){
+  if(!e||typeof e!=='object'||Array.isArray(e)||typeof e.id!=='string'||!/^[0-9a-f]{1,64}$/i.test(e.id)) return false;   // ohne gültige ID: wie bisher (sanitizeEntry verwirft)
+  for(const k of Object.keys(e)) if(ENTRY_KEYS.indexOf(k)<0) return true;
+  if(['btc','gold','silver'].indexOf(e.type)<0) return true;
+  if(e.dir!=null&&['buy','sell','withdraw'].indexOf(e.dir)<0) return true;
+  if(e.cur!=null&&['EUR','USD','CHF'].indexOf(e.cur)<0) return true;
+  if(e.type!=='btc'&&e.unit!=null&&['g','oz','kg'].indexOf(e.unit)<0) return true;
+  return false;
+}
+function newerVault(v){ return !!v&&typeof v==='object'&&Array.isArray(v.entries)&&v.entries.some(newerEntry); }
 /* Kurszeile aus Mission Control (seit v3.9): Kurse kommen nur per Kopieren & Einfügen in den Tresor, nie übers Netz.
    Format v1, EINZEILIG (das Feld ist ein <input>; Umbrüche werden beim Einfügen zu Leerzeichen):
      ALIEN-KURSE/1 t=2026-10-08T12:32Z btc=58123.45 gold=2312.10 silver=27.85 usdeur=0.8554
@@ -700,14 +722,15 @@ const App = (function(){
   async function persist(){
     const dek=DEK, kdf=KDF, wrap=WRAP, vault=VAULT;
     if(!dek||!kdf||!wrap||!vault) throw lockedErr();
+    if(newerVault(vault)){ toast(tr('err.saveFailed')); throw new Error('selfcheck'); }   // Programmfehler mit Hilfsfeld: lieber nicht speichern als den eigenen Tresor sperren (v3.12, Pass b-5)
     const body = await encryptBody(vault, dek, kdf);
     if(!DEK||VAULT!==vault) throw lockedErr();
     if(DEK!==dek||KDF!==kdf||WRAP!==wrap) return persist();
     try{ vaultSet(serializeFile(kdf, wrap, body)); }
     catch(e){ toast(tr('err.saveFailed')); throw e; }   // Erfolgs-Toasts der Aufrufer (.then) bleiben so aus
   }
-  function fileErrMsg(e){ const c=e&&e.message; return tr(c==='newer'?'err.fileNewer':c==='kdfbounds'?'err.fileBounds':c==='toolarge'?'err.fileLarge':c==='noargon2'?'err.noArgon2':'err.fileFormat'); }
-  const FILE_ERRS=['format','newer','kdfbounds','toolarge','noargon2'];
+  function fileErrMsg(e){ const c=e&&e.message; return tr(c==='newer'?'err.fileNewer':c==='body'?'err.fileBody':c==='kdfbounds'?'err.fileBounds':c==='toolarge'?'err.fileLarge':c==='noargon2'?'err.noArgon2':'err.fileFormat'); }
+  const FILE_ERRS=['format','newer','kdfbounds','toolarge','noargon2','body'];   // 'body' seit v3.12: Schlüssel ausgepackt, Inhalt passt nicht (kein Fehlversuch)
   // Nur ein fehlgeschlagenes AES-GCM-Auspacken/Entschlüsseln (OperationError) heißt „falsche Passphrase“. Alles andere —
   // vor allem Argon2 ohne genug Speicher (RangeError/RuntimeError) — bekommt eine eigene Meldung, sonst glaubt der Nutzer
   // bei richtiger Passphrase an Datenverlust und die Fehlversuchs-Bremse zählt falsch (Audit run-4, Hinweis 1).
@@ -725,12 +748,17 @@ const App = (function(){
       if(!looksLegacy(o)) throw e;
       // Lesepfad Alt-Format — nie entfernen: alte .vault-Backups und nicht umgestellte Tresore hängen daran.
       const k=await deriveKey(pass, new Uint8Array(b64ToBuf(o.salt)), o.iter);
-      return {legacy:true, vault:await decryptBlob(o, k)};
+      const lv=await decryptBlob(o, k); if(newerVault(lv)) throw new Error('newer');
+      return {legacy:true, vault:lv};
     }
     const kek=await deriveKek(passBytes(pass), f.kdf);
     const dek=await unwrapDek(f.wrap, kek, f.kdf, false);   // Sitzungsschlüssel nicht extrahierbar
     const dekX=wantX?await unwrapDek(f.wrap, kek, f.kdf, true):null;   // nur zum Neu-Bewaffnen des Fingerabdruck-Slots nach Neustart
-    return {legacy:false, vault:await decryptBody(f.body, dek, f.kdf), dek, kdf:f.kdf, wrap:f.wrap, dekX};
+    // Der Schlüssel ist ausgepackt = Passphrase richtig. Scheitert jetzt der Inhalt (GCM-Tag, JSON), ist die Datei verändert oder beschädigt —
+    // bisher „Falsche Passphrase“ samt Fehlversuch (v3.12, Querfund Alien Notes v1.14 a-1)
+    let v; try{ v=await decryptBody(f.body, dek, f.kdf); }catch(_){ throw new Error('body'); }
+    if(newerVault(v)) throw new Error('newer');
+    return {legacy:false, vault:v, dek, kdf:f.kdf, wrap:f.wrap, dekX};
   }
   // Umstellung Alt-Format → AISV2 (einmalig, nach dem Aegis-Gate). Der alte Blob ist der einzige lesbare Ciphertext:
   // erst komplett bauen, dann aus dem SERIALISIERTEN Text zurücklesen und vergleichen, erst dann überschreiben.
@@ -824,7 +852,7 @@ const App = (function(){
       DEK=dek; KDF=kdf; WRAP=wrap; VAULT=emptyVault();           // gemeinsam tauschen (siehe persist)
       await persist();
     }catch(e){ DEK=KDF=WRAP=VAULT=null; return err('setup-err',tr('err.setupFailed')); }
-    finally{ doSetup._busy=false; btn.disabled=false; btn.textContent=orig; }
+    finally{ doSetup._busy=false; btn.disabled=false; btn.textContent=orig; /(?:)/.exec(''); }   // auch in den Fehlerzweigen (v3.12, wie Pass)
     $('setup-pass1').value=$('setup-pass2').value='';
     enterApp();
     toast(tr('toast.vaultCreated'));
@@ -854,6 +882,11 @@ const App = (function(){
         r.kek=await deriveKek(passBytes(pass), r.kdf); r.raw=raw;
       }
       if(gen!==bioGen||DEK||pendingUnlock){ $('lock-pass').value=''; maskInputs(); return; }   // eine andere Pforte hat die Sitzung schon geöffnet
+      if(!r.legacy){ const bb=bioBlob();
+        if(bb&&!bb.k&&bioWrapOk(bb,r.wrap)) bioAddK(r.kdf, bb.w);          // wrap-AAD hat den Kopf bestätigt, der Blob gehört zu genau diesem wrap (v3.12, Notes a3-1)
+        // Z2 (v3.12, Querfund Alien Pass v1.23): Knopf war nur wegen wrapMismatch aus; passt der Blob jetzt zur (zurückgespielten) Datei, gilt er wieder —
+        // vorher zeigte die Karte „aus“, obwohl Blob und Keystore heil waren, bis die nächste Sperre half
+        if(bioMismatch){ bioMismatch=false; if(BIO&&bb&&bioWrapOk(bb,r.wrap,r.kdf)) bioArmed=true; } }
       bioRearmDek=r.dekX||null; delete r.dekX;
       pendingUnlock=r;
     }catch(e){
@@ -956,7 +989,7 @@ const App = (function(){
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup'); err('bio-err');
   }
   function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
-    bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
+    bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false; bioMismatch=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
     if(DESK) clearClip();                                                // eigene Kopie und eigene Markierung (X11-Auswahl) aus der Zwischenablage nehmen
     clearRendered(); maskInputs(); boot();
     /(?:)/.exec('');   // RegExp.input/lastMatch leeren: hielten den letzten Treffer, nach Einrichten/Passphrasenwechsel die Passphrase (passStrength, Audit R2-4/Q-1)
@@ -1303,12 +1336,18 @@ const App = (function(){
       noBaseTotal:noBase.btc+noBase.gold+noBase.silver};
   }
   const CUR_SYM={EUR:'€',USD:'$',CHF:'CHF'};
-  const fmtMoney=(n,cur)=>(Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
+  // Zahlen nach Anzeigesprache (v3.12): EN mit Dezimalpunkt, sonst las ein englischer Nutzer „2,524 oz“ als 2524 Unzen. CSV bleibt Maschinenformat.
+  const numLoc=()=>LANG==='en'?'en-GB':'de-DE';
+  const decSep=s=>LANG==='en'?s:s.replace('.',',');
+  const fmtMoney=(n,cur)=>(Number(n)||0).toLocaleString(numLoc(),{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(CUR_SYM[cur]||'€');
   const fmtEur = n => fmtMoney(n,'EUR');
   // Beträge je Währung als Liste ("1.200,00 € · 500,00 $") — Währungen ohne Betrag entfallen
   const fmtByCur=o=>{const p=CURS.filter(c=>o&&Math.abs(o[c])>0.004).map(c=>fmtMoney(o[c],c));return p.length?p.join(' · '):fmtEur(0);};
   const anyCur=o=>CURS.some(c=>o&&o[c]>0);
-  const fmtNum = (n,d)=> (Number(n)||0).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+  // Metallform: gespeichert wird der deutsche Wert der Auswahl (Münze/Barren/Sonstiges, auch in CSV) — angezeigt nach Sprache (v3.12; vorher „1× 31 g Münze“ im EN-Modus)
+  const FORM_I18N={'Münze':'add.formCoin','Barren':'add.formBar','Sonstiges':'add.formOther'};
+  const formLabel=f=>(LANG==='en'&&Object.prototype.hasOwnProperty.call(FORM_I18N,f)&&I18N[FORM_I18N[f]])||f;   // nur eigene Schlüssel (Freitext aus Importen)
+  const fmtNum = (n,d)=> (Number(n)||0).toLocaleString(numLoc(),{minimumFractionDigits:d,maximumFractionDigits:d});
 
   /* ---------- render dashboard ---------- */
   function renderDash(){
@@ -1413,6 +1452,7 @@ const App = (function(){
   // Nur gelieferte Preise werden ersetzt; Gold/Silber kommen in €/oz und landen wie in savePrices intern als €/g.
   // Der Wechselkurs steht nur im Dialog — der Tresor speichert und nutzt ihn nicht (DATEN-INVARIANTEN).
   // Das Feld wird vor der Rückfrage geleert (OK wie Abbrechen), der Preisstand bekommt wie immer das heutige Datum.
+  const RATE_JUMP=15;   // Prozent, ab dem die Rückfrage vor einem Kurssprung warnt
   const rateLabel=k=>k==='silver'?tr('rates.silver'):({btc:'Bitcoin',gold:'Gold',usdeur:'USD/EUR'})[k]||'';
   const pasteMsgText=()=>pasteMsgKey?tr(pasteMsgKey).replace('{k}',rateLabel(pasteMsgArg)):'';
   // Live-Region (role=status): nur bei geändertem Text schreiben, sonst sagt ein Screenreader sie je Taste neu an (run-9 R2-5)
@@ -1434,10 +1474,18 @@ const App = (function(){
     setPasteMsg(''); el.value=''; pasteLast='';
     const when=new Date(r.t).toLocaleString(LANG==='en'?'en-GB':'de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const L=[tr('rates.ask'),tr('rates.when').replace('{d}',when),''];
-    if(r.btc!=null) L.push('Bitcoin: '+fmtEur(r.btc)+'/BTC');
-    if(r.gold!=null) L.push('Gold: '+fmtEur(r.gold)+'/oz');
-    if(r.silver!=null) L.push(tr('rates.silver')+': '+fmtEur(r.silver)+'/oz');
-    if(r.usdeur!=null&&(r.gold!=null||r.silver!=null)) L.push('',tr('rates.fx').replace('{r}',r.usdeur.toLocaleString('de-DE',{minimumFractionDigits:4,maximumFractionDigits:8})));
+    // je Wert alt → neu mit Änderung in Prozent, ab RATE_JUMP Warnzeile (Audit Alien Analyzer run-2 E5, v3.12); alt = gespeicherter Preis (€/BTC, Metalle €/g)
+    const pv=(VAULT&&VAULT.prices)||{}, jumps=[];
+    const rateRow=(k,neu,unit)=>{ const n=parseFloat(pv[k]), alt=n>0?(k==='btc'?n:n*OZ_G):null;
+      if(alt==null) return rateLabel(k)+': '+fmtEur(neu)+unit;
+      const pct=Math.round((neu/alt-1)*1000)/10;   // auf die angezeigte Stelle gerundet, sonst warnt +15,0 % nicht (92000/80000−1 liegt knapp unter 0,15)
+      if(Math.abs(pct)>=RATE_JUMP) jumps.push(rateLabel(k));
+      return rateLabel(k)+': '+fmtNum(alt,2)+' → '+fmtEur(neu)+unit+' ('+(pct<0?'−':'+')+fmtNum(Math.abs(pct),1)+' %)'; };
+    if(r.btc!=null) L.push(rateRow('btc',r.btc,'/BTC'));
+    if(r.gold!=null) L.push(rateRow('gold',r.gold,'/oz'));
+    if(r.silver!=null) L.push(rateRow('silver',r.silver,'/oz'));
+    if(jumps.length) L.push('',tr('rates.jump').replace('{k}',jumps.join(', ')));
+    if(r.usdeur!=null&&(r.gold!=null||r.silver!=null)) L.push('',tr('rates.fx').replace('{r}',r.usdeur.toLocaleString(numLoc(),{minimumFractionDigits:4,maximumFractionDigits:8})));
     if(r.btc==null||r.gold==null||r.silver==null) L.push('',tr('rates.keep'));
     const age=Date.now()-r.t, h=Math.floor(age/3600000);
     if(age>24*3600000) L.push('',tr(h<48?'rates.staleH':'rates.staleD').replace('{n}',h<48?h:Math.floor(h/24)));
@@ -1484,7 +1532,7 @@ const App = (function(){
                : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
                : '';
         pill='<span class="pill btc">BTC</span>';}
-      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(e.form):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(formLabel(e.form)):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
       const eurCell = d==='withdraw'?'<span class="muted">–</span>'
         :fmtMoney(e.eur,entryCur(e))+((entryCur(e)!=='EUR'&&e.eurRef>0)?' <span class="muted" style="font-size:.85em;white-space:nowrap">≈ '+fmtEur(e.eurRef)+'</span>':'');
       const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
@@ -1653,7 +1701,7 @@ const App = (function(){
     wrap.innerHTML = buildChartSVG(lines, m) + '<div id="chart-tip" class="chart-tip hidden"></div>' + legend + hint;
   }
   const note = t => `<p class="muted" style="font-size:.78rem;margin-top:6px">${t}</p>`;
-  const fmtDay = ts => {const d=new Date(ts);return String(d.getUTCDate()).padStart(2,'0')+'.'+String(d.getUTCMonth()+1).padStart(2,'0')+'.'+String(d.getUTCFullYear()).slice(2);};
+  const fmtDay = ts => {const d=new Date(ts),s=LANG==='en'?'/':'.';return String(d.getUTCDate()).padStart(2,'0')+s+String(d.getUTCMonth()+1).padStart(2,'0')+s+String(d.getUTCFullYear()).slice(2);};
   function buildChartSVG(lines, m){
     lines=lines.filter(l=>l&&l.pts&&l.pts.length);        // Riegel gegen jede kuenftige leere Reihe
     const W=600,H=240, pad={l:64,r:14,t:14,b:26};
@@ -1672,7 +1720,7 @@ const App = (function(){
     let grid='', ylab='';
     for(const v of yVals){ const y=Y(v).toFixed(1);
       grid+=`<line class="chart-grid" x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}"/>`;
-      ylab+=`<text class="chart-lbl" x="${pad.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">${eur?Math.round(v).toLocaleString('de-DE'):shortNum(chartSeries==='btc'?(btcUnit()==='sat'?v*SATS:v):((VAULT.unit||'oz')==='oz'? v/OZ_G : v))}</text>`;
+      ylab+=`<text class="chart-lbl" x="${pad.l-6}" y="${(+y+3).toFixed(1)}" text-anchor="end">${eur?Math.round(v).toLocaleString(numLoc()):shortNum(chartSeries==='btc'?(btcUnit()==='sat'?v*SATS:v):((VAULT.unit||'oz')==='oz'? v/OZ_G : v))}</text>`;
     }
     let paths='';
     lines.forEach((l,i)=>{
@@ -1751,7 +1799,7 @@ const App = (function(){
     const tip=$('chart-tip'); if(tip) tip.classList.add('hidden');
     const cur=document.getElementById('chart-cursor'); if(cur) cur.classList.add('hidden');
   }
-  function shortNum(v){const a=Math.abs(v);if(a>=1e6)return (v/1e6).toFixed(1).replace('.',',')+'M';if(a>=1000)return (v/1000).toFixed(1).replace('.',',')+'k';if(a>=1)return v.toFixed(a<10?2:1).replace('.',',');return v.toFixed(3).replace('.',',');}
+  function shortNum(v){const a=Math.abs(v);if(a>=1e6)return decSep((v/1e6).toFixed(1))+'M';if(a>=1000)return decSep((v/1000).toFixed(1))+'k';if(a>=1)return decSep(v.toFixed(a<10?2:1));return decSep(v.toFixed(3));}
 
   /* ---------- CSV export ---------- */
   function downloadFile(name, content, type, bom){
@@ -2106,8 +2154,11 @@ const App = (function(){
   const BIO_KEY='ai-sachwert-bio', BIO_REARM_KEY='ai-sachwert-bio-rearm', BIO_HOLD_KEY='ai-sachwert-bio-hold';   // Marker (keine Geheimnisse)
   // bioKeep (v3.2) ist NUR Anzeige: die Wahrheit steht im Slot des Plugins und hängt in dessen GCM-AAD (boot+"|keep"). Geändert wird sie
   // ausschließlich durch Deaktivieren + neu Aktivieren — hier wird sie aus status()/enroll() übernommen, nie gesetzt.
-  let bioArmed=false, bioNeedsRearm=false, bioRearmDek=null, bioGen=0, bioAuto=true, bioKeep=false;
+  let bioArmed=false, bioNeedsRearm=false, bioRearmDek=null, bioGen=0, bioAuto=true, bioKeep=false, bioMismatch=false;   // bioMismatch: Knopf nur wegen wrapMismatch aus (Z2, v3.12)
   function bioBlob(){ try{ return parseBioBlob(localStorage.getItem(BIO_KEY)); }catch(_){ return null; } }
+  // Alten Blob (ohne `k`) an den KDF-Kopf binden, sobald ein Auspacken den Kopf bestätigt hat — keep-Slots würden sonst nie neu bewaffnet (Notes a3-1)
+  function bioAddK(kdf, w){ try{ const raw=localStorage.getItem(BIO_KEY), o=JSON.parse(raw); if(!o||o.k!=null||o.w!==w||!parseBioBlob(raw)) return;
+      o.k=dec.decode(aad(kdf,'wrap')); const s=JSON.stringify(o); if(parseBioBlob(s)) localStorage.setItem(BIO_KEY,s); }catch(_){} }
   function bioMarker(){ try{ return localStorage.getItem(BIO_REARM_KEY)==='1'; }catch(_){ return false; } }
   function setBioMarker(on){ try{ if(on) localStorage.setItem(BIO_REARM_KEY,'1'); else localStorage.removeItem(BIO_REARM_KEY); }catch(_){} }
   // Riegel: „Jetzt sperren“ = bewusst gesperrt → beim nächsten Start nur die Passphrase (kein Knopf, kein Prompt); Schlüsselmaterial bleibt,
@@ -2125,7 +2176,7 @@ const App = (function(){
   function renderBioGate(){ const b=$('bio-btn'); if(b){ b.classList.toggle('hidden',!bioArmed||bioHold()); b.disabled=!!doUnlock._busy; } }   // Riegel: Knopf verborgen
   // Slot verwerfen: JS-Blob + Marker immer, Keystore-Teil auf Wunsch (bei ungültigem Schlüssel hat das Plugin ihn schon selbst gelöscht).
   // bioGen++ lässt laufende enroll/unlock-Vorgänge verfallen
-  function bioDrop(native){ try{ localStorage.removeItem(BIO_KEY); }catch(_){} setBioMarker(false); setBioHold(false); bioArmed=false; bioNeedsRearm=false; bioRearmDek=null; bioKeep=false; bioGen++; if(native&&BIO){ try{ BIO.disable().catch(()=>{}); }catch(_){} } renderBioGate(); }
+  function bioDrop(native){ try{ localStorage.removeItem(BIO_KEY); }catch(_){} setBioMarker(false); setBioHold(false); bioArmed=false; bioNeedsRearm=false; bioRearmDek=null; bioKeep=false; bioMismatch=false; bioGen++; if(native&&BIO){ try{ BIO.disable().catch(()=>{}); }catch(_){} } renderBioGate(); }
   // Sperrbildschirm: nativen Zustand abgleichen. auto = Prompt sofort zeigen (nicht nach manuellem Sperren, nie im Hintergrund)
   async function bioProbe(auto){
     bioArmed=false; renderBioGate();
@@ -2153,7 +2204,7 @@ const App = (function(){
   async function bioArm(dekX, kdf, wrap, rearm, keep){
     const gen=bioGen, secret=rand(32), wantKeep=!!keep&&!rearm;
     try{
-      const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrap.ct, wrap.iv);   // seit v3.2 mit `wi` (Alien-Pass-Audit run-8 #1)
+      const key=await bioKey(secret); const blob=await wrapDek(dekX, key, kdf, 'bio'); const ser=serializeBioBlob(blob, wrap.ct, wrap.iv, kdf);   // seit v3.2 mit `wi` (Alien-Pass-Audit run-8 #1), seit v3.12 mit `k`
       // rearm:true → das Plugin richtet nur mit gültigem Kanarien-Schlüssel neu ein (sonst 'invalidated', Audit run-5 #1)
       await BIO.enroll({secret:bufToB64(secret), rearm:!!rearm, keep:wantKeep, title:tr('bio.promptTitle'), subtitle:tr(rearm?'bio.promptRearm':'bio.promptEnroll'), negative:tr('btn.cancel')});
       if(gen!==bioGen||!VAULT){ try{ BIO.disable().catch(()=>{}); }catch(_){} setBioMarker(false); toast(tr('bio.aborted')); return false; }   // zwischendurch gesperrt / Passphrase gewechselt: nichts hinterlassen — auch keinen Marker, sonst meldet die nächste Neu-Einrichtung ohne Kanarie fälschlich einen fremden Finger (Kurz-Review B)
@@ -2173,19 +2224,23 @@ const App = (function(){
     if(!raw) return boot();
     let f; try{ f=parseFile(raw); }catch(e){ return err('lock-err',fileErrMsg(e)); }
     const blob=bioBlob(); if(!blob){ bioDrop(true); return; }
-    if(!bioWrapOk(blob,f.wrap)){ bioArmed=false; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot (ct ODER iv): nie übernehmen, Blob behalten (Backup-Restore heilt)
+    if(!bioWrapOk(blob,f.wrap,f.kdf)){ bioArmed=false; bioMismatch=true; renderBioGate(); return bioMsg(tr('bio.wrapMismatch')); }   // fremder/veränderter Passphrase-Slot (ct ODER iv): nie übernehmen, Blob behalten (Backup-Restore heilt)
     const gen=bioGen; doBio._busy=true; let secret=null;
     try{
       const r=await BIO.unlock({title:tr('bio.promptTitle'), subtitle:tr('bio.promptUnlock'), negative:tr('bio.usePass')});
-      secret=b64Bytes(r&&r.secret); if(!secret||secret.length!==32) throw new Error('invalid');
+      secret=b64Bytes(r&&r.secret); /(?:)/.exec('');   // b64Bytes prüft per Regex: das Keystore-Geheimnis stand sonst in RegExp.input (v3.12, Pass run-13 b-1 / Notes)
+      if(!secret||secret.length!==32) throw new Error('invalid');
       const key=await bioKey(secret); secret.fill(0);
       const dek=await unwrapDek(blob, key, f.kdf, false, 'bio');
-      const v=await decryptBody(f.body, dek, f.kdf);
+      if(!blob.k) bioAddK(f.kdf, blob.w);                                   // bio-AAD hat den Kopf bestätigt (v3.12)
+      let v; try{ v=await decryptBody(f.body, dek, f.kdf); }catch(_){ throw new Error('body'); }   // Slot hat ausgepackt: Datei verändert, Slot bleibt (v3.12, Notes a-1)
+      if(newerVault(v)) throw new Error('newer');
       if(gen!==bioGen||DEK||pendingUnlock) return;                        // zwischendurch gesperrt oder anders entsperrt
       pendingUnlock={legacy:false, vault:v, dek, kdf:f.kdf, wrap:f.wrap};
     }catch(e){
       const c=e&&e.message; if(gen!==bioGen) return;
       if(c==='cancel') return; if(c==='lockout') return err('lock-err',tr('bio.lockout'));
+      if(c==='body'||c==='newer') return err('lock-err',fileErrMsg(e));    // Inhalt verändert bzw. neuere App-Version: kein Slot-Verlust, kein Fehlversuch (v3.12)
       if(c==='reboot'){ bioDrop(false); setBioMarker(true); bioNeedsRearm=true; return bioMsg(tr('bio.afterReboot')); }   // Slot hat unlock() selbst gelöscht, Kanarie bleiben lassen
       // 'error' = Timeout/Sensor nicht bereit im Dialog: unlock() lässt den Slot nativ stehen → hier auch nichts löschen. bioDrop(true)
       // → disable() räumte die Kanarie ab; ein provozierter Timeout plus danach registrierter Finger bliebe sonst unbemerkt
@@ -2265,7 +2320,7 @@ const App = (function(){
       $('cp-cur').value=$('cp1').value=$('cp2').value='';
       toast(tr(hadBio?'toast.passChangedBio':'toast.passChanged')); renderSettings();
       /(?:)/.exec('');   // RegExp-Statics leeren (neue Passphrase aus passStrength) — vorsorglich wie nach dem Einrichten (v3.11, Pass run-12 a-3)
-    }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; }
+    }finally{ changePass._busy=false; btn.disabled=false; btn.textContent=orig; /(?:)/.exec(''); }   // auch in den Fehlerzweigen (v3.12, wie Pass)
   }
 
   /* ---------- misc ---------- */
@@ -2408,7 +2463,7 @@ const App = (function(){
   function renderMeter(inId,outId){
     const p=$(inId).value, el=$(outId); if(!el) return;
     if(!p){el.textContent='';return;}
-    const st=passStrength(p);
+    const st=passStrength(p); /(?:)/.exec('');   // split() legt die Passphrase in die RegExp-Statics, auch unter 12 Zeichen (v3.12, Pass run-13 b-3/Punkt 8)
     const col=['var(--red)','var(--orange)','var(--text-mid)','var(--neon)'][st];
     el.innerHTML='<span style="color:'+col+'">'+'▮'.repeat(st+1)+'▯'.repeat(3-st)+' '+tr('pass.s'+st)+'</span>';
   }
@@ -2450,7 +2505,7 @@ const App = (function(){
   }
   function nlDenomLine(g){
     const q=fmtNum(g.qty,g.unit==='g'?0:4)+' '+g.unit;
-    return g.count+' × '+q+(g.form?' '+g.form:'')+(g.fineness?' · '+fmtNum(g.fineness,1)+'‰':'');
+    return g.count+' × '+q+(g.form?' '+formLabel(g.form):'')+(g.fineness?' · '+fmtNum(g.fineness,1)+'‰':'');
   }
   function renderNachlass(){
     const el=$('nl-sheet'); if(!el||!VAULT) return;
@@ -2513,7 +2568,8 @@ const App = (function(){
   function openHelp(){show('help-overlay');const o=$('help-overlay');if(o)o.scrollTop=0;}
   function closeHelp(){hide('help-overlay');}
   function toggleLang(){ setLang(LANG==='de'?'en':'de'); }
-  function relabel(){ if(!VAULT) return; { const m=$('price-paste-msg'); if(m) m.textContent=pasteMsgText(); } setPriceMsg(priceMsgKey); refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
+  function relabel(){ meterSetup(); if(!VAULT) return; meterCp(); {   // Stärke-Balken folgen der Sprache, auch auf dem Einrichtungsbildschirm (v3.12, Pass r2b-5; setzt den Reset in renderMeter voraus)
+     const m=$('price-paste-msg'); if(m) m.textContent=pasteMsgText(); } setPriceMsg(priceMsgKey); refreshAddLabels(); if(!editId) $('add-btn').textContent=tr('add.btnAdd'); renderDash(); renderList(); renderSettings(); if(!$('tab-verlauf').classList.contains('hidden')) renderVerlauf(); if(!$('nachlass-overlay').classList.contains('hidden')) renderNachlass(); }
   function renderAll(){renderDash();renderList();renderSettings();}
 
   return {boot,doSetup,doUnlock,doTotp,lock,lockNow,cancelTotp,doBio,bioEnable,bioDisable,bioAlertOk,tab,setAddType,setAddDir,addEntry,editEntry,cancelEdit,delEntry,setFilter,onDenomChange,onCurChange,updateMetalPreview,
@@ -2581,5 +2637,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   // Tippen auf den Hintergrund = Abbrechen (v3.5) — seit v3.11 nur, wenn auch das Drücken dort begann: im Dialog gedrückt und über dem Hintergrund
   // losgelassen (Text markieren, vom Knopf gerutscht) landet der click auf #dlg und brach die Rückfrage ab (Kit-Regel, wie Alien Pass v1.22 H-4; gemessen run-11)
   const dg=document.getElementById('dlg'); if(dg){ let dgDown=null; dg.addEventListener('pointerdown',ev=>{ dgDown=ev.target; }); dg.addEventListener('click',ev=>{ const d=dgDown; dgDown=null; if(ev.target===dg&&d===dg) App.dialogCancel(); }); }
+  // Toast über einer offenen Auswahl-Liste (v3.12, Querfund Alien Notes v1.15 c-1 / Alien Pass v1.24): der Toast (z 200) liegt über offenen Kombi-Menüs (z 60) und
+  // fing Tipps auf Einträge unter seiner Meldung ab (gemessen: „15 Minuten“ der Auto-Sperre nach „Auto-Lock: 1 Min“). Er bleibt undurchlässig — ein Tipp auf die
+  // Meldung geht NUR an einen Eintrag einer offenen Liste genau darunter. NICHT die Pass-Regel per CSS (durchlässig, solange irgendeine Liste offen ist): die ließ
+  // in Notes auch „OK“ einer Rückfrage und Knöpfe der Einstellungen durch. Läuft vor der globalen Klick-Delegation; „Rückgängig“ bleibt unberührt (verify-v312 [1]).
+  const tst=document.getElementById('toast'); if(tst) tst.addEventListener('click',ev=>{ if(ev.target.closest('#toast-btn')) return;
+    tst.style.visibility='hidden'; let h=null; try{ h=document.elementFromPoint(ev.clientX,ev.clientY); }catch(_){ h=null; } tst.style.visibility='';
+    const o=h&&h.closest('.combo-menu:not(.hidden) .combo-opt'); if(o) o.click(); });
   App.boot();
 });

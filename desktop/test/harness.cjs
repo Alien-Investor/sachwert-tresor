@@ -679,6 +679,58 @@ async function background(){
 // user-select:none, Zahlenfelder mit Komma, „\n“ am Rand) — Frist und Sperre löschten nie. Tasten, Klicks und Ziehen per sendInputEvent; Fokus und Werte zur
 // Vorbereitung teils per Skript. Ein keydown-Haken am window (Bubble, nach deskKey) zählt je Strg+A, ob die Taste ankam und gesperrt wurde.
 // Vor jeder Probe auf gleichen Seitentext ein echter Klick (Lehre Notes v1.11: removeAllRanges per Skript reicht nicht, Chromium schriebe PRIMARY nicht neu).
+// v3.12: Handbuch-Overlay mit nur einem Scrollbalken (Querfund Alien Notes v1.15, Gerätetest Flatpak), Scrollstand nach dem Schließen, Markieren per Maus
+// im Overlay (Notes-Lehre v1.10 (5): CSS an html kann das Markieren stören), Nachlass-Overlay gleich; dazu die MESSUNG b-1 (Notes run-12): bis an den Rand
+// markieren, Maus ruhen lassen (Chromium rollt nach) — steht danach in PRIMARY der Endstand, und löscht clear() ihn?
+async function m312(){
+  let innerH=0;
+  const wc=win.webContents, M='mk-m312-'+process.pid;
+  const mouse=(type,x,y,o={})=>wc.sendInputEvent({type,x:Math.round(x),y:Math.round(y),button:'left',clickCount:1,...(o.mod?{modifiers:o.mod}:{})});
+  // Allein gestartet (NUR=m312, leeres Test-Home): Tresor erst anlegen
+  if(await until(visible('screen-setup'),3000)){ await fill('setup-pass1',PP); await fill('setup-pass2',PP); await click('#setup-btn'); }
+  else { R('m312: Sperrbildschirm', await until(visible('screen-lock'),15000)); await ensureFocus(); await fill('lock-pass',PP); await click('#unlock-btn'); }
+  if(!(await until(visible('screen-app'),60000))){ R('m312: entsperrt',false); return; }
+  await js(`App.setAutolock('0'); App.hideToast(); true`); await sleep(300);
+  // (a) Scrollbalken: lange Seite, gerollt; Handbuch öffnen → nur dessen Balken; schließen → Seite steht wie vorher
+  await js(`App.tab('settings'); document.body.style.minHeight='3000px'; window.scrollTo(0,400); true`); await sleep(300);
+  const sb=`(()=>{ const o=document.querySelector('.help-overlay:not(.hidden)'); return {sb:innerWidth-document.documentElement.clientWidth, y:scrollY, ov:!!o, ovSb:o?o.offsetWidth-o.clientWidth:0}; })()`;
+  const m0=await js(sb); await js(`App.openHelp(); true`); await sleep(400); const m1=await js(sb);
+  R('Handbuch offen: nur der Balken des Handbuchs, die Seite dahinter ohne eigenen', m0.sb>0&&m1.ov&&m1.ovSb>0&&m1.sb===0, {m0,m1});
+  await js(`App.closeHelp(); true`); await sleep(300); const m2=await js(sb);
+  R('Handbuch zu: Seitenbalken wieder da, Scrollstand unverändert', m2.sb===m0.sb&&m2.y===m0.y, {m0,m2});
+  await js(`App.tab('export'); window.scrollTo(0,300); true`); await sleep(200); const n0=await js(sb);
+  await js(`App.openNachlass(); true`); await sleep(500); const n1=await js(sb); await js(`App.closeNachlass(); true`); await sleep(300); const n2=await js(sb);
+  R('Nachlass-Overlay: ein Balken, danach Scrollstand unverändert', n1.ov&&n1.sb===0&&n2.y===n0.y&&n2.sb===n0.sb, {n0,n1,n2});
+  await js(`document.body.style.minHeight=''; window.scrollTo(0,0); true`);
+  // (b) Markieren per Maus im Handbuch (kurz, ohne Rand): PRIMARY = Markierung, clear() löscht
+  await js(`App.openHelp(); true`); await sleep(400); await clipboard.selection.writeText(M); await ensureFocus();
+  const box=await js(`(()=>{ const o=document.getElementById('help-overlay'); o.scrollTop=0; const p=[...o.querySelectorAll('p')].find(e=>e.textContent.length>120&&e.getClientRects().length&&e.getBoundingClientRect().top>160&&e.getBoundingClientRect().bottom<innerHeight-40);
+    const r=p.getBoundingClientRect(), lh=parseFloat(getComputedStyle(p).lineHeight)||16; return {x:r.left,y:r.top+lh/2,w:r.width,h:r.height,hit:(document.elementFromPoint(r.left+8,r.top+lh/2)||{}).tagName}; })()`);
+  // erste Mausfolge nach dem Fokus geht in KDE teils verloren: vorher ein Klick auf leere Fläche (linker Rand des Overlays, kein Text)
+  mouse('mouseDown',4,innerH=await js('innerHeight/2')); mouse('mouseUp',4,innerH); await sleep(300);
+  await js(`window.__sc=0; document.addEventListener('selectionchange',()=>window.__sc++); true`);
+  const zb={x:box.x+box.w*0.6,y:box.y+Math.min(box.h-8,60)};
+  await sleep(200); mouse('mouseDown',box.x+8,box.y); for(let i=1;i<=14;i++){ mouse('mouseMove',box.x+8+(zb.x-box.x-8)*i/14,box.y+(zb.y-box.y)*i/14,{mod:['leftButtonDown']}); await sleep(30); } mouse('mouseUp',zb.x,zb.y); await sleep(600);
+  box.sc=await js('window.__sc');
+  let sel=await js('String(getSelection())'), p=await prim();
+  await js('AlienDesktop.clip.clear()'); await sleep(800); let weg=(await prim())==='';
+  R('Markieren per Maus im offenen Handbuch: Markierung entsteht, PRIMARY = Markierung, Löschen leert', sel.length>10&&p===sel&&weg, {selLen:sel.length,gleich:p===sel,weg,hit:box.hit,sc:box.sc,box});
+  // (c) MESSUNG b-1: vom Absatz bis an den unteren Rand des Handbuchs ziehen, Maus 3 s ruhen lassen (Chromium rollt nach), loslassen
+  for(const [off,hold] of [[1,3000],[3,3000]]){
+    await js(`(()=>{ getSelection().removeAllRanges(); const o=document.getElementById('help-overlay'); o.scrollTop=0; return true; })()`); await sleep(200);
+    await clipboard.selection.writeText(M); await ensureFocus();
+    const a=await js(`(()=>{ const o=document.getElementById('help-overlay'), p=[...o.querySelectorAll('p,li')].find(e=>e.getBoundingClientRect().top>160&&e.textContent.length>60); const r=p.getBoundingClientRect(), b=o.getBoundingClientRect(); return {x:r.left+6,y:r.top+6,bx:b.left+b.width/2,bb:b.bottom,top:o.scrollTop}; })()`);
+    const z={x:a.bx,y:a.bb-off};
+    mouse('mouseDown',a.x,a.y); for(let i=1;i<=14;i++){ mouse('mouseMove',a.x+(z.x-a.x)*i/14,a.y+(z.y-a.y)*i/14,{mod:['leftButtonDown']}); await sleep(30); }
+    await sleep(hold); const y1=await js(`document.getElementById('help-overlay').scrollTop`);
+    mouse('mouseUp',z.x,z.y); await sleep(700);
+    sel=await js('String(getSelection())'); p=await prim();
+    const vorb=sel.length>0&&p!==M&&y1>a.top;
+    await js('AlienDesktop.clip.clear()'); const t0=Date.now(); weg=false; while(Date.now()-t0<2500&&!(weg=(await prim())==='')) await sleep(100);
+    R(`MESSUNG b-1 Handbuch (Rand-${off}, Maus ruht ${hold} ms): PRIMARY = Endstand, nach dem Löschen leer`, vorb&&p===sel&&weg, {vorb,gleich:p===sel,weg,scroll:[a.top,y1],primLen:p.length,selLen:sel.length});
+    await clipboard.selection.clear(); }
+  await js(`App.closeHelp(); getSelection().removeAllRanges(); true`);
+}
 async function markierung(){
   const wc=win.webContents, NB=' ', FC='￼', TAIL='Ende-'+process.pid;
   const mclick=async(p,n=1)=>{ for(let i=1;i<=n;i++){ wc.sendInputEvent({type:'mouseDown',x:p.x,y:p.y,button:'left',clickCount:i}); wc.sendInputEvent({type:'mouseUp',x:p.x,y:p.y,button:'left',clickCount:i}); } await sleep(500); };
@@ -949,6 +1001,7 @@ app.on('browser-window-created',(_e,w)=>{ if(win) return; win=w;
       else if(STEP==='markierung') await markierung();
       else if(STEP==='m311') await m311();
       else if(STEP==='sichern') await sichern();
+      else if(STEP==='m312') await m312();
       else if(STEP==='quit'||STEP==='quithang'){ await quitStep(STEP==='quithang'); return; }   // endet in will-quit (eigene Endmarke)
       else if(STEP==='quitslow'){ await quitSlow(); return; }
       else if(STEP==='quitreject'){ await quitReject(); return; }

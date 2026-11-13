@@ -207,6 +207,9 @@ tr:hover td{color:var(--neon);}
 .lang-btn:hover{box-shadow:0 0 12px rgba(0,255,204,.45);}
 .help-btn:hover{box-shadow:0 0 12px rgba(0,255,204,.45);}
 .help-overlay{position:fixed;inset:0;background:rgba(0,8,6,.975);z-index:100;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+/* Handbuch/Nachlass offen (v3.12, Querfund Alien Notes v1.15, Gerätetest Flatpak; gemessen verify-desktop [2l]): die Seite dahinter zeigte ihren eigenen
+   Scrollbalken neben dem des Overlays. Nur am Bildschirm — der Druck-CSS stellt #nachlass-overlay auf static/visible. Scrollstand der Seite bleibt. */
+@media screen{ html:has(.help-overlay:not(.hidden)){overflow:hidden;} .help-overlay{overscroll-behavior:contain;} }
 .help-inner{max-width:760px;margin:0 auto;padding:0 18px 60px;}
 .help-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:rgba(0,8,6,.99);padding:16px 0 12px;border-bottom:1px solid var(--neon-dim);margin-bottom:6px;}
 .help-head .logo{font-size:1.05rem}
