@@ -12,14 +12,25 @@ const ITER = 600000;
   const av=(readFileSync('app.js','utf8').match(/^const APP_VERSION = '([^']*)';/m)||[])[1];
   if(!vn||av!==vn) throw new Error(`APP_VERSION (${av}) != VERSION_NAME (${vn})`);
   console.log('  ✓ APP_VERSION', av, '= VERSION_NAME'); }
-// CHANGELOG-Abschnitt der aktuellen Version ohne Platzhalter (v3.11, Release-Audit run-11 b-3/e-3): früh, schon in der Batterie vor Commit und Tag —
-// make-release.sh prüft dasselbe noch einmal am Tag, bevor der Text öffentlich wird. Markdown-Links [Text](…) zählen nicht.
+// CHANGELOG-Abschnitt der aktuellen Version ohne Platzhalter (v3.11, Release-Audit run-11 b-3/e-3): früh, schon in der Batterie vor Commit
+// und Tag — make-release.sh prüft dasselbe noch einmal am Tag, bevor der Text öffentlich wird.
 { const {readFileSync}=await import('node:fs');
   const vn=(readFileSync('VERSION','utf8').match(/^VERSION_NAME=(.+)$/m)||[])[1]?.trim(), cl=readFileSync('CHANGELOG.md','utf8');
-  const i=cl.indexOf('\n## v'+vn+' '), j=i<0?-1:cl.indexOf('\n## v',i+5), sec=i<0?'':cl.slice(i,j<0?undefined:j);
-  const ph=sec.match(/\[\s*[A-Za-zÄÖÜäöü][^\]\n]{0,60}\](?!\()|\b(TODO|TBD|FIXME|XXX)\b/);
-  if(ph) throw new Error(`Platzhalter im CHANGELOG-Abschnitt v${vn}: ${ph[0]}`);
-  console.log('  ✓ CHANGELOG v'+vn+(i<0?' (noch kein Abschnitt)':'')+' ohne Platzhalter'); }
+  // Abschnitt wie make-release.sh (awk: Start = erste Zeile mit $1=="##" und $2=="v<Version>", Ende = nächste Zeile mit $1=="##"; v3.12 wie Alien Notes v1.15, Audit run-13 c H-4):
+  // ein Kopf in anderer Form („## v3.12—…“, eingerückt) oder ein Ende, das keine Versionsüberschrift in Spalte 0 ist, stoppt schon hier, nicht erst beim Release
+  const L=cl.split('\n'), f1=l=>l.trim().split(/\s+/), esc=vn.replace(/\./g,'\\.');
+  const st=L.findIndex(l=>{ const f=f1(l); return f[0]==='##'&&f[1]==='v'+vn; });
+  const kopf=L.filter(l=>l.includes('##')&&new RegExp('v'+esc+'(?![0-9.])').test(l));
+  if(st<0&&kopf.length) throw new Error(`CHANGELOG: Kopf v${vn} in anderer Form als „## v${vn} …“ (${kopf[0].slice(0,40)})`);
+  if(st>=0&&!new RegExp('^## v'+esc+'( |$)').test(L[st])) throw new Error(`CHANGELOG: Kopf v${vn} nicht in Spalte 0 (${L[st].slice(0,40)})`);
+  const en=st<0?-1:L.findIndex((l,k)=>k>st&&f1(l)[0]==='##');
+  if(en>=0&&!/^## v[0-9]+(\.[0-9]+)+( |$)/.test(L[en])) throw new Error(`CHANGELOG-Abschnitt v${vn} endet nicht an einer Versionsüberschrift (${L[en].slice(0,60)})`);
+  const i=st, sec=st<0?'':L.slice(st+1,en<0?undefined:en).join('\n');
+  // Seit v3.12 dieselbe Regel wie make-release.sh (Querfund Alien Pass v1.23 run-13 c-3/r2c-3): OHNE Ausnahme für Links und Kästchen, dazu {…}, ???, XX,
+  // vX.Y, YYYY/JJJJ, TT.MM, <Wort> (GitHub verschluckt unbekannte Tags still) und jede ``` / ~~~ (Codeblock)
+  const ph=sec.match(/\[[^\]]{0,300}\]|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|\b(?:YYYY|JJJJ)\b|\bTT\.MM\b|<[A-Za-zÄÖÜäöü][^<>\n]{0,40}>|`{3}|~{3}/)||sec.match(/\b(TODO|TBD|FIXME)\b/i);
+  if(ph) throw new Error(`Platzhalter oder Codeblock im CHANGELOG-Abschnitt v${vn}: ${ph[0]}`);
+  console.log('  ✓ CHANGELOG v'+vn+(i<0?' (noch kein Abschnitt)':'')+' ohne Platzhalter und Codeblock, Kopf und Ende wie make-release.sh'); }
 
 const bufToB64 = buf => Buffer.from(new Uint8Array(buf)).toString('base64');
 const b64ToBuf = b64 => Uint8Array.from(Buffer.from(b64, 'base64')).buffer;

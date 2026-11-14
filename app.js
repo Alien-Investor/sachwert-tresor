@@ -262,8 +262,8 @@ const T = {
   "exp.noBuys":{de:"Keine BTC-Käufe vorhanden.",en:"No BTC buys."},
   "exp.noSales":{de:"Keine BTC-Verkäufe vorhanden.",en:"No BTC sells."},
   "exp.noMetals":{de:"Keine Edelmetall-Buchungen vorhanden.",en:"No precious-metal entries."},
-  "exp.savedShareSfx":{de:' gespeichert — über „Teilen" ablegen.',en:" saved — share it via the Share dialog."},
-  "exp.vaultSavedNative":{de:' — über „Teilen" in deinen Syncthing-Ordner legen.',en:" — share it into your Syncthing folder."},
+  "exp.savedShareSfx":{de:" gespeichert — über „Teilen“ ablegen.",en:" saved — share it via the Share dialog."},
+  "exp.vaultSavedNative":{de:" — über „Teilen“ in deinen Syncthing-Ordner legen.",en:" — share it into your Syncthing folder."},
   "exp.vaultSavedWeb":{de:"Verschlüsselte Datei gespeichert. In den Syncthing-Ordner legen.",en:"Encrypted file saved. Put it in your Syncthing folder."},
   "exp.vaultSavedDesk":{de:"{n} gespeichert (verschlüsselt). In den Syncthing-Ordner legen.",en:"{n} saved (encrypted). Put it in your Syncthing folder."},
   "exp.savedDesk":{de:" gespeichert (Klartext — nach Gebrauch löschen).",en:" saved (plain text — delete it after use)."},
@@ -676,12 +676,12 @@ const App = (function(){
     b.textContent=opt.action?opt.action.label:''; b.classList.toggle('hidden',!opt.action); t.classList.remove('hidden'); clearTimeout(t._t); t._t=setTimeout(hideToast, opt.ms||2200); }
   function hideToast(){ const t=$('toast'); if(!t) return; clearTimeout(t._t); t.classList.add('hidden'); $('toast-msg').textContent=''; $('toast-btn').textContent=''; $('toast-btn').classList.add('hidden'); toastFn=null; }
   function toastAction(){ const fn=toastFn; hideToast(); if(typeof fn==='function'&&VAULT) fn(); }
-  /* ---------- Rückfrage als eigener DOM-Dialog (v3.5, Vorlage Alien Pass v1.9) statt confirm(): der Android-Systemdialog erbt FLAG_SECURE nicht —
+  /* ---------- Rückfrage als eigener DOM-Dialog (v3.5, Vorlage Alien Pass v1.9) statt des Systemdialogs „confirm“: der Android-Systemdialog erbt FLAG_SECURE nicht —
      ein Screenshot bei offener Löschnachfrage zeigte den Dialogtext, während die App dahinter schwarz war (Querfund Alien Notes, Gerätetest 25.09.2026).
      ask(msg,{ok,danger}) liefert ein Promise<boolean>; nur ein Dialog zur Zeit (eine zweite Frage gilt sofort als abgelehnt); Escape/Hintergrund
      = Abbrechen; Tab pendelt zwischen den Knöpfen; clearRendered() schließt ihn beim Sperren mit false, und JEDER Aufrufer prüft nach dem await
      seinen Zustand neu (VAULT? Eintrag noch da? editId gleich?). Text nur per textContent (pre-line macht Absätze aus \n\n). Kein Eingabefeld —
-     der Tresor hat keinen prompt()-Ersatz nötig (Unterschied zu Alien Pass). ---------- */
+     der Tresor hat keinen Ersatz für den Systemdialog „prompt“ nötig (Unterschied zu Alien Pass). ---------- */
   let dlgResolve=null, dlgPrev=null;
   function ask(msg, opt){ opt=opt||{}; if(dlgResolve) return Promise.resolve(false);
     return new Promise(res=>{ dlgResolve=res; dlgPrev=document.activeElement; $('dlg-msg').textContent=msg;
@@ -2014,7 +2014,7 @@ const App = (function(){
     for(const raw of (incoming||[])){ const e=sanitizeEntry(raw); if(e&&!byId.has(e.id)){ byId.set(e.id,e); added++; } }
     return {entries:Array.from(byId.values()), added};
   }
-  let pendingImportBlob=null;   // Text der gewählten .vault wartet auf Passphrase-Eingabe (prompt() geht in der App-WebView nicht)
+  let pendingImportBlob=null;   // Text der gewählten .vault wartet auf Passphrase-Eingabe (der Systemdialog „prompt“ geht in der App-WebView nicht)
   function importVault(ev){
     const f=ev.target.files[0];
     if(f&&!VAULT){ deferFile(ev); return; }   // gesperrt (Picker war offen): nur den Verweis merken, nachgeholt in enterApp() (v3.6)
