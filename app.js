@@ -752,7 +752,10 @@ const App = (function(){
       if(!looksLegacy(o)) throw e;
       // Lesepfad Alt-Format — nie entfernen: alte .vault-Backups und nicht umgestellte Tresore hängen daran.
       const k=await deriveKey(pass, new Uint8Array(b64ToBuf(o.salt)), o.iter);
-      const lv=checkVault(await decryptBlob(o, k));
+      // Entschlüsselt, aber kein JSON = Passphrase richtig, Inhalt beschädigt (run-12 e-2; vorher „Argon2 gescheitert — Speicher“). Falsche Passphrase
+      // (OperationError) und kaputtes Base64 (InvalidCharacterError) bleiben, wie sie sind.
+      let lv; try{ lv=await decryptBlob(o, k); }catch(e){ if(e&&(e.name==='OperationError'||e.name==='InvalidCharacterError')) throw e; throw new Error('body'); }
+      checkVault(lv);
       return {legacy:true, vault:lv};
     }
     const kek=await deriveKek(passBytes(pass), f.kdf);
@@ -1364,6 +1367,8 @@ const App = (function(){
   const FORM_I18N={'Münze':'add.formCoin','Barren':'add.formBar','Sonstiges':'add.formOther'};
   const formLabel=f=>(LANG==='en'&&Object.prototype.hasOwnProperty.call(FORM_I18N,f)&&I18N[FORM_I18N[f]])||f;   // nur eigene Schlüssel (Freitext aus Importen)
   const fmtNum = (n,d)=> (Number(n)||0).toLocaleString(numLoc(),{minimumFractionDigits:d,maximumFractionDigits:d});
+  // Feinheit (‰): wie eingegeben, höchstens drei Nachkommastellen, ohne Tausendertrenner (run-12 e-1: fmtNum(…,1) zeigte 999,99 als „1.000,0‰“, 585 als „585,0‰“)
+  const fmtFine = n=> (Number(n)||0).toLocaleString(numLoc(),{minimumFractionDigits:0,maximumFractionDigits:3,useGrouping:false});
 
   /* ---------- render dashboard ---------- */
   function renderDash(){
@@ -1548,7 +1553,7 @@ const App = (function(){
                : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
                : '';
         pill='<span class="pill btc">BTC</span>';}
-      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(formLabel(e.form)):'')+(e.fineness?' · '+fmtNum(e.fineness,1)+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(formLabel(e.form)):'')+(e.fineness?' · '+fmtFine(e.fineness)+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
       const eurCell = d==='withdraw'?'<span class="muted">–</span>'
         :fmtMoney(e.eur,entryCur(e))+((entryCur(e)!=='EUR'&&e.eurRef>0)?' <span class="muted" style="font-size:.85em;white-space:nowrap">≈ '+fmtEur(e.eurRef)+'</span>':'');
       const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
@@ -2591,7 +2596,7 @@ const App = (function(){
   }
   function nlDenomLine(g){
     const q=fmtNum(g.qty,g.unit==='g'?0:4)+' '+g.unit;
-    return g.count+' × '+q+(g.form?' '+formLabel(g.form):'')+(g.fineness?' · '+fmtNum(g.fineness,1)+'‰':'');
+    return g.count+' × '+q+(g.form?' '+formLabel(g.form):'')+(g.fineness?' · '+fmtFine(g.fineness)+'‰':'');
   }
   function renderNachlass(){
     const el=$('nl-sheet'); if(!el||!VAULT) return;

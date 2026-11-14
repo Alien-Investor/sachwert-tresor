@@ -182,7 +182,7 @@ flatpak run org.flatpak.Builder --force-clean --state-dir=build/.flatpak-builder
 # Ab hier (Builder-Ausgabe, Rechte, Installation, Bundle, bundle.ok) nur Systemwerkzeuge (v3.12, Release-Audit run-12 c-5, wie build-apk.sh nach Gradle): der
 # PATH der Sitzung hat vom Nutzer beschreibbare Ordner vor /usr/bin — eine dort während des Baus abgelegte sha256sum/diff-Attrappe machte die Prüfungen grün.
 PATH=/usr/bin:/bin; export PATH; hash -r; unset LD_PRELOAD LD_LIBRARY_PATH
-for t in awk cat cut diff flatpak grep head mkdir sed sha256sum sort jq; do
+for t in awk cat cut diff find flatpak grep head mkdir sed sha256sum sort xargs jq; do   # find/xargs: desk_summen (run-12 f-5)
   case "$(type -P "$t")" in "/usr/bin/$t"|"/bin/$t") ;; *) echo "FEHLER: Werkzeug $t nicht aus /usr/bin oder /bin — nicht installiert!" >&2; exit 1 ;; esac
   [ "$(type -t "$t")" = "$([ "$t" = jq ] && echo function || echo file)" ] || { echo "FEHLER: $t ist durch eine Funktion/einen Alias überdeckt — nicht installiert!" >&2; exit 1; }
 done
