@@ -715,21 +715,27 @@ async function m312(){
   let sel=await js('String(getSelection())'), p=await prim();
   await js('AlienDesktop.clip.clear()'); await sleep(800); let weg=(await prim())==='';
   R('Markieren per Maus im offenen Handbuch: Markierung entsteht, PRIMARY = Markierung, Löschen leert', sel.length>10&&p===sel&&weg, {selLen:sel.length,gleich:p===sel,weg,hit:box.hit,sc:box.sc,box});
-  // (c) MESSUNG b-1: vom Absatz bis an den unteren Rand des Handbuchs ziehen, Maus 3 s ruhen lassen (Chromium rollt nach), loslassen
-  for(const [off,hold] of [[1,3000],[3,3000]]){
-    await js(`(()=>{ getSelection().removeAllRanges(); const o=document.getElementById('help-overlay'); o.scrollTop=0; return true; })()`); await sleep(200);
+  await js(`App.closeHelp(); getSelection().removeAllRanges(); true`); await sleep(200);
+  // (c) b-1 (Querfund Alien Notes v1.14 run-12, hier gemessen 13.11.2026: mit v3.11 PRIMARY 1458 statt 8620 Zeichen, clear() löschte nichts): vom Absatz bis an den
+  // unteren Rand des Handbuchs bzw. des Nachlass-Blatts (Bestände) ziehen, Maus 3 s ruhen lassen (Chromium rollt nach), loslassen. Seit v3.12 setzt die App die
+  // Markierung im mouseup neu (reselect): PRIMARY = Endstand. Verglichen wird angeglichen wie nsel in main.js (am Blockrand hängt eine der beiden Seiten ein „\n“ an).
+  const nz=t=>String(t).replace(/\ufffc/g,'').replace(/\u00a0/g,' ').trim();
+  for(const [ov,off,hold] of [['help-overlay',1,3000],['help-overlay',3,3000],['nachlass-overlay',1,3000]]){
+    const open=ov==='help-overlay'?'App.openHelp()':'App.openNachlass()', zu=ov==='help-overlay'?'App.closeHelp()':'App.closeNachlass()';
+    await js(`(()=>{ getSelection().removeAllRanges(); ${open}; const o=document.getElementById('${ov}'); o.scrollTop=0; return true; })()`); await sleep(500);
     await clipboard.selection.writeText(M); await ensureFocus();
-    const a=await js(`(()=>{ const o=document.getElementById('help-overlay'), p=[...o.querySelectorAll('p,li')].find(e=>e.getBoundingClientRect().top>160&&e.textContent.length>60); const r=p.getBoundingClientRect(), b=o.getBoundingClientRect(); return {x:r.left+6,y:r.top+6,bx:b.left+b.width/2,bb:b.bottom,top:o.scrollTop}; })()`);
+    const a=await js(`(()=>{ const o=document.getElementById('${ov}'), p=[...o.querySelectorAll('p,li,td')].find(e=>e.getBoundingClientRect().top>160&&e.textContent.length>20); const r=p.getBoundingClientRect(), b=o.getBoundingClientRect(); return {x:r.left+6,y:r.top+6,bx:b.left+b.width/2,bb:b.bottom,top:o.scrollTop,max:o.scrollHeight-o.clientHeight}; })()`);
     const z={x:a.bx,y:a.bb-off};
     mouse('mouseDown',a.x,a.y); for(let i=1;i<=14;i++){ mouse('mouseMove',a.x+(z.x-a.x)*i/14,a.y+(z.y-a.y)*i/14,{mod:['leftButtonDown']}); await sleep(30); }
-    await sleep(hold); const y1=await js(`document.getElementById('help-overlay').scrollTop`);
+    await sleep(hold); const y1=await js(`document.getElementById('${ov}').scrollTop`), pR=await prim(), sR=await js('String(getSelection())');
     mouse('mouseUp',z.x,z.y); await sleep(700);
     sel=await js('String(getSelection())'); p=await prim();
-    const vorb=sel.length>0&&p!==M&&y1>a.top;
+    // Lage: markiert, nachgerollt, PRIMARY hinkte bei ruhender Maus hinterher (sonst prüfte der Fall nichts)
+    const vorb=sel.length>0&&p!==M&&y1>a.top&&nz(pR).length<nz(sR).length;
     await js('AlienDesktop.clip.clear()'); const t0=Date.now(); weg=false; while(Date.now()-t0<2500&&!(weg=(await prim())==='')) await sleep(100);
-    R(`MESSUNG b-1 Handbuch (Rand-${off}, Maus ruht ${hold} ms): PRIMARY = Endstand, nach dem Löschen leer`, vorb&&p===sel&&weg, {vorb,gleich:p===sel,weg,scroll:[a.top,y1],primLen:p.length,selLen:sel.length});
-    await clipboard.selection.clear(); }
-  await js(`App.closeHelp(); getSelection().removeAllRanges(); true`);
+    R(`b-1 ${ov==='help-overlay'?'Handbuch':'Nachlass-Blatt (Bestände)'} (Rand-${off}, Maus ruht ${hold} ms): PRIMARY = Endstand, nach dem Löschen leer`, vorb&&nz(p)===nz(sel)&&weg,
+      {vorb,gleich:nz(p)===nz(sel),weg,scroll:[a.top,y1,a.max],ruhe:{pLen:pR.length,selLen:sR.length},primLen:p.length,selLen:sel.length});
+    await clipboard.selection.clear(); await js(`(()=>{ getSelection().removeAllRanges(); ${zu}; return true; })()`); await sleep(200); }
 }
 async function markierung(){
   const wc=win.webContents, NB=' ', FC='￼', TAIL='Ende-'+process.pid;
@@ -992,6 +998,565 @@ async function unreadable(){
   R('Lesefehler: Entsperren bleibt gesperrt', await js(visible('screen-lock'))&&!(await js(visible('screen-app'))));
 }
 
+// ===== v3.12 Phase 1b: Markierungs-Proben (Port aus Alien Notes v1.15, dort verify-desktop [2l]–[2z]; Notes übernahm sie aus Alien Pass v1.23 run-13) =====
+// An die Tresor-Oberfläche angepasst: das lange einzeilige Feld (Notes #f-title, Pass #f-pass) ist #f-note (Notiz im Formular „Erfassen“), das zweite Feld
+// #f-src-btc, das Passwortfeld #cp-cur (Einstellungen); Seitentext ist das Handbuch (#help-overlay), das Nachlass-Blatt (#nachlass-overlay) und die Bestandsliste
+// (#list-tbl, Notizen mit Marker). Der Knopf für den Fokuswechsel (Notes Kästchen #f-fav) ist „＋ Kauf“ im Formular (ändert nichts). Eine Textarea und eine Suche
+// hat der Tresor nicht — deren Notes-Varianten entfallen. Jede Probe meldet rot, wenn ihre Geste die Lage nicht herstellt (vorb im Ergebnis). Nur Längen, Marker
+// und Wahrheitswerte in der Ausgabe. Umgebungsvariablen wie Notes, Vorsilbe ST_ statt AP_.
+const {spawn:spawn3}=require('child_process');
+const mouseOf2=wc=>(type,x,y,o={})=>wc.sendInputEvent({type,x:Math.round(x),y:Math.round(y),button:o.button||'left',clickCount:o.cc||1,...(o.mod?{modifiers:o.mod}:{})});
+const key2=(wc,k,mod)=>{ wc.sendInputEvent({type:'keyDown',keyCode:k,...(mod?{modifiers:mod}:{})}); if(!mod||!mod.includes('control')) wc.sendInputEvent({type:'char',keyCode:k,...(mod?{modifiers:mod}:{})}); wc.sendInputEvent({type:'keyUp',keyCode:k,...(mod?{modifiers:mod}:{})}); };
+const keyNC3=(wc,k,mod)=>{ wc.sendInputEvent({type:'keyDown',keyCode:k,...(mod?{modifiers:mod}:{})}); wc.sendInputEvent({type:'keyUp',keyCode:k,...(mod?{modifiers:mod}:{})}); };
+const strgL3=wc=>{ wc.sendInputEvent({type:'keyDown',keyCode:'Control'}); wc.sendInputEvent({type:'keyDown',keyCode:'L',modifiers:['control']}); wc.sendInputEvent({type:'keyUp',keyCode:'L',modifiers:['control']}); wc.sendInputEvent({type:'keyUp',keyCode:'Control'}); };
+const strgCM=wc=>{ wc.sendInputEvent({type:'keyDown',keyCode:'Control'}); wc.sendInputEvent({type:'keyDown',keyCode:'C',modifiers:['control']}); wc.sendInputEvent({type:'keyUp',keyCode:'C',modifiers:['control']}); wc.sendInputEvent({type:'keyUp',keyCode:'Control'}); };
+const fsel=id=>js(`(()=>{ const t=document.getElementById(${JSON.stringify(id)}); return {s:t.selectionStart,e:t.selectionEnd,d:t.selectionDirection,akt:document.activeElement&&document.activeElement.id,v:t.value}; })()`);
+const caretXY=(id,pos)=>js(`(()=>{ const n=document.getElementById(${JSON.stringify(id)}), cs=getComputedStyle(n), d=document.createElement('div');
+  ['fontFamily','fontSize','fontWeight','letterSpacing','lineHeight','wordBreak','overflowWrap','tabSize','paddingTop','paddingLeft','paddingRight','borderTopWidth','borderLeftWidth'].forEach(k=>d.style[k]=cs[k]);
+  Object.assign(d.style,{position:'absolute',visibility:'hidden',whiteSpace:n.tagName==='TEXTAREA'?'pre-wrap':'pre',boxSizing:'content-box',width:(n.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight))+'px',left:'0',top:'0'});
+  d.textContent=n.value.slice(0,${pos}); const m=document.createElement('span'); m.textContent=n.value.slice(${pos},${pos}+1)||'.'; d.appendChild(m); document.body.appendChild(d);
+  const b=n.getBoundingClientRect(), x=b.left+parseFloat(cs.borderLeftWidth)+m.offsetLeft+m.offsetWidth/2-n.scrollLeft, y=n.tagName==='INPUT'?b.top+b.height/2:b.top+parseFloat(cs.borderTopWidth)+m.offsetTop+m.offsetHeight/2-n.scrollTop; d.remove(); return {x,y}; })()`);
+const leer3=async(ms=3000)=>{ const t0=Date.now(); let ok=false; while(Date.now()-t0<ms&&!(ok=(await prim())==='')) await sleep(100); return ok; };
+// Innenkante eines Feldes (l/r ohne Polster und Rahmen), Außenkante R, Zeilenmitte y
+const boxM=id=>js(`(()=>{ const t=document.getElementById(${JSON.stringify(id)}); const b=t.getBoundingClientRect(), cs=getComputedStyle(t);
+  const l=b.left+parseFloat(cs.paddingLeft)+parseFloat(cs.borderLeftWidth), r=b.right-parseFloat(cs.paddingRight)-parseFloat(cs.borderRightWidth);
+  const y=t.tagName==='TEXTAREA'?b.top+parseFloat(cs.borderTopWidth)+parseFloat(cs.paddingTop)+8:b.top+b.height/2;
+  return {l,r,R:b.right,y,w:b.width,ih:innerHeight,iw:innerWidth,sicht:b.width>0&&b.top>=0&&b.bottom<=innerHeight}; })()`);
+const posM=(sel,zeigen)=>js(`(()=>{ const n=document.querySelector(${JSON.stringify(sel)}); if(!n) return null; ${zeigen?"n.scrollIntoView({block:'center'});":''} const b=n.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2}; })()`);
+// Lage eines Feldes; kn: liegt der Fokus auf dem Knopf (Selektor)?
+const lageM=(feld,kn)=>js(`(()=>{ const g=getSelection(), t=document.getElementById(${JSON.stringify(feld)}), a=document.activeElement; return {akt:a&&(a.id||a.tagName), kn:!!(${JSON.stringify(kn||'')}&&a&&a.matches&&a.matches(${JSON.stringify(kn||'*')})), coll:g.rangeCount?g.getRangeAt(0).collapsed:null, f:[t.selectionStart,t.selectionEnd]}; })()`);
+const ziehM=async(mouse,a,z,n,ms)=>{ mouse('mouseDown',a.x,a.y); for(let i=1;i<=n;i++){ mouse('mouseMove',a.x+(z.x-a.x)*i/n,a.y+(z.y-a.y)*i/n,{mod:['leftButtonDown']}); await sleep(ms); } };
+// Klick mit 1 px Zittern (Drücken, 1 px Bewegung mit gehaltener Taste, Loslassen) bzw. ohne Bewegung
+const klickM=async(mouse,k,zitter)=>{ mouse('mouseDown',k.x,k.y); await sleep(zitter?40:80); if(zitter){ mouse('mouseMove',k.x+1,k.y,{mod:['leftButtonDown']}); await sleep(40); } mouse('mouseUp',k.x+(zitter?1:0),k.y); };
+// Ereigniszähler im Fenster (Gesten-Nachweis für vorb); liefert die Zähler seit dem letzten Aufruf und setzt sie zurück
+const instM=()=>js(`(()=>{ if(!window.__evM){ window.__evM={ds:0,md:0,mu:0,mmb:0}; document.addEventListener('dragstart',()=>{window.__evM.ds++;},true);
+  document.addEventListener('mousedown',()=>{window.__evM.md++;},true); document.addEventListener('mouseup',()=>{window.__evM.mu++;},true);
+  document.addEventListener('mousemove',e=>{ if(e.buttons&1) window.__evM.mmb++; },true); }
+  const r=Object.assign({},window.__evM); window.__evM.ds=0; window.__evM.md=0; window.__evM.mu=0; window.__evM.mmb=0; return r; })()`);
+// Text-Position im Seitentext (Mitte des Zeichens nach dem Fund) unter root; zeigen: vorher ins Bild rollen
+const txtPos=(root,needle,zeigen)=>js(`(()=>{ const w=document.createTreeWalker(document.querySelector(${JSON.stringify(root)}),NodeFilter.SHOW_TEXT); let n;
+  while((n=w.nextNode())){ const i=n.data.indexOf(${JSON.stringify(needle)}); if(i>=0){ ${zeigen?"n.parentElement.scrollIntoView({block:'center'});":''} const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+1); const b=r.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2}; } } return null; })()`);
+const KNOPF='#add-dir button[data-d="buy"]';
+// Entsperren (allein gestartet mit leerem Test-Home: Tresor anlegen), Auto-Lock aus, Meldung weg
+async function unlockT(){
+  if(await until(visible('screen-setup'),3000)){ await fill('setup-pass1',PP); await fill('setup-pass2',PP); await click('#setup-btn'); }
+  else { R('Sperrbildschirm', await until(visible('screen-lock'),15000)); await ensureFocus(); await fill('lock-pass',PP); await click('#unlock-btn'); }
+  const ok=await until(visible('screen-app'),60000); if(ok){ await js(`App.setAutolock('0'); App.hideToast(); true`); await sleep(300); } return ok; }
+async function relock3(){ if(await js(visible('screen-lock'))){ await ensureFocus(); await fill('lock-pass',PP); await click('#unlock-btn'); await until(visible('screen-app'),60000); await js(`App.hideToast(); true`); await sleep(400); } }
+// Formular „Erfassen“ (Bitcoin, Kauf) mit Notiz und Quelle; nichts wird gespeichert
+async function formT(note,src){ await js(`(()=>{ App.tab('add'); App.setAddType('btc'); App.setAddDir('buy'); window.scrollTo(0,0); return true; })()`); await sleep(250);
+  await fill('f-note',note); await fill('f-src-btc',src===undefined?'':src); await sleep(150); }
+// Einstellungen, Passphrase-Felder (#cp-cur) mit Wert
+async function cpT(val){ await js(`(()=>{ App.tab('settings'); return true; })()`); await sleep(300); await fill('cp-cur',val); await fill('cp1',''); await fill('cp2',''); await sleep(150); }
+// Buchungen mit Notizen speichern (Bestandsliste mit Marker-Text), einmal je Prozess
+let buchFehler=[];
+async function buchungenT(notes){ buchFehler=[]; for(const [i,n] of notes.entries()){ await js(`(()=>{ App.tab('add'); App.setAddType('btc'); App.setAddDir('buy'); return true; })()`); await sleep(150);
+    // Betrag je Prozess eindeutig: [2p] und [2q] laufen auf derselben Datei — gleiche Buchung am selben Tag löste die Dubletten-Rückfrage aus (nichts gespeichert)
+    await fill('f-date','2025-0'+(1+i%9)+'-1'+(i%9)); await fill('f-eur',String(1000+i)); await fill('f-btc',(0.01+i*0.001+(process.pid%997)*0.00001).toFixed(5)); await fill('f-src-btc','q'+i); await fill('f-note',n); await click('#add-btn'); await sleep(600);
+    const e=await js(`(()=>{ const a=document.getElementById('add-err'), d=document.getElementById('dlg'); return {err:a?a.textContent.slice(0,60):'',dlg:!!(d&&!d.classList.contains('hidden')),dlgText:d?d.textContent.slice(0,50):''}; })()`); if(e.err||e.dlg){ buchFehler.push([i,e]); await js(`App.dialogClose&&App.dialogClose(false); true`).catch(()=>{}); } }
+  await js(`App.tab('list'); App.hideToast(); true`); await sleep(400);
+  const ok=await until(`(()=>{ const t=document.querySelector('#list-tbl tbody').textContent; return ${JSON.stringify(notes)}.every(n=>t.includes(n)); })()`,8000);
+  if(!ok) R('Buchungen: Diagnose',false,{buchFehler,tbody:await js(`document.querySelector('#list-tbl tbody').textContent.length`)}); return ok; }
+
+// [2l] b-1 in Feldern (Notes [2w]/Pass pwnachrollen ohne verdeckte Markierung): vom Feldanfang in Stufen bis hinter den rechten Rand ziehen, Maus ruht, Chromium rollt
+// bis ans Ende, PRIMARY hinkt hinterher. Loslassen: PRIMARY = Endstand, nach dem Löschen leer. #f-note und #cp-cur (Passphrase im Klartext in PRIMARY).
+async function nachrollen(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='R'+process.pid, M='mk-nr-'+process.pid;
+  const cnt=t=>(t.match(new RegExp(G,'g'))||[]).length;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  await instM();
+  for(const wo of (process.env.ST_NRV||'note,cp').split(',')){
+    const feld=wo==='cp'?'cp-cur':'f-note', T=`document.getElementById('${feld}')`, val=Array.from({length:wo==='cp'?20:120},(_,i)=>G+'x'+i).join('-');
+    if(wo==='cp') await cpT(val); else await formT(val);
+    await js(`(()=>{ const t=${T}; t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(300);
+    await clipboard.selection.writeText(M); await sleep(150); await ensureFocus(); await instM();
+    const b=await boxM(feld), a={x:b.l+1,y:b.y}; let stufen=0, z={x:Math.min(b.R+40,b.iw-12),y:b.y};
+    mouse('mouseDown',a.x,a.y); await sleep(60);
+    for(let i=1;i<=6;i++){ const e0=await js(`${T}.selectionEnd`); mouse('mouseMove',a.x+(b.r-8-a.x)*i/6,a.y,{mod:['leftButtonDown']}); if(await until(`${T}.selectionEnd>${e0}&&${T}.selectionStart===0`,2000)) stufen++; }
+    mouse('mouseMove',z.x,a.y,{mod:['leftButtonDown']}); const rollt=await until(`${T}.scrollLeft>0`,3000);
+    for(let i=1;i<=6;i++){ mouse('mouseMove',Math.min(z.x+i*2,b.iw-2),a.y+(i%2),{mod:['leftButtonDown']}); await sleep(40); } z={x:Math.min(z.x+12,b.iw-2),y:a.y};
+    const ende=await until(`${T}.selectionStart===0&&${T}.selectionEnd===${T}.value.length`,30000); await sleep(400);
+    const pR=await prim(), sR=await fsel(feld), selR=sR.v.slice(sR.s,sR.e);
+    mouse('mouseUp',z.x,z.y); await sleep(800);
+    const ev=await instM(), p=await prim(), s=await fsel(feld), sel=s.v.slice(s.s,s.e);
+    await js('AlienDesktop.clip.clear()'); const weg=await leer3();
+    // Lage: das Ziehen schrieb PRIMARY, der Endstand ist das ganze Feld, PRIMARY hinkte bei ruhender Maus hinterher, je ein Drücken/Loslassen, kein Ziehen-und-Ablegen
+    const vorb=cnt(pR)>0&&pR!==M&&ende&&cnt(selR)>cnt(pR)&&ev.ds===0&&ev.md===1&&ev.mu===1&&sel.length===val.length;
+    R(`#${feld}: bis hinter den rechten Rand gezogen, Maus ruht (Nachrollen bis ans Ende), losgelassen: PRIMARY = Endstand, nach dem Löschen leer`, vorb&&p===sel&&weg,
+      {vorb,stufen,rollt,ende,ev,ruhe:{pLen:pR.length,pMarker:cnt(pR),selLen:selR.length,selMarker:cnt(selR)},pLen:p.length,selLen:sel.length,gleich:p===sel,weg});
+    await clipboard.selection.clear();
+    if(!weg){ await js('App.lock(); true'); await sleep(1000); await relock3(); }
+  }
+}
+
+// [2m] Notes run-12 b2-1 (Rückschritt aus dem Fix b-1): ein Klick IN eine Markierung hebt sie auf (Cursor an die Klickstelle), ein danach getipptes Zeichen
+// überschreibt nichts — #f-note (gezogen, Doppelklick), Handbuch (Seiten-Markierung). reselect nur nach einem Ziehen.
+async function markklick(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='Klick-'+process.pid;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  const body='alpha beta gamma delta epsilon zeta eta theta '+G;
+  for(const [art,wie] of [['Ziehen','drag'],['Doppelklick','dbl']]){
+    await formT(body);
+    await js(`(()=>{ const t=document.getElementById('f-note'); t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(150);
+    await clipboard.selection.clear(); await ensureFocus();
+    const i0=body.indexOf('beta'), i1=body.indexOf('delta')+5;
+    const a=await caretXY('f-note',i0), z=await caretXY('f-note',i1-1);
+    if(wie==='drag'){ mouse('mouseDown',a.x-3,a.y); for(let i=1;i<=8;i++){ mouse('mouseMove',a.x-3+(z.x+4-(a.x-3))*i/8,a.y,{mod:['leftButtonDown']}); await sleep(30); } mouse('mouseUp',z.x+4,z.y); }
+    else { mouse('mouseDown',a.x,a.y,{cc:1}); mouse('mouseUp',a.x,a.y,{cc:1}); mouse('mouseDown',a.x,a.y,{cc:2}); mouse('mouseUp',a.x,a.y,{cc:2}); }
+    await sleep(400); const s1=await fsel('f-note'); const p1=await prim();
+    await sleep(900); const mid=await caretXY('f-note',wie==='drag'?body.indexOf('gamma')+2:i0+2);
+    mouse('mouseDown',mid.x,mid.y,{cc:1}); await sleep(60); mouse('mouseUp',mid.x,mid.y,{cc:1}); await sleep(400);
+    const s2=await fsel('f-note');
+    R(`#f-note, ${art} markiert, Klick hinein: Markierung aufgehoben`, s1.s<s1.e&&s2.s===s2.e, {vorher:[s1.s,s1.e,s1.d,s1.akt], primGleich:p1===body.slice(s1.s,s1.e), nachher:[s2.s,s2.e,s2.d,s2.akt]});
+    key2(wc,'X'); await sleep(300); const s3=await fsel('f-note');
+    const lost=body.length-(s3.v.length-1);
+    R(`  → ein Zeichen getippt: kein markierter Text überschrieben`, lost===0, {laengeVorher:body.length, laengeNachher:s3.v.length, verloren:lost});
+  }
+  // Handbuch (Seiten-Markierung)
+  { await js(`App.openHelp(); true`); await sleep(400);
+    // erster sichtbarer Textknoten im Handbuch mit mindestens 60 Zeichen in EINER Zeile (Anfang, Ende, Mitte gleich hoch)
+    const q=await js(`(()=>{ const o=document.getElementById('help-overlay'); o.scrollTop=0; const w=document.createTreeWalker(o,NodeFilter.SHOW_TEXT); let n; const r=document.createRange();
+      const at=i=>{ r.setStart(n,i); r.setEnd(n,i+1); const b=r.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2}; };
+      while((n=w.nextNode())){ if(n.data.length<60||!n.parentElement.closest('p,li')) continue; const a=at(2), z=at(40), m=at(20); if(a.y>160&&a.y<innerHeight-60&&Math.abs(a.y-z.y)<2&&Math.abs(a.y-m.y)<2) return {a,z,m}; } return null; })()`);
+    if(!q){ R('Handbuch: Textzeile gefunden',false); return; }
+    await clipboard.selection.clear(); await ensureFocus();
+    mouse('mouseDown',q.a.x-3,q.a.y); for(let i=1;i<=8;i++){ mouse('mouseMove',q.a.x-3+(q.z.x-(q.a.x-3))*i/8,q.a.y,{mod:['leftButtonDown']}); await sleep(30); } mouse('mouseUp',q.z.x,q.z.y); await sleep(400);
+    const g1=await js(`String(getSelection())`); await sleep(900);
+    mouse('mouseDown',q.m.x,q.m.y,{cc:1}); await sleep(60); mouse('mouseUp',q.m.x,q.m.y,{cc:1}); await sleep(400);
+    const g2=await js(`({c:getSelection().isCollapsed,l:String(getSelection()).length})`);
+    R('Handbuch, Ziehen markiert, Klick hinein: Markierung aufgehoben', g1.length>0&&g2.c, {vorher:g1.length, nachher:g2});
+    await js(`getSelection().removeAllRanges(); App.closeHelp(); true`); await sleep(300); }
+  await clipboard.selection.clear();
+}
+
+// [2n] Notes run-12 b2-2: Sperre bei GEHALTENER Maustaste nach dem Nachrollen im Handbuch (b-1-Fundort) — per Strg+L, Zeitgeber (auch ohne Nachrollen) und
+// Minimieren (Tresor: keine Sofort-Sperre im Hintergrund — Auto-Lock 1 min, Uhr vorgestellt, die Sperre kommt beim Zurückholen, Taste noch gehalten);
+// Gegenprobe erst loslassen, dann sperren. Nach der Sperre darf kein Handbuchtext in PRIMARY stehen.
+async function sperrziehen(){
+  const wc=win.webContents, mouse=mouseOf2(wc), M='mk-b2-'+process.pid;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  for(const wie of (process.env.ST_WIE||'strgL,timer,timerOhne,minimize,mouseup').split(',')){
+    await js(`(()=>{ getSelection().removeAllRanges(); App.openHelp(); return true; })()`); await sleep(400);
+    const q=await js(`(()=>{ const o=document.getElementById('help-overlay'); o.scrollTop=0; const p=[...o.querySelectorAll('p,li')].find(e=>e.getBoundingClientRect().top>160&&e.textContent.length>60); const r=p.getBoundingClientRect(), b=o.getBoundingClientRect(); return {x:r.left+6,y:r.top+6,bx:b.left+b.width/2,bb:b.bottom,bm:b.top+b.height/2,top:o.scrollTop}; })()`);
+    await clipboard.selection.writeText(M); await ensureFocus();
+    const z={x:q.bx,y:wie==='timerOhne'?q.bm:q.bb-1};
+    if(wie==='minimize') await js(`App.setAutolock('1'); App.hideToast(); true`);
+    mouse('mouseDown',q.x,q.y); for(let i=1;i<=14;i++){ mouse('mouseMove',q.x+(z.x-q.x)*i/14,q.y+(z.y-q.y)*i/14,{mod:['leftButtonDown']}); await sleep(30); }
+    await sleep(120); const pDrag=await prim(); await sleep(2500); const sel=await js(`String(getSelection())`), y1=await js(`document.getElementById('help-overlay').scrollTop`);
+    const pHold=await prim();
+    let minEv=null;
+    if(wie==='strgL') strgL3(wc);
+    else if(wie==='timer'||wie==='timerOhne') await js(`setTimeout(()=>App.lock(),0); true`);
+    else if(wie==='minimize'){ minEv=await new Promise(r=>{ win.once('minimize',()=>r(true)); win.minimize(); setTimeout(()=>r(false),3000); }); await sleep(600);
+      await js(`(()=>{ window.__dateNow=Date.now; Date.now=()=>window.__dateNow()+61000; return true; })()`); await restoreFocused(); await sleep(800); }
+    else mouse('mouseUp',z.x,z.y);
+    await sleep(1500);
+    if(wie!=='mouseup') mouse('mouseUp',z.x,z.y,{});
+    await sleep(800);
+    const gesperrt=await js(visible('screen-lock'));
+    if(wie==='minimize') await js(`(()=>{ if(window.__dateNow) Date.now=window.__dateNow; return true; })()`);
+    if(wie==='mouseup'){ await js('App.lock(); true'); await sleep(1200); }
+    const pEnd=await prim(); const weg=pEnd===''||pEnd===M;
+    // Lage: markiert, Nachrollen (außer timerOhne) mit hinterherhinkendem PRIMARY, gesperrt
+    const vorb=sel.length>0&&pHold!==M&&(wie==='timerOhne'||(y1>q.top&&pHold.length<sel.length))&&(wie==='mouseup'||gesperrt)&&(wie!=='minimize'||minEv);
+    R(`${wie==='timerOhne'?'Handbuch OHNE Nachrollen (Mitte), ':'Handbuch nachgerollt, '}dann ${wie==='strgL'?'Strg+L bei ruhender Maus':wie==='timer'||wie==='timerOhne'?'Sperre per Zeitgeber bei ruhender Maus':wie==='minimize'?'Minimieren und Sperre beim Zurückholen, Taste gehalten':'Loslassen, dann Sperre (Gegenprobe)'}: nach der Sperre kein Handbuchtext in PRIMARY`, vorb&&weg,
+      {vorb,gesperrt,minEv,scroll:[q.top,y1],primNachZug:pDrag.length,selBeiRuhe:sel.length,primBeiRuhe:pHold.length,primNachSperre:pEnd.length});
+    await clipboard.selection.clear();
+    if(wie==='minimize') await js(`App.setAutolock('0'); App.hideToast(); true`).catch(()=>{});
+    await relock3(); if(wie==='minimize') await js(`App.setAutolock('0'); App.hideToast(); true`).catch(()=>{});
+  }
+}
+
+// [2o] Notes run-12 b3-2: eine FREMDE Auswahl, die Anfang/Ende/Wort/Zeichen der stehenden Markierung ist, bleibt nach einer Meldung (Taste) und Löschen bzw. Strg+L
+// stehen (die Hülle liest PRIMARY nur bei eigenem Ziehen). Feld #f-note.
+async function fremdanfang(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='GEHEIM-'+process.pid;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  const lines=Array.from({length:12},(_,i)=>'Zeile '+i+' '+G+' text').join(' | ');
+  for(const v of (process.env.ST_V||'wort:frist,zeichen:frist,ende:frist,wort:sperre,unbezogen:frist').split(',')){ const [art,wann]=v.split(':');
+    await formT(lines);
+    await js(`(()=>{ const t=document.getElementById('f-note'); t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(150);
+    await clipboard.selection.clear(); await ensureFocus();
+    const i0=lines.indexOf('Zeile 1 '), i1=lines.indexOf('Zeile 2 ')+9;
+    const a=await caretXY('f-note',i0), z=await caretXY('f-note',i1);
+    mouse('mouseDown',a.x-2,a.y); for(let i=1;i<=8;i++){ mouse('mouseMove',a.x-2+(z.x-(a.x-2))*i/8,a.y+(z.y-a.y)*i/8,{mod:['leftButtonDown']}); await sleep(30); } mouse('mouseUp',z.x,z.y); await sleep(600);
+    const s=await fsel('f-note'); const S=s.v.slice(s.s,s.e); const pS=(await prim())===S;
+    const F=art==='wort'?S.split(' ')[0]:art==='zeichen'?S[0]:art==='ende'?S.slice(-3):'fremd-'+process.pid;
+    await clipboard.selection.writeText(F); await sleep(200); const vorF=(await prim())===F;
+    // Meldung auslösen ohne die Markierung zu ändern: Umschalt drücken/loslassen (keydown + keyup melden)
+    keyNC3(wc,'Shift'); await sleep(600);
+    let gesperrt=false;
+    if(wann==='frist'){ await js('AlienDesktop.clip.clear()'); await sleep(800); }
+    else { strgL3(wc); await sleep(1500); gesperrt=await js(visible('screen-lock')); }
+    const pEnd=await prim();
+    R(`fremde Auswahl = ${art} der Markierung in #f-note, dann ${wann==='frist'?'Löschen (wie Frist)':'Strg+L'}: fremde Auswahl bleibt stehen`, S.length>8&&pS&&vorF&&pEnd===F, {selLen:S.length, pS, vorF, gesperrt, primNachher:pEnd===F?'fremd':pEnd===''?'leer':'anders'});
+    await clipboard.selection.clear();
+    if(gesperrt) await relock3();
+  }
+}
+
+// Fremd-Prozess (desktop/test/fremd-app, wortgleich Notes): hält PRIMARY und wird per SIGSTOP angehalten (hängender fremder Besitzer), bzw. liest PRIMARY von außen
+let fremdPid=0;
+const fremdAlle=[];
+async function fremdStart(F,buf,name){
+  const dir=path.join(__dirname,'fremd-app'), cfg=path.join(process.env.XDG_CONFIG_HOME||__dirname,'fremd'+(name||'')); fs.mkdirSync(cfg,{recursive:true});
+  const pr=spawn3(process.execPath,['--no-sandbox',dir],{env:{...process.env,XDG_CONFIG_HOME:cfg,FREMD_TEXT:F,FREMD_BUF:buf||'selection',ST_STEP:''},stdio:['ignore','pipe','ignore']});
+  fremdAlle.push(pr.pid); if(!name) fremdPid=pr.pid; let own=false; pr.stdout.on('data',d=>{ if(String(d).includes('OWN')) own=true; });
+  for(let i=0;i<100&&!own;i++) await sleep(100);
+  return own; }
+function fremdStop(){ try{ process.kill(fremdPid,'SIGSTOP'); return true; }catch(_){ return false; } }
+function fremdEnde(){ for(const p of fremdAlle.splice(0)){ try{ process.kill(p,'SIGCONT'); }catch(_){} try{ process.kill(p,'SIGTERM'); }catch(_){} } fremdPid=0; }
+process.on('exit',fremdEnde);
+function lies(G){ return new Promise(res=>{ const dir=path.join(__dirname,'fremd-app'), cfg=path.join(process.env.XDG_CONFIG_HOME||__dirname,'fremdR'); fs.mkdirSync(cfg,{recursive:true});
+  const pr=spawn3(process.execPath,['--no-sandbox',dir],{env:{...process.env,XDG_CONFIG_HOME:cfg,FREMD_MODE:'read',FREMD_MARK:G,ST_STEP:''},stdio:['ignore','pipe','ignore']});
+  let out=''; pr.stdout.on('data',d=>out+=d); const k=setTimeout(()=>{ try{ pr.kill('SIGKILL'); }catch(_){} },8000);
+  pr.on('exit',()=>{ clearTimeout(k); const m=out.match(/READ (\{.*\})/); res(m?JSON.parse(m[1]):{fehler:true}); }); }); }
+// Vor app.exit auf das ENDE der fremd-app-Prozesse warten (Frist 3 s): Mitglieder der eigenen Prozessgruppe (verify-desktop startet jeden Schritt per setsid) aus /proc
+const pgrpM=d=>{ try{ const s=fs.readFileSync('/proc/'+d+'/stat','utf8'), f=s.slice(s.lastIndexOf(')')+2).split(' '); return f[0]==='Z'?-1:Number(f[2]); }catch(_){ return -1; } };
+const fremdRestM=()=>{ const pg=pgrpM('self'), r=[]; if(pg<=0) return r;
+  for(const d of fs.readdirSync('/proc')){ if(!/^[0-9]+$/.test(d)||Number(d)===process.pid||pgrpM(d)!==pg) continue;
+    try{ if(fs.readFileSync('/proc/'+d+'/cmdline','utf8').split(String.fromCharCode(0)).some(x=>x.endsWith(path.sep+'fremd-app'))) r.push(Number(d)); }catch(_){} } return r; };
+async function fremdEndeWartM(ms=3000){ fremdEnde(); const t0=Date.now(); let rest=fremdRestM(); while(rest.length&&Date.now()-t0<ms){ await sleep(100); rest=fremdRestM(); }
+  R('fremd-app-Prozesse vor dem Ende des Prüfprogramms beendet (Pass run-13 r2a-4)', rest.length===0, {rest:rest.length,ms:Date.now()-t0}); }
+// Gemeinsamer Schluss von spiegel/spiegelfeld: Kopie (Strg+C), Klipper-Spiegel per ansprechbarem fremdem Prozess, dann Frist, Strg+L, Beenden
+async function spiegelSchluss(wc,G,S,vor){
+  strgCM(wc);
+  await sleep(600); const rc=()=>Promise.race([clipboard.readText(),sleep(3000).then(()=>'HAENGT')]); const kop0=await rc(); const kop=kop0===S;
+  const okQ=await fremdStart(S,'selection','Q'); await sleep(500);
+  const r0=await lies(G);
+  const tc=Date.now(); await Promise.race([js('AlienDesktop.clip.clear()'),sleep(6000)]); const clearMs=Date.now()-tc; await sleep(2500);
+  const r1=await lies(G); const c1r=await rc(); const c1=c1r===S;
+  strgL3(wc); await sleep(3000); const r2=await lies(G); const gesperrt=await js(visible('screen-lock'));
+  R('Vorbedingungen'+(vor.titel||''), vor.ok&&kop&&okQ&&r0.mark>0, {...vor.info,kop,kopHaengt:kop0==='HAENGT',okQ,spiegelVorher:r0});
+  R('Kopie aus CLIPBOARD gelöscht (Frist)', !c1, {c1, eigenesClipboardLesenHaengt:c1r==='HAENGT'});
+  R('gespiegelte Kopie in PRIMARY nach dem Löschen (Frist) weg', r1.mark===0, {r1,clearMs});
+  R('gespiegelte Kopie in PRIMARY nach Strg+L weg', r2.mark===0, {r2,gesperrt});
+  const t0=Date.now();
+  app.on('will-quit',ev=>{ ev.preventDefault(); const ms=Date.now()-t0; (async()=>{ const r3=await lies(G);
+    R('gespiegelte Kopie in PRIMARY beim Prozessende weg', r3.mark===0, {r3,ms});
+    await fremdEndeWartM(); R('Schritt vollständig',true); app.exit(0); })(); });
+  app.quit();
+}
+
+// [2p]/[2q] Notes run-12 b3-1 (+ r4-1 mit ST_VOR=zitter): Bestandsliste mit Marker-Notizen über zwei Zeilen markiert; ein zweiter Prozess hält PRIMARY und wird
+// angehalten; Meldungen (Pfeiltasten) bzw. ein Klick mit 1 px Zittern IN die Markierung; nach Strg+C spiegelt ein ansprechbarer fremder Prozess die Kopie nach
+// PRIMARY (wie Klipper) — Frist, Strg+L und Beenden löschen sie trotzdem. PRIMARY wird dabei von AUSSEN gelesen (Lesungen im eigenen Prozess hängen mit).
+async function spiegel(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='GEHEIM'+process.pid, F='fremd-haengt-'+process.pid, N=Number(process.env.ST_N||3);
+  if(!(await unlockT())){ R('entsperrt',false); fremdEnde(); R('Schritt vollständig',true); app.exit(0); return; }
+  const notes=Array.from({length:4},(_,i)=>'Absatz'+i+'-'+G+'-text');
+  const da=await buchungenT(notes);
+  await ensureFocus();
+  // über ALLE vier Marker-Zeilen (Reihenfolge nach Datum): Anfang der im DOM ersten, Ende der letzten Zeile
+  // die Notiz steht in der Zelle hinter der Detailangabe („… · Notiz“) im selben Textknoten
+  const sp=await js(`(()=>{ const w=document.createTreeWalker(document.querySelector('#list-tbl'),NodeFilter.SHOW_TEXT); let n, f=[]; while((n=w.nextNode())){ const m=n.data.match(/Absatz[0-3]-[A-Za-z0-9]+-text/); if(m) f.push([n,m.index,m[0].length]); }
+    if(f.length<4) return null; f[0][0].parentElement.scrollIntoView({block:'center'}); const r=document.createRange(), at=(m,i)=>{ r.setStart(m,i); r.setEnd(m,i+1); const b=r.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2}; };
+    const l=f[f.length-1]; return {a:at(f[0][0],f[0][1]),z:at(l[0],l[1]+l[2]-1)}; })()`);
+  if(!sp){ R('Bestandsliste mit vier Marker-Zeilen',false); fremdEnde(); R('Schritt vollständig',true); app.exit(0); return; }
+  const a={x:sp.a.x+4,y:sp.a.y}, z={x:sp.z.x-60,y:sp.z.y};
+  { mouse('mouseDown',a.x-4,a.y); for(let i=1;i<=8;i++){ mouse('mouseMove',a.x-4+(z.x+60-(a.x-4))*i/8,a.y+(z.y-a.y)*i/8,{mod:['leftButtonDown']}); await sleep(30); } mouse('mouseUp',z.x+60,z.y); }
+  // PRIMARY aus einer Tabelle weicht von String(getSelection()) ab (U+FFFC der Knöpfe, Leerraum an Zellgrenzen): angeglichen bzw. über die Markerzahl vergleichen
+  await sleep(500); const S=await js(`String(getSelection())`), P0=await prim(), mk=t=>t.split(G).length-1, nz=t=>String(t).replace(/\ufffc/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  const pS=nz(P0)===nz(S)||(mk(P0)===mk(S)&&mk(S)>=2);
+  const own=await fremdStart(F,'selection'); await sleep(300); const vorF=(await prim())===F; fremdStop(); await sleep(200);
+  if(process.env.ST_VOR==='zitter'){ const m=await txtPos('#list-tbl','Absatz1-',false); mouse('mouseDown',m.x+20,m.y); await sleep(40); mouse('mouseMove',m.x+21,m.y,{mod:['leftButtonDown']}); await sleep(40); mouse('mouseUp',m.x+21,m.y); }
+  else for(let i=0;i<N;i++){ keyNC3(wc,'Down'); await sleep(40); }
+  await sleep(400);
+  await spiegelSchluss(wc,G,S,{titel:process.env.ST_VOR==='zitter'?' (Zitter-Klick)':' (Pfeiltasten)',ok:da&&own&&vorF&&pS&&(S.split(G).length-1)>=2,info:{da,own,vorF,pS,sMarker:S.split(G).length-1}});
+}
+
+// [2t] Pass run-13 a-1 (c): Feld per Ziehen markiert → Klick auf einen Knopf (Fokus dort, die Feld-Markierung bleibt) → Frist löscht PRIMARY → Klick mit 1 px
+// Zittern IN die alte Markierung: die gelöschte Markierung kommt NICHT wieder nach PRIMARY. #f-note und #f-src-btc, Knopf „＋ Kauf“.
+async function fokusklick(){
+  const wc=win.webContents, mouse=mouseOf2(wc), PW='PWgeheim'+process.pid+'abcdefghijklmnopqrstuvwxyz0123456789', KN=process.env.ST_KNOPF||KNOPF;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  for(const feld of (process.env.ST_FELDER||'f-note,f-src-btc').split(',')){
+    await formT('',''); await fill(feld,PW); await sleep(150);
+    await js(`(()=>{ const t=document.getElementById('${feld}'); t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); return true; })()`); await sleep(200);
+    await clipboard.selection.clear(); await ensureFocus();
+    let b=await boxM(feld); await ziehM(mouse,{x:b.l+2,y:b.y},{x:b.l+92,y:b.y},8,30); mouse('mouseUp',b.l+92,b.y); await sleep(500);
+    const s1=await fsel(feld), T=s1.v.slice(s1.s,s1.e), p1=await prim();
+    const k=await posM(KN,true); await sleep(150); mouse('mouseDown',k.x,k.y); mouse('mouseUp',k.x,k.y); await sleep(400);
+    const nachKnopf=await lageM(feld,KN);
+    await js('AlienDesktop.clip.clear()'); const weg=await leer3(); await sleep(400);
+    await js(`document.getElementById('${feld}').scrollIntoView({block:'center'}); true`); await sleep(150);
+    b=await boxM(feld); const m={x:b.l+2+45,y:b.y};
+    const vorK=await lageM(feld,KN);
+    await klickM(mouse,m,true); await sleep(700);
+    const p2=await prim(), s2=await fsel(feld);
+    const vorb=T.length>=8&&p1===T&&nachKnopf.kn&&nachKnopf.f[0]===s1.s&&nachKnopf.f[1]===s1.e&&weg&&vorK.f[0]<vorK.f[1];
+    R(`#${feld}: markiert, Klick auf „＋ Kauf“, Frist, Klick mit 1 px Zittern IN die alte Markierung: die gelöschte Markierung kommt NICHT wieder nach PRIMARY`, vorb&&!p2.includes(T),
+      {vorb,tLen:T.length,p1GleichT:p1===T,nachKnopf,weg,vorK:vorK.f,p2Len:p2.length,p2HatT:p2.includes(T),s2:[s2.s,s2.e,s2.akt]});
+    { await js('App.lock(); true'); await sleep(1500); const pL=await prim();
+      R(`  #${feld}: danach Sperre: PRIMARY leer`, pL==='', {nachLen:pL.length}); await relock3(); }
+    await clipboard.selection.clear();
+  }
+}
+
+// [2u] Pass run-13 a-1 (a): wie [2p], aber Markierung im Feld #f-note und als Geste ein Klick mit 1 px Zittern auf den Knopf (Fokus wandert, die Feld-Markierung
+// bleibt). ST_FVOR=knopf (Vorgabe) | knopfstill | shift (Kontrollen).
+async function spiegelfeld(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='GEHEIM'+process.pid, F='fremd-haengt-'+process.pid, KN=process.env.ST_KNOPF||KNOPF, VOR=process.env.ST_FVOR||'knopf';
+  if(!(await unlockT())){ R('entsperrt',false); fremdEnde(); R('Schritt vollständig',true); app.exit(0); return; }
+  const body=Array.from({length:10},(_,i)=>'Absatz '+i+' '+G+' text.').join(' ');
+  await formT(body);
+  await js(`(()=>{ const t=document.getElementById('f-note'); t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(200);
+  await clipboard.selection.clear(); await ensureFocus();
+  const i0=body.indexOf('Absatz 1 '), i1=body.indexOf('Absatz 2 ')+9; const a=await caretXY('f-note',i0), z=await caretXY('f-note',i1);
+  await ziehM(mouse,{x:a.x-2,y:a.y},z,8,30); mouse('mouseUp',z.x,z.y); await sleep(600);
+  const s=await fsel('f-note'); const S=s.v.slice(s.s,s.e); const pS=(await prim())===S;
+  const k=await posM(KN,true); await sleep(150);
+  const own=await fremdStart(F,'selection'); await sleep(300); const vorF=(await prim())===F; fremdStop(); await sleep(200);
+  if(VOR==='knopf'||VOR==='knopfstill') await klickM(mouse,k,VOR==='knopf'); else keyNC3(wc,'Shift');
+  await sleep(400);
+  const nachVor=await lageM('f-note',KN);
+  const lage=VOR==='shift'?nachVor.akt==='f-note':nachVor.kn&&nachVor.f[0]===s.s&&nachVor.f[1]===s.e;
+  await spiegelSchluss(wc,G,S,{titel:' ('+VOR+')',ok:own&&vorF&&pS&&lage,info:{own,vorF,pS,lage,nachVor,sLen:S.length}});
+}
+
+// [2v] Pass run-13 a-1 (b): wie [2o] (fremde Auswahl = erstes Wort der Feld-Markierung in #f-note), Geste = Klick auf den Knopf mit/ohne 1 px Zittern, dann
+// Löschen (wie Frist). ST_KV=knopf,knopfstill,knopf,knopfhalt (Vorgabe). knopfhalt (v3.12): Taste auf dem Knopf HALTEN, Umschalt drücken, loslassen — ohne
+// Mausbewegung, also ohne das Neu-Merken beim ersten mousemove; nur hier unterscheidet sich selKeyAt (Seite UND Felder) vom alten selKey (Mutant selkey-alt).
+async function fremdknopf(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='GEHEIM-'+process.pid, KN=process.env.ST_KNOPF||KNOPF;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  const lines=Array.from({length:12},(_,i)=>'Zeile '+i+' '+G+' text').join(' | ');
+  for(const v of (process.env.ST_KV||'knopf,knopfstill,knopf,knopfhalt').split(',')){
+    await formT(lines);
+    await js(`(()=>{ const t=document.getElementById('f-note'); t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(150);
+    await clipboard.selection.clear(); await ensureFocus();
+    const i0=lines.indexOf('Zeile 1 '), i1=lines.indexOf('Zeile 2 ')+9; const a=await caretXY('f-note',i0), z=await caretXY('f-note',i1);
+    await ziehM(mouse,{x:a.x-2,y:a.y},z,8,30); mouse('mouseUp',z.x,z.y); await sleep(600);
+    const s=await fsel('f-note'); const S=s.v.slice(s.s,s.e); const pS=(await prim())===S; const F=S.split(' ')[0];
+    await clipboard.selection.writeText(F); await sleep(200); const vorF=(await prim())===F;
+    const k=await posM(KN,true); await sleep(150);
+    if(v==='knopfhalt'){ mouse('mouseDown',k.x,k.y); await sleep(120); keyNC3(wc,'Shift'); await sleep(300); mouse('mouseUp',k.x,k.y); }
+    else await klickM(mouse,k,v==='knopf');
+    await sleep(600); const nach=await lageM('f-note',KN);
+    await js('AlienDesktop.clip.clear()'); await sleep(800); const pEnd=await prim();
+    const vorb=pS&&vorF&&F.length>0&&nach.kn&&nach.f[0]===s.s&&nach.f[1]===s.e;
+    R(`fremde Auswahl = erstes Wort der Feld-Markierung, Klick auf „＋ Kauf“ ${v==='knopf'?'mit 1 px Zittern':v==='knopfhalt'?'gehalten + Umschalt, ohne Bewegung':'ohne Bewegung'}, Löschen: fremde Auswahl bleibt stehen`, vorb&&pEnd===F,
+      {vorb,pS,vorF,nach,Flen:F.length,primNachher:pEnd===F?'fremd':pEnd===''?'leer':'anders'});
+    await clipboard.selection.clear();
+  }
+}
+
+// [2w] Pass run-13 r2a-1 (Rückschritt durch den a-1-Fix allein): Feld B hat eine VERDECKTE Vollmarkierung [0,len] (focus()+select() wie Tab-Fokus/Strg+A), danach
+// liegt der Fokus in Feld A (Klick). PRIMARY gelöscht (wie Frist). Dann in B vom Anfang in Stufen bis hinter den Rand ziehen, Maus ruht, Chromium rollt bis ans
+// Ende: der Endstand ist wieder [0,len] = der BEIM DRÜCKEN gemerkte Stand von B → ohne Neu-Merken beim ersten mousemove „nicht geändert“, kein reselect.
+// Wächter gegen den Rückbau des Nachdrucks (Mutant). ST_GLV=note:feld,cp:feld (B=#f-note mit A=#f-src-btc bzw. B=#cp-cur mit A=#cp1); note:knopf/note:tab sind Kontrollen.
+async function gleichfeld(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='E'+process.pid, M='mk-gl-'+process.pid;
+  const cnt=t=>(t.match(new RegExp(G,'g'))||[]).length;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  await instM();
+  for(const v of (process.env.ST_GLV||'note:feld,cp:feld').split(',')){ const [wo,wie]=v.split(':');
+    const feld=wo==='cp'?'cp-cur':'f-note', T=`document.getElementById('${feld}')`, A=process.env.ST_GLA||(wo==='cp'?'cp1':'f-src-btc');
+    const val=Array.from({length:Number(process.env.ST_GLN||(wo==='cp'?20:120))},(_,i)=>G+'x'+i).join('-');
+    if(wo==='cp') await cpT(val); else await formT(val,'quelle');
+    // PRIMARY vorher leeren: das select() per Skript schreibt PRIMARY nicht immer — eine fremde Auswahl (z. B. im Terminal) bliebe stehen, weg0 wäre falsch rot
+    await clipboard.selection.clear(); await sleep(150);
+    await js(`(()=>{ const t=${T}; t.scrollIntoView({block:'center'}); t.focus(); t.select(); return true; })()`); await sleep(400);
+    const s0=await fsel(feld);
+    await ensureFocus();
+    if(wie==='feld'||wie==='knopf'){ const k=await posM(wie==='feld'?'#'+A:KNOPF,true); await sleep(200); mouse('mouseDown',k.x,k.y); await sleep(60); mouse('mouseUp',k.x,k.y); }
+    else if(wie==='tab') keyNC3(wc,'Tab');
+    await sleep(500);
+    const nach=await lageM(feld), p0=await prim(), vor0={len:p0.length,marker:cnt(p0),gleichFeld:p0===s0.v,quelle:p0==='quelle'};
+    await js('AlienDesktop.clip.clear()'); const weg0=await leer3(); await clipboard.selection.writeText(M); await sleep(200);
+    await js(`(()=>{ const t=${T}; t.scrollIntoView({block:'center'}); t.scrollLeft=0; return true; })()`); await sleep(250);
+    await ensureFocus(); await instM();
+    const b=await boxM(feld), a={x:b.l+1,y:b.y};
+    let stufen=0, z={x:Math.min(b.R+40,b.iw-12),y:b.y};
+    mouse('mouseDown',a.x,a.y); await sleep(60);
+    const nachDruck=await fsel(feld);
+    for(let i=1;i<=6;i++){ const e0=await js(`${T}.selectionEnd`); mouse('mouseMove',a.x+(b.r-8-a.x)*i/6,a.y,{mod:['leftButtonDown']}); if(await until(`${T}.selectionEnd>${e0}&&${T}.selectionStart===0`,2000)) stufen++; }
+    mouse('mouseMove',z.x,a.y,{mod:['leftButtonDown']}); const rollt=await until(`${T}.scrollLeft>0`,3000);
+    for(let i=1;i<=6;i++){ mouse('mouseMove',Math.min(z.x+i*2,b.iw-2),a.y+(i%2),{mod:['leftButtonDown']}); await sleep(40); } z={x:Math.min(z.x+12,b.iw-2),y:a.y};
+    const ende=await until(`${T}.selectionStart===0&&${T}.selectionEnd===${T}.value.length`,Number(process.env.ST_GLWAIT||30000)); await sleep(400);
+    const pR=await prim(), sR=await fsel(feld), selR=sR.v.slice(sR.s,sR.e);
+    mouse('mouseUp',z.x,z.y); await sleep(800);
+    const ev=await instM();
+    const p=await prim(), s=await fsel(feld), sel=s.v.slice(s.s,s.e);
+    await js('AlienDesktop.clip.clear()'); const weg=await leer3(); const pW=await prim();
+    strgL3(wc); await sleep(1500); const gesperrt=await js(visible('screen-lock')); const pL=await prim();
+    const len=s0.v.length;
+    const vorb=s0.s===0&&s0.e===len&&nach.akt!==feld&&nach.f[0]===0&&nach.f[1]===len&&weg0&&nachDruck.s===nachDruck.e&&ev.ds===0&&ev.md===1&&ev.mu===1&&ev.mmb>=1
+      &&cnt(pR)>0&&pR!==M&&ende&&selR.length===len&&cnt(selR)>cnt(pR)&&s.s===0&&s.e===len;
+    R(`#${feld}: verdeckt ganz markiert, Fokus per ${wie} weg, Frist, erneut vom Anfang bis zum Ende gezogen (Nachrollen bis ans Ende): PRIMARY = Endstand, nach Frist und Sperre leer`,
+      vorb&&p===sel&&weg&&cnt(pL)===0,
+      {vorb,s0:[s0.s,s0.e,len],nach,vor0,weg0,nachDruck:[nachDruck.s,nachDruck.e,nachDruck.akt],box:[Math.round(b.l),Math.round(b.R),b.iw],stufen,rollt,ende,ev,ruhe:{pLen:pR.length,pMarker:cnt(pR),selLen:selR.length,selMarker:cnt(selR)},
+       pLen:p.length,pMarker:cnt(p),selLen:sel.length,gleich:p===sel,weg,nachFristMarker:cnt(pW),gesperrt,nachSperreLen:pL.length,nachSperreMarker:cnt(pL)});
+    await clipboard.selection.clear(); await relock3();
+  }
+}
+
+// [2x] Pass run-13 r2a-2: Markieren per Ziehen und — noch bei gedrückter Taste — zurück bis zur leeren Markierung (Abbrechen-Geste). Chromium legt jede nicht
+// leere Markierung in PRIMARY und leert PRIMARY nicht, wenn sie zusammenklappt; v3.11 meldete beim Loslassen nur den leeren Endstand (report bricht bei '' ab) →
+// der letzte nicht leere Stand blieb nach Frist UND Sperre stehen. Gesten wie im Pass-Fundbericht: Cursor auf 0 + Marker, in 4 Stufen ziehen bis PRIMARY Text hat,
+// zurück (in einem Zug zum Anfangspunkt, vor den Feldanfang, oder in 12 Schritten je bis die Markierung geschrumpft ist), warten bis leer, loslassen, Frist, Strg+L.
+// ST_ZV=<wo>:<wie>,… (wo: note = #f-note, cp = #cp-cur, zahl = #f-eur (Zahlenfeld, angezeigter Text), liste = Bestandsliste, hbquer = Handbuch über die Grenze
+// Überschrift/Absatz (Pass „dquer“: lastText muss String(getSelection()) merken, nicht String(Range)); wie: punkt, aussen, gebunden)
+async function zurueck(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='Z'+process.pid, M='mk-zu-'+process.pid;
+  const cnt=t=>(t.match(new RegExp(G,'g'))||[]).length;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  await instM();
+  const lang=Array.from({length:30},(_,i)=>G+'x'+i).join('-'), zahl='1234567890123'+String(process.pid%1000).padStart(3,'0'), notes=Array.from({length:6},(_,i)=>'Zeile'+i+'-'+G+'-text');
+  let gebucht=false;
+  for(const v of (process.env.ST_ZV||'note:punkt,note:aussen,note:gebunden,cp:punkt,zahl:aussen,liste:punkt,liste:gebunden,hbquer:punkt').split(',')){ const [wo,wie]=v.split(':');
+    let a, z, back, T=null, info={}, num=false;
+    if(wo==='liste'){ if(!gebucht){ R('Buchungen mit Marker-Notizen gespeichert', await buchungenT(notes)); gebucht=true; }
+      await js(`(()=>{ App.tab('list'); getSelection().removeAllRanges(); return true; })()`); await sleep(300);
+      const q=await txtPos('#list-tbl','Zeile2-',true), q2=await txtPos('#list-tbl','Zeile4-',false); if(!q||!q2){ R('liste: Marker-Zeilen gefunden',false); continue; } a={x:q.x-4,y:q.y}; z={x:q2.x+40,y:q2.y}; }
+    else if(wo==='hbquer'){ await js(`(()=>{ getSelection().removeAllRanges(); App.openHelp(); return true; })()`); await sleep(400);
+      // erste Überschrift mit einem Absatz darunter, auf etwa 200 px gerollt; Ziel im ersten Textknoten des Absatzes mit mindestens 12 Zeichen
+      const q=await js(`(()=>{ const o=document.getElementById('help-overlay'); o.scrollTop=0; const h=[...o.querySelectorAll('h2')].find(e=>e.nextElementSibling&&e.nextElementSibling.tagName==='P');
+        if(!h) return null; o.scrollTop+=h.getBoundingClientRect().top-200;
+        const at=(el,i)=>{ const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT); let n; while((n=w.nextNode())&&n.data.trim().length<12); if(!n) return null; const r=document.createRange(); r.setStart(n,i); r.setEnd(n,i+1); const b=r.getBoundingClientRect(); return {x:b.x+b.width/2,y:b.y+b.height/2}; };
+        const pp=at(h.nextElementSibling,8), k=at(h,2); return pp&&k?{p:pp,k}:null; })()`);
+      if(!q){ R('hbquer: Überschrift mit Absatz im Handbuch gefunden',false); continue; } a={x:q.p.x+40,y:q.p.y}; z={x:q.k.x+20,y:q.k.y}; }
+    else { const feld=wo==='cp'?'cp-cur':wo==='zahl'?'f-eur':'f-note'; num=wo==='zahl'; T=`document.getElementById('${feld}')`;
+      if(wo==='cp') await cpT(lang.slice(0,200)); else { await formT(wo==='note'?lang:''); if(num){ await fill('f-eur',zahl); await sleep(150); } }
+      await js(`(()=>{ const t=${T}; t.scrollIntoView({block:'center'}); t.focus(); ${num?'':'t.setSelectionRange(0,0);'} t.scrollLeft=0; return true; })()`); await sleep(250);
+      if(num){ // Cursor an den Anfang (Zahlenfeld ohne setSelectionRange): Pos1
+        keyNC3(wc,'Home'); await sleep(150); }
+      const b=await boxM(feld); a={x:b.l+1,y:b.y}; z={x:b.l+150,y:b.y};
+      info.box=[Math.round(b.l),Math.round(b.r)]; }
+    back=wie==='aussen'?{x:a.x-30,y:a.y}:{x:a.x,y:a.y};
+    await clipboard.selection.writeText(M); await ensureFocus(); await instM();
+    const L=T&&!num?`(${T}.selectionEnd-${T}.selectionStart)`:'String(getSelection()).length';
+    if(wo==='hbquer') await js(`(()=>{ window.__qM={}; if(!window.__qOnM){ window.__qOnM=1; document.addEventListener('mousemove',e=>{ const g=getSelection(); if((e.buttons&1)&&g.rangeCount&&!g.isCollapsed){ const s=String(g), r=String(g.getRangeAt(0)); window.__qM={sel:s.length,rng:r.length,gleich:s===r}; } },true); } return true; })()`);
+    mouse('mouseDown',a.x,a.y); await sleep(60); let stufen=0;
+    for(let i=1;i<=4;i++){ const l=await js(L); mouse('mouseMove',a.x+(z.x-a.x)*i/4,a.y+(z.y-a.y)*i/4,{mod:['leftButtonDown']}); if(await until(`${L}>${l}`,2000)) stufen++; }
+    const geschrieben=await (async()=>{ const t0=Date.now(); while(Date.now()-t0<3000){ const p=await prim(); if(p&&p!==M) return p; await sleep(100); } return await prim(); })();
+    const selMitte=await js(L);
+    if(wie==='gebunden'){ for(let i=1;i<=12;i++){ const l=await js(L); mouse('mouseMove',z.x+(back.x-z.x)*i/12,z.y+(back.y-z.y)*i/12,{mod:['leftButtonDown']}); await until(`${L}<${l}`,1500); } }
+    else mouse('mouseMove',back.x,back.y,{mod:['leftButtonDown']});
+    const leer=await until(`${L}===0`,3000); await sleep(300);
+    const pVorLos=await prim();
+    mouse('mouseUp',back.x,back.y); await sleep(800);
+    const ev=await instM();
+    const p1=await prim(), l1=await js(L);
+    await js('AlienDesktop.clip.clear()'); await sleep(1500); const p2=await prim();
+    strgL3(wc); await sleep(1800); const gesperrt=await js(visible('screen-lock')); const p3=await prim();
+    // jeder Rest aus dem Markierungstext, auch 1 Zeichen: alles außer leer und dem eigenen Marker M (nur dieser Prozess schreibt PRIMARY)
+    const rest=p=>p.length>0&&p!==M;
+    if(wo==='hbquer') info.q=await js('window.__qM');
+    const q=info.q||{}, querOk=wo!=='hbquer'||(q.sel>0&&q.rng>0&&q.sel!==q.rng&&pVorLos.length===q.sel);
+    const quelleOk=wo==='liste'?cnt(geschrieben)>0:wo==='zahl'?zahl.includes(geschrieben.replace(/\D/g,''))&&geschrieben.length>0:wo==='hbquer'?rest(geschrieben):cnt(geschrieben)>0;
+    const vorb=quelleOk&&selMitte>0&&leer&&l1===0&&rest(pVorLos)&&ev.ds===0&&ev.md===1&&ev.mu===1&&gesperrt&&querOk;
+    R(`${wo==='hbquer'?'Handbuch über die Blockgrenze (Überschrift + Absatz)':wo==='liste'?'Bestandsliste':wo==='zahl'?'#f-eur (Zahlenfeld)':'#'+(wo==='cp'?'cp-cur':'f-note')}: per Ziehen markiert (PRIMARY geschrieben), ${wie==='aussen'?'zurück bis vor den Feldanfang':wie==='gebunden'?'in 12 Schritten zurück, je bis die Markierung geschrumpft ist':'in einem Zug zurück zum Anfangspunkt'}, losgelassen: nach Frist und Sperre kein Markierungstext in PRIMARY`,
+      vorb&&!rest(p2)&&!rest(p3),
+      {vorb,...info,stufen,mitte:{selLen:selMitte,pLen:geschrieben.length},leer,ev,vorLos:{len:pVorLos.length,rest:rest(pVorLos)},nachLos:{len:p1.length,sel:l1},
+       nachFrist:{len:p2.length,rest:rest(p2)},gesperrt,nachSperre:{len:p3.length,rest:rest(p3)}});
+    await clipboard.selection.clear(); await relock3();
+  }
+}
+
+// [2y] Pass run-13 na-1 (Rest des r2a-2-Fixes): vom Anfang in Stufen bis hinter den Rand ziehen, Maus ruht → Chromium rollt nach, PRIMARY hinkt hinterher. Dann bei
+// gedrückter Taste in EINEM Zug vor den Feldanfang (30 px links daneben) → Chromium schreibt einen kürzeren Stand nach PRIMARY und rollt bei ruhender Maus ohne
+// Eingabeereignis zurück bis zur leeren Markierung. selLast stammt aus dem mousemove-Capture DIESER Bewegung = der nachgerollte Stand, der nie in PRIMARY stand —
+// eine Meldung ohne peek passte nie. Lage (vorb): ein eigenes Capture spiegelt selLast — dieser gemerkte Stand muss vom PRIMARY-Stand vor dem Loslassen
+// VERSCHIEDEN sein. ST_NZV=note:aussen,cp:aussen (Vorgabe), ST_NZWAIT (ms).
+async function zurnach(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='N'+process.pid, M='mk-zn-'+process.pid;
+  const cnt=t=>(t.match(new RegExp(G,'g'))||[]).length;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  await instM();
+  await js(`(()=>{ window.__znM=null; if(!window.__znOnM){ window.__znOnM=1; let h=false;
+    document.addEventListener('mousedown',e=>{ if(e.button===0){ h=true; window.__znM=null; } },true);
+    document.addEventListener('mousemove',e=>{ if(!(e.buttons&1)){ h=false; return; } if(!h) return; const a=document.activeElement;
+      if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number'&&a.selectionStart!==a.selectionEnd) window.__znM={s:a.selectionStart,e:a.selectionEnd,id:a.id}; },true);
+    document.addEventListener('mouseup',e=>{ if(e.button===0) h=false; },true); } return true; })()`);
+  for(const v of (process.env.ST_NZV||'note:aussen,cp:aussen').split(',')){ const [wo]=v.split(':');
+    const feld=wo==='cp'?'cp-cur':'f-note', T=`document.getElementById('${feld}')`;
+    const val=Array.from({length:wo==='cp'?20:120},(_,i)=>G+'x'+i).join('-');
+    if(wo==='cp') await cpT(val); else await formT(val);
+    await js(`(()=>{ const t=${T}; t.scrollIntoView({block:'center'}); t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(300);
+    await clipboard.selection.writeText(M); await sleep(150); await ensureFocus(); await instM();
+    const b=await boxM(feld);
+    const a={x:b.l+1,y:b.y}; let stufen=0, z={x:Math.min(b.R+40,b.iw-12),y:b.y};
+    mouse('mouseDown',a.x,a.y); await sleep(60);
+    for(let i=1;i<=6;i++){ const e0=await js(`${T}.selectionEnd`); mouse('mouseMove',a.x+(b.r-8-a.x)*i/6,a.y,{mod:['leftButtonDown']}); if(await until(`${T}.selectionEnd>${e0}&&${T}.selectionStart===0`,2000)) stufen++; }
+    mouse('mouseMove',z.x,a.y,{mod:['leftButtonDown']}); const rollt=await until(`${T}.scrollLeft>0`,3000);
+    for(let i=1;i<=6;i++){ mouse('mouseMove',Math.min(z.x+i*2,b.iw-2),a.y+(i%2),{mod:['leftButtonDown']}); await sleep(40); } z={x:Math.min(z.x+12,b.iw-2),y:a.y};
+    const ende=await until(`${T}.selectionStart===0&&${T}.selectionEnd===${T}.value.length`,Number(process.env.ST_NZWAIT||30000)); await sleep(400);
+    const pR=await prim(), sR=await fsel(feld), selR=sR.v.slice(sR.s,sR.e);
+    const back={x:b.l-30,y:a.y};
+    mouse('mouseMove',back.x,back.y,{mod:['leftButtonDown']}); await sleep(300);
+    const sB=await fsel(feld), pB=await prim();
+    const leer=await until(`${T}.selectionStart===${T}.selectionEnd`,Number(process.env.ST_NZWAIT||30000)); await sleep(400);
+    const pVorLos=await prim(), gm=await js('window.__znM'), gem=gm&&gm.id===feld?sR.v.slice(gm.s,gm.e):'';
+    mouse('mouseUp',back.x,back.y); await sleep(800);
+    const ev=await instM();
+    const p1=await prim(), s1=await fsel(feld);
+    await js('AlienDesktop.clip.clear()'); await sleep(1500); const p2=await prim();
+    strgL3(wc); await sleep(1800); const gesperrt=await js(visible('screen-lock')); const p3=await prim();
+    const rest=p=>p.length>0&&val.includes(p);
+    // (Notes prüfte zusätzlich sB.e>sB.s 300 ms nach dem Zug — im breiten Tresor-Feld klappt Chromium bis dahin schon zusammen; dass der Zug einen KÜRZEREN Stand
+    // nach PRIMARY schrieb, zeigt pVorLos≠pR mit Rest)
+    const vorb=ende&&cnt(pR)>0&&pR!==M&&cnt(selR)>cnt(pR)&&pVorLos!==pR&&leer&&rest(pVorLos)&&gem.length>0&&gem!==pVorLos&&s1.s===s1.e&&ev.ds===0&&ev.md===1&&ev.mu===1&&gesperrt;
+    R(`#${feld}: nachgerollt (PRIMARY hinkt), in einem Zug links vor das Feld zurück, Chromium rollt bis zur leeren Markierung, losgelassen: nach Frist und Sperre kein Feldtext in PRIMARY`,
+      vorb&&!rest(p2)&&!rest(p3),
+      {vorb,box:[Math.round(b.l),Math.round(b.R),b.iw],stufen,rollt,ende,ruhe:{pLen:pR.length,pMarker:cnt(pR),selLen:selR.length,selMarker:cnt(selR)},nachZug:{s:sB.s,e:sB.e,pLen:pB.length,pMarker:cnt(pB)},leer,
+       vorLos:{len:pVorLos.length,marker:cnt(pVorLos),rest:rest(pVorLos)},gemerkt:{len:gem.length,marker:cnt(gem),gleichPrim:gem===pVorLos,primAnfang:pVorLos.length>0&&gem.startsWith(pVorLos)},
+       ev,nachLos:{len:p1.length,marker:cnt(p1)},nachFrist:{len:p2.length,marker:cnt(p2),rest:rest(p2)},gesperrt,nachSperre:{len:p3.length,marker:cnt(p3),rest:rest(p3)}});
+    await clipboard.selection.clear(); await relock3();
+  }
+}
+
+// [2z] Pass run-13 na-2: die Passphrase in einem Gate-Feld per Ziehen markieren (Chromium schreibt PRIMARY, gemeldet wird erst im mouseup), Taste HALTEN, dann
+// Fensterwechsel (blur), Minimieren oder Verstecken. Der blur-Zweig von DESK.onBackground und onHidden leerten das Feld (clearGateInputs), bevor etwas gemeldet war;
+// beim Loslassen meldete onSel ''. Varianten (ST_HWV=blur,min,ohne,hide,cpmin,cphide): #lock-pass (Sperrbildschirm, DEK null) blur/minimiert/versteckt, „ohne“ =
+// Kontrolle (erst loslassen, dann blur), #cp-cur (Einstellungen, entsperrt; der Tresor sperrt im Hintergrund nicht sofort) minimiert/versteckt. Lage (vorb): beim
+// Wegwechseln war die Taste noch gedrückt (kein mouseup davor; „ohne“: genau eins), kein neues Drücken/Ziehen-und-Ablegen danach. Geprüft wird auch PRIMARY DIREKT
+// nach dem Wegwechseln (v3.12): gesperrt bzw. aus einem Gate-Feld löscht die App sofort — sonst läge die Passphrase bis zum Loslassen und zur Frist zum Mittelklick
+// im anderen Fenster bereit (ohne diese Prüfung blieb der Mutant halt-weg grün: das Loslassen meldet über selLast, die Frist löscht danach).
+async function haltweg(){
+  const wc=win.webContents, mouse=mouseOf2(wc), G='H'+process.pid, M='mk-hw-'+process.pid;
+  const cnt=t=>(t.match(new RegExp(G,'g'))||[]).length;
+  if(!(await unlockT())){ R('entsperrt',false); return; }
+  await instM();
+  const folge=[]; for(const n of ['blur','focus','minimize','restore','hide','show']) win.on(n,()=>folge.push(n));
+  for(const wie of (process.env.ST_HWV||'blur,min,ohne,hide,cpmin,cphide').split(',')){
+    const cp=wie.startsWith('cp'), fid=cp?'cp-cur':'lock-pass', F=`document.getElementById('${fid}')`, weg=/min/.test(wie)?'min':/hide/.test(wie)?'hide':'blur';
+    if(cp){ await relock3(); await js(`App.tab('settings'); true`); await sleep(500); await js(`document.getElementById('cp-cur').scrollIntoView({block:'center'}); true`); await sleep(300); }
+    else if(!(await js(visible('screen-lock')))){ await js('App.lock(); true'); await until(visible('screen-lock'),5000); await sleep(500); }
+    await ensureFocus();
+    const val=Array.from({length:8},(_,i)=>G+'p'+i).join('-');
+    await fill(fid,val);
+    await js(`(()=>{ const t=${F}; t.focus(); t.setSelectionRange(0,0); t.scrollLeft=0; return true; })()`); await sleep(300);
+    await clipboard.selection.writeText(M); await sleep(150); await ensureFocus(); await instM(); folge.length=0;
+    const b=await boxM(fid), a={x:b.l+1,y:b.y}, z={x:a.x+Math.min(160,(b.r-b.l)*0.6),y:b.y};
+    mouse('mouseDown',a.x,a.y); await sleep(60); let stufen=0;
+    for(let i=1;i<=4;i++){ const e0=await js(`${F}.selectionEnd`); mouse('mouseMove',a.x+(z.x-a.x)*i/4,a.y,{mod:['leftButtonDown']}); if(await until(`${F}.selectionEnd>${e0}`,2000)) stufen++; }
+    const geschrieben=await (async()=>{ const t0=Date.now(); while(Date.now()-t0<3000){ const p=await prim(); if(cnt(p)>0) return p; await sleep(100); } return await prim(); })();
+    const selMitte=await js(`(()=>{ const t=${F}; return t.selectionEnd-t.selectionStart; })()`);
+    if(wie==='ohne'){ mouse('mouseUp',z.x,z.y); await sleep(600); }
+    const evVor=await instM();
+    if(weg==='min'){ win.minimize(); await sleep(1200); }
+    else if(weg==='hide'){ win.hide(); await sleep(1200); }
+    else { win.blur(); await sleep(1200); }
+    const geleert=await js(`${F}.value===''`), pWeg=await prim();
+    if(weg==='min') await restoreFocused(); else if(weg==='hide'){ win.show(); await sleep(300); await ensureFocus(); } else { win.focus(); await ensureFocus(); }
+    await sleep(400);
+    if(wie!=='ohne'){ mouse('mouseUp',z.x,z.y); await sleep(800); }
+    const evNach=await instM(), wf=folge.slice();
+    const p1=await prim();
+    await js('AlienDesktop.clip.clear()'); await sleep(1500); const p2=await prim();
+    await relock3(); await sleep(600); const p3=await prim();
+    const gehalten=wie==='ohne'?evVor.mu===1:evVor.mu===0;
+    const vorb=cnt(geschrieben)>0&&selMitte>0&&geleert&&evVor.md===1&&evVor.ds===0&&gehalten&&evNach.md===0&&evNach.ds===0;
+    const wegText=weg==='min'?'Fenster minimiert':weg==='hide'?'Fenster versteckt':'Fensterwechsel (blur)';
+    R(`#${fid} per Ziehen markiert, ${wie==='ohne'?'losgelassen, dann Fensterwechsel (Kontrolle)':'Taste gehalten, '+wegText}: danach (Wegwechsel, Frist, Entsperren) keine Passphrase in PRIMARY`,
+      vorb&&cnt(pWeg)===0&&cnt(p2)===0&&cnt(p3)===0,
+      {vorb,stufen,mitte:{sel:selMitte,pLen:geschrieben.length,pMarker:cnt(geschrieben)},evVor,evNach,folge:wf,geleert,nachWeg:{len:pWeg.length,marker:cnt(pWeg)},
+       nachLos:{len:p1.length,marker:cnt(p1)},nachFrist:{len:p2.length,marker:cnt(p2)},nachEntsperren:{len:p3.length,marker:cnt(p3)}});
+    await clipboard.selection.clear();
+  }
+}
+
 app.on('browser-window-created',(_e,w)=>{ if(win) return; win=w;
   w.webContents.once('did-finish-load',async()=>{
     try{
@@ -1002,6 +1567,18 @@ app.on('browser-window-created',(_e,w)=>{ if(win) return; win=w;
       else if(STEP==='m311') await m311();
       else if(STEP==='sichern') await sichern();
       else if(STEP==='m312') await m312();
+      else if(STEP==='nachrollen') await nachrollen();
+      else if(STEP==='markklick') await markklick();
+      else if(STEP==='sperrziehen') await sperrziehen();
+      else if(STEP==='fremdanfang') await fremdanfang();
+      else if(STEP==='spiegel'){ await spiegel(); return; }   // endet in will-quit (eigene Endmarke)
+      else if(STEP==='fokusklick') await fokusklick();
+      else if(STEP==='spiegelfeld'){ await spiegelfeld(); return; }   // endet in will-quit (eigene Endmarke)
+      else if(STEP==='fremdknopf') await fremdknopf();
+      else if(STEP==='gleichfeld') await gleichfeld();
+      else if(STEP==='zurueck') await zurueck();
+      else if(STEP==='zurnach') await zurnach();
+      else if(STEP==='haltweg') await haltweg();
       else if(STEP==='quit'||STEP==='quithang'){ await quitStep(STEP==='quithang'); return; }   // endet in will-quit (eigene Endmarke)
       else if(STEP==='quitslow'){ await quitSlow(); return; }
       else if(STEP==='quitreject'){ await quitReject(); return; }

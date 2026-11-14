@@ -988,7 +988,13 @@ const App = (function(){
     const q=$('totp-qr'); if(q&&q.width){const cx=q.getContext('2d');cx.clearRect(0,0,q.width,q.height);}
     pendingSecret=null; pendingImportBlob=null; hide('import-pass-box'); hide('totp-setup'); err('bio-err');
   }
-  function lock(){ clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
+  function lock(){
+    // Sperre bei gehaltener Maustaste (Strg+L, Zeitgeber, Minimieren): die Markierung ist noch nicht gemeldet (das geschieht erst im mouseup) — jetzt melden, damit
+    // clearClip sie mitlöscht (v3.12, Querfund Alien Notes v1.14 run-12 b2-2; den älteren Stand nach einem Nachrollen merkt die Hülle dazu). Vor clearRendered:
+    // das leert die Felder.
+    if(DESK&&reportSel) reportSel();
+    if(selReset) selReset();
+    clearIdle(); DEK=null; KDF=null; WRAP=null; VAULT=null; pendingUnlock=null;
     bioGen++; bioRearmDek=null; bioArmed=false; bioNeedsRearm=false; bioMismatch=false;   // laufende Fingerabdruck-Vorgänge verfallen (Generation)
     if(DESK) clearClip();                                                // eigene Kopie und eigene Markierung (X11-Auswahl) aus der Zwischenablage nehmen
     clearRendered(); maskInputs(); boot();
@@ -1028,6 +1034,9 @@ const App = (function(){
   // Riegel bgAway gegen doppelte Signale (minimize + hide feuern beide) — sonst rückte hiddenAt nach vorn und die Wegzeit schrumpfte.
   let hiddenAt=0, bgAway=false;
   function onHidden(){
+    // Zuerst die offene Markierung melden (v3.12, Querfund Alien Pass v1.23 run-13 na-2 über Notes v1.15): bei gehaltener Maustaste in einem Gate-Feld leerte
+    // clearGateInputs das Feld, bevor etwas gemeldet war — die markierte Passphrase blieb nach Frist und Entsperren in PRIMARY. Danach den Schnappschuss verwerfen.
+    if(DESK&&reportSel) reportSel(); if(selForget) selForget();
     clearGateInputs();                               // vor jeder Sitzungsprüfung: gilt gerade im gesperrten Zustand
     if(DESK&&!DEK&&clipOwned&&!clipCopied) clearClip();   // gesperrt minimiert: markierte Passphrase nicht bis zur Frist liegen lassen (Notes v1.7)
     if(bgAway) return; bgAway=true;
@@ -1049,7 +1058,8 @@ const App = (function(){
   // Gesperrt räumt der Fensterwechsel auch eine bloße Markierung (Release-Audit v3.7 B-3: sonst lag eine markierte Passphrase bis zur Frist per Mittelklick bereit).
   // Entsperrt ebenso, wenn die letzte Meldung aus einem Gate-Feld kam (Passphrase ändern, Import-Passphrase): clearGateInputs leert das Feld, die Markierung
   // läge sonst bis zur Frist weiter in PRIMARY (Querfund Alien Notes Release-Audit v1.8 B-1). Eine Markierung in Tabelle/Eintrag bleibt per Mittelklick nutzbar.
-  if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur'){ const g=clipGateSel; clearGateInputs(); if((!DEK||g)&&clipOwned&&!clipCopied) clearClip(); } else if(h) onHidden(); else onShown(); });
+  // Vor clearGateInputs zuerst die offene Markierung melden (v3.12, Pass run-13 na-2, wie onHidden): Minimieren meldet „blur“ vor „minimize“, Verstecken „hide“ vor „blur“.
+  if(DESK&&typeof DESK.onBackground==='function') DESK.onBackground(h=>{ if(h==='blur'){ if(reportSel) reportSel(); if(selForget) selForget(); const g=clipGateSel; clearGateInputs(); if((!DEK||g)&&clipOwned&&!clipCopied) clearClip(); } else if(h) onHidden(); else onShown(); });
   if(DESK&&typeof DESK.onLock==='function') DESK.onLock(()=>{ if(DEK||pendingUnlock) lock(); });   // Ruhezustand/Bildschirmsperre (im Flatpak tot, s. DESKTOP-INVARIANTEN.md)
   // Desktop-Tastenkürzel: Strg+L = „Jetzt sperren“ (nur mit Hülle, nur entsperrt oder in der Aegis-Wartestellung), Strg+A siehe unten
   function deskKey(ev){ if(!DESK||!ev.ctrlKey||ev.altKey||ev.metaKey) return false;
@@ -1069,7 +1079,7 @@ const App = (function(){
       // ungemeldet und ohne Frist in PRIMARY (Querfund Alien Notes v1.9 a-1, Pass run-11 e-3; das zweite Melden im keyup verdrängt nichts, gleicher Hash).
       // Zahlenfeld (Betrag, Menge, Kurs; Entscheidung Nutzer 10.10.2026): ebenso markieren und den angezeigten Text melden; „gefüllt“ auch bei ungültiger
       // Eingabe (value leer, Text steht im Feld — badInput)
-      if(feld&&(a.value.length>0||(num&&a.validity&&a.validity.badInput))){ a.select(); if(reportFieldSel) reportFieldSel(); }
+      if(feld&&(a.value.length>0||(num&&a.validity&&a.validity.badInput))){ a.select(); if(reportSel) reportSel(); }
       return true; }
     if(dlgResolve) return true;   // offene Rückfrage: kein Strg-Kürzel daran vorbei (nur Sperren) — Muster Alien Pass v1.9
     return false; }
@@ -2344,8 +2354,9 @@ const App = (function(){
   // clipGateSel: die letzte Meldung kam aus einem Gate-Feld (GATE_IDS) — dann räumt auch entsperrt der Fensterwechsel (Notes v1.8 B-1). report setzt es je Meldung
   // frisch, eine Kopie auf false; clearClip setzt es bewusst NICHT zurück (Notes R2-A1: sonst nähme ein Löschen einer neueren Gate-Markierung das Flag).
   let clipTimer=null, clipOwned=false, clipCopied=false, clipGateSel=false;
-  // Desktop: meldet die Markierung des fokussierten Feldes an die Hülle (gesetzt im Zwischenablage-Block, nur mit DESK) — für Strg+A in deskKey (wie Alien Pass v1.21)
-  let reportFieldSel=null;
+  // Desktop (gesetzt im Zwischenablage-Block, nur mit DESK): reportSel meldet die aktuelle Markierung sofort an die Hülle — für Strg+A in deskKey (wie Alien Pass v1.21),
+  // seit v3.12 auch in lock(), onHidden() und beim Fensterwechsel (Markierung bei gehaltener Maustaste). selReset/selForget räumen die Merker des Markierungs-Blocks.
+  let reportSel=null, selReset=null, selForget=null;
   const numField=a=>!!a&&a.tagName==='INPUT'&&a.type==='number';   // Zahlenfeld: kein selectionStart, Markierung nur über getSelection() lesbar (v3.10)
   // Mausrad über einem FOKUSSIERTEN Zahlenfeld (v3.11, Audit v3.10.1 Q2, gemessen run-11 m311): Chromium zählt den Wert hoch oder runter — beim Scrollen der Seite
   // änderte sich so unbemerkt ein Betrag im Formular oder ein Kurs der Übersicht (savePrices speichert ihn sofort). Am Desktop nimmt das Rad dem Feld nur den Fokus;
@@ -2377,17 +2388,85 @@ const App = (function(){
     // das clear() der Sperre kommt in der Hülle (eine Kette) nach dieser Meldung an (Notes Release-Audit v1.7 B-N2).
     // Nach der Antwort ZUSÄTZLICH nachschärfen (Alien Pass Release-Audit v1.19 B-1, dort lief ein ok() des laufenden Löschens nach). Im Tresor gibt clearClip
     // synchron frei, den Wettlauf gibt es hier nicht — bleibt als Abwehr, ein überzähliges Löschen ist harmlos (die Hülle löscht nur Eigenes).
-    const report=(t,from)=>{ if(!t) return;
+    // peek (v3.12): die Hülle liest PRIMARY nur bei EIGENEM Ziehen und merkt dann auch den Hash eines älteren Stands derselben Markierung (s. u., main.js)
+    const report=(t,from,peek)=>{ if(!t) return;
       clipGateSel=!!(from&&GATE_IDS.includes(from.id));
       if(!clipOwned) armClip();
-      let p=null; try{ p=DESK.clip.selected(t); }catch(_){ p=null; }
+      let p=null; try{ p=DESK.clip.selected(t,peek===true); }catch(_){ p=null; }
       if(p&&p.then) p.then(()=>{ if(!clipOwned) armClip(); },()=>{}); };
-    const onSel=()=>{ const t=selText(); report(t,selFrom); selFrom=null; };   // selFrom freigeben: hielt sonst ein abgehängtes Feld samt Wert über die Sperre (v3.11, Pass run-12 a-4, wie Notes v1.10)
-    reportFieldSel=()=>onSel();   // Strg+A in deskKey: das Feld hat den Fokus, selText liest Text- wie Zahlenfeld richtig
-    document.addEventListener('mouseup',onSel);
+    /* --- Markierungs-Block (v3.12, Port aus Alien Notes v1.15 — dort run-12 b-1/b2-1/b2-2/b3-1/b3-2/r4-1/r4-2, run-13 a-2/a-4/r2a-1, Pass run-13 a-1/r2a-1/r2a-2/
+       na-1/na-2; in der Tresor-Hülle gemessen: verify-desktop [2l]–[2z]). Abweichungen zu Notes: Zahlenfelder (kein selectionStart) zählen beim Vergleich wie die
+       Seite und werden beim Merken über getSelection() gelesen wie in selText; Strg+A meldet deskKey selbst (kein selAllUp). ---
+       peek (Notes run-12 b3-1/b3-2): die Hülle liest PRIMARY nur bei EIGENEM Ziehen (Maustaste gehalten oder Loslassen nach einem Ziehen) — dann hat Chromium es
+       gerade selbst geschrieben, das Lesen ist lokal. Läse sie bei jeder Meldung, hinge sie an einem eingefrorenen fremden Besitzer (eine von Klipper gespiegelte
+       Kopie bliebe nach Frist, Sperre und Beenden stehen) und merkte eine fremde Auswahl, die zufällig Anfang/Ende der Markierung ist. Und nur, wenn diese
+       Mausbedienung die Markierung tatsächlich geändert hat (r4-1): ein Klick mit Zittern, ein dragstart oder ein fehlendes mouseup läsen PRIMARY sonst, ohne dass
+       Chromium es gerade geschrieben hätte. */
+    let selHeld=false;
+    // Letzte nicht leere Markierung während des Drückens (Pass run-13 r2a-2/Notes v1.15): zog man bei gedrückter Taste zurück zum Anfang, meldete onSel nur den
+    // leeren Endstand (report bricht bei '' ab) — PRIMARY behielt den letzten nicht leeren Stand nach Frist und Sperre. Ist der Endstand leer, wird dieser gemeldet.
+    // Seite: den Text der AUSWAHL merken, nicht die Range (String(Range) weicht an Elementgrenzen in den Zeilenumbrüchen ab, Chromium legt String(Selection) nach
+    // PRIMARY). Feld: den markierten TEXT beim Ziehen merken, nicht [feld,s,e] (Notes run-13 a-2: leert eine Pforte das Gate-Feld, während die Maus darin noch eine
+    // Markierung hält, läse lastText() beim Loslassen das leere Feld). Die Kopie lebt nur bis zum nächsten Loslassen, dragstart oder selReset (Sperre).
+    let selLast=null;   // {t:Text, f:Feld|null}
+    const lastText=()=>selLast?selLast.t:'';
+    // peek für die gemerkte Meldung (Pass run-13 na-1): nach Nachrollen + Zurückziehen stand der gemerkte Stand nie in PRIMARY — die Hülle merkt den kürzeren
+    // PRIMARY-Stand, wenn er Anfang oder Ende der Meldung ist. lp===false: OHNE peek melden (Notes run-13 r2a-1: nach einem verlorenen mouseup hat Chromium
+    // nicht gerade geschrieben). selFrom nach jeder Meldung freigeben: hielt sonst ein abgehängtes Feld samt Wert über die Sperre (v3.11, Pass run-12 a-4).
+    const onSel=(pk,lp)=>{ const t=selText(), f=selFrom; selFrom=null; if(!t&&selLast){ const l=lastText(), lf=selLast.f; if(l) report(l,lf,lp!==false); }
+      report(t,f,pk===true||(selHeld&&selMoved())); };
+    reportSel=()=>onSel();   // Strg+A in deskKey, lock(), onHidden(), Fensterwechsel
+    // Markieren bis an den Rand (Notes run-12 b-1 MITTEL; im Tresor gemessen 13.11.2026, verify-desktop [2l]: Handbuch bis an den Rand markiert, Maus 3 s ruhig →
+    // PRIMARY 1458 statt 8620 Zeichen, clear() löschte nichts, das Nachlass-Blatt mit den Beständen ebenso): rollt Chromium beim Ziehen nach, während die Maus ruht,
+    // wächst die Markierung ohne Eingabeereignis — PRIMARY behält den Stand der letzten Mausbewegung, die Meldung trägt den Endstand, die Hashes passten nie, und
+    // PRIMARY wurde weder nach der Frist noch beim Sperren gelöscht. Darum im mouseup (noch im Eingabeereignis) die Markierung einmal neu setzen: Chromium schreibt
+    // PRIMARY dann mit dem Endstand. Feld: Cursor kurz zusammen, dann wieder aufziehen, Rollstand zurück; Seite: collapse auf den Anker, extend zum Fokus.
+    const reselect=()=>{ try{ const a=document.activeElement;
+        if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number'){ const s0=a.selectionStart, e0=a.selectionEnd, d0=a.selectionDirection; if(s0===e0) return;
+          const st=a.scrollTop, sl=a.scrollLeft; a.setSelectionRange(s0,s0); a.setSelectionRange(s0,e0,d0); a.scrollTop=st; a.scrollLeft=sl; return; }
+        const g=window.getSelection(); if(!g||!g.rangeCount||g.isCollapsed||!g.anchorNode||!g.focusNode) return;
+        const an=g.anchorNode, ao=g.anchorOffset, fn=g.focusNode, fo=g.focusOffset; g.collapse(an,ao); g.extend(fn,fo); }catch(_){} };
+    // Nur nach einem ZIEHEN neu setzen (Notes run-12 b2-1, Rückschritt aus b-1): im mouseup läuft reselect vor Chromiums eigener Behandlung des Loslassens — bei
+    // einem Klick ohne Bewegung (in eine Markierung, Doppelklick, Umschalt+Klick) klappte Chromium die Markierung danach nicht mehr zusammen, Weitertippen
+    // überschrieb den markierten Text. Ohne Mausbewegung gibt es kein Nachrollen, dort bleibt alles bei Chromium.
+    // Und nur, wenn sich die Markierung seit dem Drücken geändert hat (Notes run-12 b3 H-1): ein Klick mit Zittern oder ein Ziehen über einen Knopf schrieb eine
+    // stehende, nach der Frist schon gelöschte Markierung sonst neu nach PRIMARY.
+    // Beim Drücken BEIDE Darstellungen merken (Seiten-Range und [s,e] des fokussierten und des Ziel-Feldes) und gleich mit gleich vergleichen (Pass run-13 a-1):
+    // wanderte der Fokus zwischen Drücken und Loslassen (Zitter-Klick auf einen Knopf bei markiertem Feld, in ein Feld mit verdeckter Markierung), verglich die
+    // erste Fassung Feld mit Seiten-Range → immer „geändert“ → reselect und peek ohne eigenes Ziehen (alte Markierung wieder in PRIMARY, Spiegel blieb stehen).
+    let selDrag=false, selAtDown=[[],[]];
+    const isFld=a=>!!a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&typeof a.selectionStart==='number';
+    const pgKey=()=>{ const g=window.getSelection(); return g&&g.rangeCount?[g.anchorNode,g.anchorOffset,g.focusNode,g.focusOffset]:[]; };
+    const selKeyAt=t=>{ try{ return [pgKey(),[document.activeElement,t].filter(isFld).map(a=>[a,a.selectionStart,a.selectionEnd])]; }catch(_){ return [[],[]]; } };
+    const selSame=(x,y)=>x.length===y.length&&x.every((v,i)=>v===y[i]);
+    const selMoved=()=>{ try{ const a=document.activeElement;
+        if(isFld(a)){ const o=selAtDown[1].find(x=>x[0]===a); return !o||o[1]!==a.selectionStart||o[2]!==a.selectionEnd; }
+        return !selSame(selAtDown[0],pgKey()); }catch(_){ return true; } };
+    // selAtDown nach jedem Loslassen, Ziehen-und-Ablegen und beim Sperren leeren (Notes run-12 r4-2): es hielt sonst nach der Sperre einen losgelösten Knoten samt
+    // Text bis zum nächsten Drücken fest (Klasse selFrom).
+    selReset=()=>{ selAtDown=[[],[]]; selHeld=false; selDrag=false; selLast=null; };
+    // Nach der Meldung beim Fensterwechsel/Verstecken (vor clearGateInputs) den Schnappschuss verwerfen (Notes run-13 r2a-1): er hielt sonst die Passphrase
+    // (V8-Teilstring auf den ganzen Feldwert) bis zur nächsten Mausbewegung und meldete sie danach erneut mit peek
+    selForget=()=>{ selLast=null; };
+    document.addEventListener('mousedown',ev=>{ if(ev.button===0){ selDrag=false; selHeld=true; selLast=null; selAtDown=selKeyAt(ev.target); } },true);
+    // Zahlenfeld: wie selText über getSelection() (angezeigter Text, kein selectionStart)
+    const merkLast=()=>{ try{ const a=document.activeElement; if(isFld(a)){ if(a.selectionStart!==a.selectionEnd) selLast={t:a.value.substring(a.selectionStart,a.selectionEnd),f:a}; }
+        else if(numField(a)){ const t=String(window.getSelection()); if(t) selLast={t,f:a}; }
+        else { const g=window.getSelection(); if(g&&g.rangeCount&&!g.isCollapsed) selLast={t:String(g),f:null}; } }catch(_){} };
+    // Je Mausbewegung zweimal merken: im Capture (VOR Chromiums Schritt — der Stand, den PRIMARY beim Zurückziehen bis zum Anfang behält) und gleich danach
+    // (setTimeout 0, NACH dem Schritt — beim Vergrößern legt Chromium diesen Stand nach PRIMARY; Notes run-13 a-2). NICHT bei selectionchange: das Nachrollen ohne
+    // Mausbewegung ändert die Markierung ohne PRIMARY — eine selectionchange-Fassung merkte in Notes diese Zwischenstände, [2y] zurnach wurde rot (gemessen).
+    document.addEventListener('mousemove',ev=>{ if((ev.buttons&1)&&selHeld){ merkLast(); setTimeout(()=>{ if(selHeld) merkLast(); },0); } },true);
+    // Beim ERSTEN Bewegen den Stand nach Chromiums Fokuswechsel neu merken (Pass run-13 r2a-1, Rückschritt durch a-1 allein): hatte ein Feld noch eine verdeckte
+    // Vollmarkierung [0,len] (Tab-Fokus, Strg+A, select()) und lag der Fokus anderswo, ergab erneutes Ziehen vom Anfang bis zum Ende Endstand = gemerkter Stand → kein reselect.
+    // Mausbewegung OHNE Taste bei noch gehaltenem Zustand = das mouseup ging verloren (Notes run-13 a-4): wie ein Loslassen behandeln, gemeldet OHNE peek — sonst
+    // überlebte selLast, und jeder spätere Tastendruck bei leerer Markierung meldete den alten Stand mit peek (PRIMARY-Lesen am fremden Besitzer)
+    document.addEventListener('mousemove',ev=>{ if(ev.buttons&1){ if(selHeld&&!selDrag) selAtDown=selKeyAt(document.activeElement); selDrag=true; }
+      else if(selHeld){ selHeld=false; selDrag=false; onSel(false,false); selAtDown=[[],[]]; selLast=null; } },true);
+    document.addEventListener('mouseup',ev=>{ const pk=ev.button===0&&selDrag&&selMoved(); if(pk) reselect(); if(ev.button===0){ selDrag=false; selHeld=false; } onSel(pk); if(ev.button===0){ selAtDown=[[],[]]; selLast=null; } });
     // Ziehen-und-Ablegen einer Markierung schluckt das mouseup: drückt man auf den Aegis-Schlüssel (.secret-box, user-select:all markiert schon beim Drücken
     // alles) und bewegt die Maus, startet Chromium ein Ziehen — der Schlüssel lag ungemeldet in PRIMARY (v3.11, wie Alien Pass v1.22 run-12 c-2; gemessen run-11 m311)
-    document.addEventListener('dragstart',onSel);
+    document.addEventListener('dragstart',()=>{ const m=selHeld&&selMoved(); selHeld=false; selDrag=false; onSel(m); selAtDown=[[],[]]; selLast=null; });
     // Rückgängig/Wiederholen holt in einem Eingabefeld eine überschriebene Markierung zurück, und Chromium legt sie in PRIMARY — ohne Taste, die sie meldet.
     // Lief die Frist zwischen Überschreiben und Strg+Z ab, kannte die Hülle den Hash nicht mehr: die Markierung (auch aus type=password) blieb nach Frist und
     // Sperre stehen (v3.11, Alien Pass v1.22 run-12 c-1; gemessen run-11 m311). Beim input steht die Auswahl schon. Nur das fokussierte Feld (Notes R3a-3).
@@ -2431,7 +2510,7 @@ const App = (function(){
       report(sp.v,sp.a); if(sp.v.includes('.')) report(sp.v.replace('.',','),sp.a); },true);
     document.addEventListener('mouseup',()=>{ spin=null; },true);
     // Vor jeder Taste synchron (Capture, vor der Standardaktion): Weitertippen klappt die Markierung zusammen, PRIMARY behält sie aber (Pass-Audit Runde 3)
-    document.addEventListener('keydown',onSel,true);
+    document.addEventListener('keydown',()=>onSel(),true);
   }
   async function wipeLocal(){ if(!VAULT||!(await ask(tr('confirm.wipe'),{ok:'dlg.wipe',danger:true}))) return; if(!VAULT) return; bioDrop(true); backupLate=null;try{localStorage.removeItem(BIO_ALERT_KEY);}catch(_){}
     try{ vaultDel(); }catch(_){ return toast(tr('err.wipeFailed')); }   // Desktop-Datei ließ sich nicht löschen: Tresor bleibt, nicht sperren
