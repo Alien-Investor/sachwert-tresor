@@ -3,6 +3,45 @@
 Alle nennenswerten Änderungen am Sachwert-Tresor. Neueste oben.
 Format: `## vX.Y — Datum`. Android-App und Linux-Desktop teilen sich eine Codebasis.
 
+## v3.12 — 2026-11-14
+
+Pflege-Release: eigenes App-Symbol, englisches Zahlenformat, eine deutlichere Kurs-Rückfrage und Korrekturen aus den internen Security-Audits der
+Schwester-Apps Alien Pass, Alien Notes, Alien Fitness und BTC Steuertool und aus dem eigenen internen Release-Audit, auf Android und am Desktop. Dateiformat und
+Verschlüsselung unverändert, keine neuen Berechtigungen. Handy und Desktop lesen denselben Tresor und dieselben Backups wie 3.11.
+- **App-Symbol:** Das Alien im App-Symbol ist jetzt das eigene Alien-Investor-Logo (bisher eine Form nach dem Twemoji-Emoji „Alien“).
+- **Teilen (Android):** Der Baustein für den Teilen-Dialog meldet beim App-Start keinen Empfänger mehr an, den jede andere App ansprechen konnte. Damit kann
+  keine fremde App den Tresor über diesen Weg zum Absturz bringen, und andere Apps können nicht mehr erfahren, welches Teilen-Ziel du wählst. CSV, Backup,
+  Nachlass-Anhang und 2FA-QR teilen wie bisher.
+- **Englische Zahlen:** Im englischen Modus stehen Beträge, Mengen, Kurse und die Achse des Verlaufs jetzt im englischen Format. Bisher stand dort
+  „2,524 oz“, was ein englischer Leser als 2524 Unzen liest. Die Tage im Verlauf stehen dort als 14/11/26, die Metallform heißt „Coin“, „Bar“ oder „Other“.
+- **Kurse einfügen:** Die Rückfrage zeigt je Wert den alten und den neuen Kurs mit der Änderung in Prozent, etwa „Bitcoin: 80.000,00 → 92.000,00 €/BTC
+  (+15,0 %)“. Ab 15 % Sprung warnt eine eigene Zeile, die Kurszeile vor dem Übernehmen zu prüfen.
+- **Backup aus einer neueren Version:** Ein Tresor oder Backup, dessen Buchungen Felder, Währungen oder Einheiten tragen, die diese Version noch nicht
+  kennt, wird jetzt mit „Diese Datei stammt aus einer neueren App-Version“ abgelehnt, und nichts wird übernommen. Bisher übernahm die App solche Buchungen
+  ohne Hinweis: Beim Import fielen unbekannte Felder still weg, ein Betrag in einer fremden Währung (etwa GBP) galt als Euro, eine unbekannte Einheit als Gramm.
+- **Beschädigte Datei:** Öffnet die Passphrase oder der Fingerabdruck den Schlüssel, aber der Inhalt der Datei ist beschädigt oder verändert, sagt die App
+  das jetzt so (Tresore und Backups im Format seit v3.0). Bisher meldete sie „Falsche Passphrase“ und zählte einen Fehlversuch, beim Fingerabdruck löschte
+  sie dessen Slot. Jetzt zählt kein Fehlversuch, der Slot bleibt.
+- **Fingerabdruck (Android):** Der Slot ist zusätzlich an die Argon2-Werte der Datei gebunden; bestehende Slots trägt die App beim nächsten Entsperren
+  nach (eine Härtung, im Alltag ohne Wirkung). Passte der Slot nach einem Dateitausch nicht mehr und kehrt die passende Datei zurück, gilt er nach dem
+  Entsperren mit der Passphrase sofort wieder. Bisher blieb die Karte bis zur nächsten Sperre auf „aus“.
+- **Feinheit:** Das Formular nimmt nur noch Werte über 0 bis 1000 ‰ an, wie der Import. Eine Eingabe wie 9999 statt 999,9 wurde bisher gespeichert und
+  rechnete das Feingewicht zehnfach hoch; ein Backup ließ den Wert dann still fallen. Die Liste zeigt die Feinheit im Zahlenformat der Sprache.
+- **Meldungen unten im Bild:** Liegt unter einer Meldung ein Eintrag einer offenen Auswahlliste (etwa die Auto-Sperre in den Einstellungen), wählt ein Tipp
+  auf die Meldung diesen Eintrag. Bisher fing die Meldung den Tipp ab. „Rückgängig“ bleibt antippbar, alles andere unter der Meldung bleibt geschützt.
+- **Interne Textsuche:** Die Passphrase und das Geheimnis des Fingerabdruck-Entsperrens bleiben in einigen Randfällen nicht mehr als zuletzt durchsuchter
+  Text einer internen Textsuche der JavaScript-Engine im Speicher stehen (nach dem Fingerabdruck-Entsperren, nach der Stärke-Anzeige, nach einem Fehler beim
+  Einrichten oder beim Passphrasenwechsel). Die Stärke-Anzeige wechselt jetzt mit der Sprache.
+- **Linux-Desktop, Mittelklick-Auswahl:** Weitere Fälle, in denen markierter Text nach der 30-Sekunden-Frist oder dem Sperren in der Auswahl stehen blieb,
+  sind behoben: Markieren über den Rand eines Feldes, des Handbuchs oder des Nachlass-Blatts hinaus bei ruhender Maus (Chromium rollt dann weiter),
+  Sperren bei gehaltener Maustaste, Zurückziehen der Maus bis zum Anfang und Fensterwechsel mit gehaltener Maustaste in einem Passphrase-Feld.
+- **Linux-Desktop, Handbuch und Nachlass-Blatt:** nur noch ein Scrollbalken. Bisher zeigte die Seite dahinter ihren eigenen daneben.
+- **Bauen und Veröffentlichen:** Die App wird aus einem sauberen Abbild des Versionsstands gebaut, die npm-Pakete genau nach der Sperrdatei, das App-Symbol
+  ist Pflicht. Die Prüfung der fertigen Android-App ist erweitert: jede Methode der eigenen Klassen und das Teilen-Plugin im Bytecode, dazu alle Einträge
+  der APK.
+  Das Release-Skript prüft die Signatur der Prüfsummen mit dem Schlüssel aus dem Versions-Tag und lädt nach dem Hochladen alle öffentlichen Dateien noch
+  einmal herunter, um sie mit den geprüften zu vergleichen.
+
 ## v3.11 — 2026-10-16
 
 Kurse aus dem Backup, eine Bitte an die Tastatur und Korrekturen aus den internen Security-Audits von Alien Pass, Alien Notes und des Tresors selbst,

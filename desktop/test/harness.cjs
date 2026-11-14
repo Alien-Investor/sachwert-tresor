@@ -830,15 +830,22 @@ async function markierung(){
   // ob PRIMARY es auch hat, schwankte mit dem Layout (Messung run-10 N0–N3: nein, hier meist ja) — nsel trimmt beide Seiten, die fresh-Zusätze prüfen beide Richtungen
   { await js(`App.tab('verlauf'); true`); await sleep(200);
     for(const ziel of ['text','anfang']){ await neutral(); const M='mk-vorher-7-'+process.pid; await clipboard.selection.writeText(M);
-      const p1=await atText('#tab-verlauf','Datenpunkte'), p2=await js(`(()=>{ const s=document.querySelector('#chart-wrap svg'), h=document.querySelector('#chart-wrap > p'); const b=s.getBoundingClientRect(), q=h.getBoundingClientRect();
+      // Start und Ziel müssen BEIDE im Fenster liegen: atText zentriert „Datenpunkte“, ein zweizeiliger Hinweis lag dann unter dem Fensterrand (y 857 bei 800 px,
+      // das Ziehen endete im Fußtext) — darum erst den Hinweis an den unteren Rand holen (mit Abstand) und die Punkte ohne weiteres Scrollen messen
+      await js(`(()=>{ document.querySelector('#chart-wrap > p').scrollIntoView({block:'end'}); window.scrollBy(0,60); return true; })()`); await sleep(200);
+      const p1=await js(`(()=>{ const w=document.createTreeWalker(document.querySelector('#tab-verlauf'),NodeFilter.SHOW_TEXT); let n;
+        while((n=w.nextNode())){ const i=n.data.indexOf('Datenpunkte'); if(i>=0){ const r=document.createRange(); r.setStart(n,i+1); r.setEnd(n,i+2); const b=r.getBoundingClientRect(); return {x:Math.round(b.x+b.width/2),y:Math.round(b.y+b.height/2)}; } } return null; })()`),
+        p2=await js(`(()=>{ const s=document.querySelector('#chart-wrap svg'), h=document.querySelector('#chart-wrap > p'); const b=s.getBoundingClientRect(), q=h.getBoundingClientRect();
         if(${JSON.stringify(ziel)}==='anfang'){ const w=document.createTreeWalker(h,NodeFilter.SHOW_TEXT); const n=w.nextNode(); const r=document.createRange(); r.setStart(n,0); r.setEnd(n,1); const c=r.getBoundingClientRect(); return {x:Math.round(c.left+1),y:Math.round(c.top+c.height/2)}; }
         return {x:Math.round(b.right-5),y:Math.round(q.top+q.height*0.3)}; })()`);
+      const ih=await js('innerHeight'), imBild=!!p1&&!!p2&&[p1.y,p2.y].every(y=>y>4&&y<ih-4);
       await drag(p1,p2); const s=await sel(), P=await prim(), achse=await js(`[...document.querySelectorAll('#chart-wrap svg text')].map(n=>n.textContent)`);
       const ende=await js(`(()=>{ const r=getSelection().getRangeAt(0); return r.endContainer.nodeName+'@'+r.endOffset; })()`);
-      const vorb=P!==M&&achse.every(a=>P.includes(a))&&achse.every(a=>s.includes(a))&&(ziel!=='anfang'||(ende==='P@0'&&s.endsWith('\n')));
+      const diag=await js(`(()=>{ const r=getSelection().getRangeAt(0), h=document.querySelector('#chart-wrap > p'); return {ih:innerHeight, endTxt:String(r.endContainer.textContent).slice(0,50), endPar:r.endContainer.parentElement&&r.endContainer.parentElement.className, hint:h&&h.textContent.slice(0,50), nP:document.querySelectorAll('#chart-wrap > p').length}; })()`);
+      const vorb=imBild&&P!==M&&achse.every(a=>P.includes(a))&&achse.every(a=>s.includes(a))&&(ziel!=='anfang'||(ende==='P@0'&&s.endsWith('\n')));
       await js('AlienDesktop.clip.clear()'); const weg=await leer();
       R(ziel==='text'?'Ziehen übers Diagramm bis in den Hinweis: Achsenwerte in Meldung und PRIMARY (user-select:text am Desktop), gelöscht (a2-1)'
-        :'Ziehen übers Diagramm bis GENAU an den Anfang des Hinweises (Ende P@0, Meldung mit „\\n“ am Rand): gelöscht', vorb&&weg, {ende,vorb,weg,sEnde:JSON.stringify(s.slice(-3)),pEnde:JSON.stringify(P.slice(-3))}); } }
+        :'Ziehen übers Diagramm bis GENAU an den Anfang des Hinweises (Ende P@0, Meldung mit „\\n“ am Rand): gelöscht', vorb&&weg, {ende,vorb,weg,sEnde:JSON.stringify(s.slice(-3)),pEnde:JSON.stringify(P.slice(-3)),imBild,p1,p2,diag}); } }
   // (8) Ziehen über Tabellenzeilen samt Knöpfen (U+FFFC in PRIMARY), dann echtes Strg+L: auf dem Sperrbildschirm ist PRIMARY leer
   { await js(`App.tab('list'); true`); await sleep(200); await neutral(); const M='mk-vorher-8-'+process.pid; await clipboard.selection.writeText(M);
     await drag(await atText('#list-tbl','harness-quelle'),await atText('#list-tbl',TAIL)); const P=await prim(), vorb=P!==M&&P.includes(FC)&&(P.includes('harness-quelle'.slice(1))||P.includes(TAIL.slice(2)));

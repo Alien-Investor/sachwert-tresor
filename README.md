@@ -141,7 +141,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
   (bewusst **keine Netz-Abfrage**, OpSec) → aktueller Wert & G/V ggü. netto investiert.
 - **Kurse aus Mission Control** (seit v3.9): In [Mission Control](https://api.alien-investor.org/mission-control-v2.html)
   die Karte „Sachwert-Tresor · Kurse kopieren“ antippen und die Zeile in der Übersicht ins Feld „Kurszeile aus Mission
-  Control“ einfügen. Der Tresor zeigt Abrufzeit und Werte und übernimmt erst nach „Übernehmen“. Er selbst bleibt **ohne Netz**:
+  Control“ einfügen. Der Tresor zeigt die Abrufzeit und je Wert den alten und den neuen Kurs mit der Änderung in Prozent (seit
+  v3.12, ab 15 % Sprung mit eigener Warnzeile) und übernimmt erst nach „Übernehmen“. Er selbst bleibt **ohne Netz**:
   die Kurse kommen nur über die Zwischenablage. Mission Control kopiert nur Kurse, deren Abruf höchstens 6 Minuten
   zurückliegt, und rechnet Gold und Silber mit dem angezeigten USD/EUR-Kurs in Euro um. Gold und Silber sind dort
   COMEX-Futures über Yahoo Finance (GC=F/SI=F, der jeweils aktive Kontrakt), nicht der Spotpreis. Der Tresor speichert
@@ -224,6 +225,9 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
 - **Tastatur-Bitte** (ab v3.11): Die Tastatur-App am Handy sieht alles, was du tippst. Jedes Eingabefeld der App bittet sie, daraus nichts zu
   lernen (Gboard zeigt dann sein Inkognito-Symbol). Das ist nur eine Bitte: Nicht jede Tastatur hält sich daran, und mitlesen kann sie trotzdem.
   Wer sichergehen will, nutzt eine Tastatur ohne personalisiertes Lernen oder schaltet es dort ab.
+- **Teilen ohne offenen Empfänger** (ab v3.12): Der Build ändert Capacitors Teilen-Plugin. Es meldet beim App-Start keinen Broadcast-Empfänger
+  mehr an, den jede andere App ansprechen konnte, und gibt dem Teilen-Dialog keinen Rückruf mehr mit, über den andere Apps das gewählte Teilen-Ziel
+  erfahren konnten. Die Prüfung der fertigen APK bricht ab, wenn der Empfänger im Bytecode wieder auftaucht.
 - **Rückfragen im eigenen Dialog** (ab v3.5): Löschen, mögliche Duplikate, 2FA/Fingerabdruck abschalten und
   „Lokale Daten löschen“ fragen in einem Dialog innerhalb der App nach, nicht über den Android-Systemdialog.
   Der Systemdialog erbt FLAG_SECURE nicht — ein Screenshot bei offener Rückfrage hätte den Dialogtext gezeigt,
@@ -247,7 +251,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
 - Daten liegen nur **verschlüsselt** auf dem Gerät und in der `.vault`-Backup-Datei.
   Im Klartext verlässt nichts das Gerät. **Kein Reset, kein Backdoor.**
 - Importierte `.vault`-Dateien werden **schema-validiert** (nur bekannte Felder und
-  geprüfte Typen), alle Inhalte werden beim Anzeigen HTML-escaped.
+  geprüfte Typen), alle Inhalte werden beim Anzeigen HTML-escaped. Eine Datei aus einer neueren App-Version, deren Buchungen
+  Felder, Währungen oder Einheiten tragen, die diese Version nicht kennt, lehnt die App seit v3.12 ab, statt sie gekürzt zu übernehmen.
 - Der QR-Encoder ist eigenständig (kein Fremdcode) und bit-genau gegen eine Referenz-Lib
   verifiziert. Keine externen CDNs, keine Tracker, keine Netz-Abfragen.
 - **Desktop-Fassung (Linux, seit v3.3), ehrlich eingeordnet:**
@@ -283,8 +288,8 @@ zusätzlich das **Entsperren per Fingerabdruck** einschalten (siehe [Sicherheit]
     leert aber getippte Passphrasen. Kein Fingerabdruck. Die Hülle besteht aus drei kleinen Dateien (`desktop/main.js`, `desktop/preload.js`,
     `desktop/atomic.js`) plus Electron. Muster und Härtung stammen aus Alien Pass (dort drei interne Audits); die Hülle des Tresors wird mit Tests in
     der echten Hülle geprüft, mit v3.7 kam ein internes Security-Audit der Änderungen dazu, vor v3.10 ein gezieltes internes Audit in vier
-    Runden, vor v3.11 ein internes Release-Audit der Änderungen in zwei Runden mit Nachprüfung; v3.11 übernimmt dazu Funde aus den internen Audits
-    der Schwester-Apps Alien Pass und Alien Notes.
+    Runden, vor v3.11 und vor v3.12 je ein internes Release-Audit der Änderungen in zwei Runden mit Nachprüfung; v3.11 und v3.12 übernehmen dazu
+    Funde aus den internen Audits der Schwester-Apps (Alien Pass und Alien Notes, mit v3.12 auch Alien Fitness und BTC Steuertool).
 
 ## Open Source & selbst prüfen
 
@@ -349,14 +354,6 @@ verloren geht: neu einrichten, Backup importieren, kein Code nötig.
 KYC-Käufe bekommen `kyc=ja` (landen im Finanzamt-Report), noKYC bleibt leer (nur interner
 Report). Edelmetalle sind in DE nach 1 Jahr Haltefrist steuerfrei und brauchen das Steuertool
 nicht — dafür gibt es die separate `edelmetalle.csv`.
-
-## App-Symbol
-
-Das Alien im App-Symbol basiert auf dem Emoji „Alien“ (U+1F47D) aus [Twemoji](https://github.com/twitter/twemoji),
-Copyright 2019 Twitter, Inc and other contributors, lizenziert unter [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.de).
-Übernommen sind die Umrisse von Kopf und Augen. Ergänzt sind Antennen, Farbverlauf, Kontur und Leuchteffekt, geändert sind die
-Farben, der Mund des Originals ist ersetzt oder entfällt. Die Urheber übernehmen keine Gewährleistung (Abschnitt 5 der Lizenz).
-Alle Lizenzangaben: https://alien-investor.org/lizenzen.html
 
 ---
 100 % lokal · Alien Investor Stil · keine Konto-, keine Server-Abhängigkeit.

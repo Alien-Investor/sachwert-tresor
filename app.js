@@ -7,7 +7,7 @@
    Sachwert-Tresor — alles client-side, kein Netz, kein Tracking
    ============================================================ */
 const LS_KEY = 'ai-sachwert-vault';
-const APP_VERSION = '3.11';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
+const APP_VERSION = '3.12';   // Anzeige unten in den Einstellungen; muss VERSION_NAME entsprechen (build-www.sh setzt es aus VERSION, roundtrip-test.mjs prüft es)
 const enc = new TextEncoder(), dec = new TextDecoder();
 
 /* ============================ i18n ============================
@@ -250,7 +250,7 @@ const T = {
   "rates.newer":{de:"Diese Kurszeile stammt aus einer neueren Version — bitte den Tresor aktualisieren.",en:"This price line comes from a newer version — please update the vault."},
   "rates.range":{de:"Ein Kurs liegt außerhalb des plausiblen Bereichs ({k}) — nichts übernommen.",en:"A price is outside the plausible range ({k}) — nothing applied."},
   "rates.taken":{de:"Kurse übernommen",en:"Prices applied"},
-  "rates.jump":{de:"Achtung: Großer Sprung bei {k} (ab 15 %) — Kurszeile vor dem Übernehmen prüfen.",en:"Note: large jump for {k} (15 % or more) — check the price line before applying."},
+  "rates.jump":{de:"Achtung: großer Sprung bei {k} (ab 15 %) — Kurszeile vor dem Übernehmen prüfen.",en:"Note: large jump for {k} (15 % or more) — check the price line before applying."},
   "toast.autolockPrefix":{de:"Auto-Lock: ",en:"Auto-lock: "},"toast.autolockOff":{de:"Auto-Lock aus",en:"Auto-lock off"},"unit.min":{de:"Min",en:"min"},
   "toast.passChanged":{de:"Passphrase geändert",en:"Passphrase changed"},
   "msg.importSaveFailed":{de:"Entschlüsselt, aber Speichern fehlgeschlagen — nichts übernommen. Speicher voll?",en:"Decrypted, but saving failed — nothing was imported. Storage full?"},
@@ -304,7 +304,7 @@ const T = {
   "err.wrongPass":{de:"Falsche Passphrase.",en:"Wrong passphrase."},
   "err.fileFormat":{de:"Keine gültige Tresor-Datei.",en:"Not a valid vault file."},
   "err.fileNewer":{de:"Diese Datei stammt aus einer neueren App-Version. Bitte die App aktualisieren.",en:"This file comes from a newer app version. Please update the app."},
-  "err.fileBody":{de:"Die Passphrase stimmt, aber der Inhalt der Datei ist beschädigt oder wurde verändert. Am Tresor wurde nichts verändert.",en:"The passphrase is correct, but the file content is damaged or has been altered. Nothing in the vault was changed."},
+  "err.fileBody":{de:"Der Inhalt der Datei ist beschädigt oder wurde verändert (an der Passphrase liegt es nicht). Am Tresor wurde nichts verändert.",en:"The file content is damaged or has been altered (the passphrase is not the problem). Nothing in the vault was changed."},   // auch nach Fingerabdruck — darum nicht „Die Passphrase stimmt“ (Faktencheck v3.12)
   "err.fileBounds":{de:"Die Schlüsselparameter dieser Datei liegen außerhalb der erlaubten Grenzen.",en:"The key parameters of this file are outside the permitted limits."},
   "err.fileLarge":{de:"Die Datei ist zu groß.",en:"The file is too large."},
   "err.tooMany":{de:"Zu viele Zeilen oder Buchungen (höchstens 40.000 Zeilen, 10.000 Buchungen).",en:"Too many rows or entries (at most 40,000 rows, 10,000 entries)."},
