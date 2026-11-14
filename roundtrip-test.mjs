@@ -28,7 +28,9 @@ const ITER = 600000;
   const i=st, sec=st<0?'':L.slice(st+1,en<0?undefined:en).join('\n');
   // Seit v3.12 dieselbe Regel wie make-release.sh (Querfund Alien Pass v1.23 run-13 c-3/r2c-3): OHNE Ausnahme für Links und Kästchen, dazu {…}, ???, XX,
   // vX.Y, YYYY/JJJJ, TT.MM, <Wort> (GitHub verschluckt unbekannte Tags still) und jede ``` / ~~~ (Codeblock)
-  const ph=sec.match(/\[[^\]]{0,300}\]|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|\b(?:YYYY|JJJJ)\b|\bTT\.MM\b|<[A-Za-zÄÖÜäöü][^<>\n]{0,40}>|`{3}|~{3}/)||sec.match(/\b(TODO|TBD|FIXME)\b/i);
+  // run-12 c-9: auch „<!--“ und ein „@“ außerhalb von `…` (zeilenweise wie sed in make-release.sh)
+  const ph=sec.match(/\[[^\]]{0,300}\]|\{[^}]{1,80}\}|\?\?\?|\bX{2,}\b|\bvX\.Y\b|\b(?:YYYY|JJJJ)\b|\bTT\.MM\b|<[A-Za-zÄÖÜäöü][^<>\n]{0,40}>|<!--|`{3}|~{3}/)||sec.match(/\b(TODO|TBD|FIXME)\b/i)
+    ||sec.replace(/`[^`\n]*`/g,'').match(/@/);
   if(ph) throw new Error(`Platzhalter oder Codeblock im CHANGELOG-Abschnitt v${vn}: ${ph[0]}`);
   console.log('  ✓ CHANGELOG v'+vn+(i<0?' (noch kein Abschnitt)':'')+' ohne Platzhalter und Codeblock, Kopf und Ende wie make-release.sh'); }
 

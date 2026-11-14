@@ -582,6 +582,10 @@ function newerEntry(e){
   return false;
 }
 function newerVault(v){ return !!v&&typeof v==='object'&&Array.isArray(v.entries)&&v.entries.some(newerEntry); }
+// Inhalt nach gelungenem Entschlüsseln (alle Pforten: Passphrase, Fingerabdruck, Alt-Format, Import): ein Objekt mit Liste `entries`, sonst 'body' —
+// Passphrase richtig, Inhalt passt nicht (v3.12, Release-Audit run-12 a-H1: ein Backup mit `entries` als Objekt meldete „Argon2 gescheitert — Speicher“).
+// Danach die Vorwärts-Abwehr.
+function checkVault(v){ if(!v||typeof v!=='object'||Array.isArray(v)||!Array.isArray(v.entries)) throw new Error('body'); if(newerVault(v)) throw new Error('newer'); return v; }
 /* Kurszeile aus Mission Control (seit v3.9): Kurse kommen nur per Kopieren & Einfügen in den Tresor, nie übers Netz.
    Format v1, EINZEILIG (das Feld ist ein <input>; Umbrüche werden beim Einfügen zu Leerzeichen):
      ALIEN-KURSE/1 t=2026-10-08T12:32Z btc=58123.45 gold=2312.10 silver=27.85 usdeur=0.8554
@@ -748,7 +752,7 @@ const App = (function(){
       if(!looksLegacy(o)) throw e;
       // Lesepfad Alt-Format — nie entfernen: alte .vault-Backups und nicht umgestellte Tresore hängen daran.
       const k=await deriveKey(pass, new Uint8Array(b64ToBuf(o.salt)), o.iter);
-      const lv=await decryptBlob(o, k); if(newerVault(lv)) throw new Error('newer');
+      const lv=checkVault(await decryptBlob(o, k));
       return {legacy:true, vault:lv};
     }
     const kek=await deriveKek(passBytes(pass), f.kdf);
@@ -757,7 +761,7 @@ const App = (function(){
     // Der Schlüssel ist ausgepackt = Passphrase richtig. Scheitert jetzt der Inhalt (GCM-Tag, JSON), ist die Datei verändert oder beschädigt —
     // bisher „Falsche Passphrase“ samt Fehlversuch (v3.12, Querfund Alien Notes v1.14 a-1)
     let v; try{ v=await decryptBody(f.body, dek, f.kdf); }catch(_){ throw new Error('body'); }
-    if(newerVault(v)) throw new Error('newer');
+    checkVault(v);
     return {legacy:false, vault:v, dek, kdf:f.kdf, wrap:f.wrap, dekX};
   }
   // Umstellung Alt-Format → AISV2 (einmalig, nach dem Aegis-Gate). Der alte Blob ist der einzige lesbare Ciphertext:
@@ -979,7 +983,9 @@ const App = (function(){
     // Overlays liegen als direkte body-Kinder ueber den screen-*-Containern: boot() blendet sie NICHT aus.
     // Ohne das blieb das Nachlass-Blatt (Klasse B) nach dem Sperren auf dem Schirm stehen — und weil das
     // Druck-CSS alles ausser #nachlass-overlay ausblendet, war es am gesperrten Tresor vorbei druckbar.
-    closeNachlass(); closeHelp(); dialogClose(false); hideToast();   // offene Rückfrage verfällt (Aufrufer sieht false), Toast samt „Rückgängig“ weg (v3.5)
+    closeNachlass(); closeHelp(); dlgPrev=null; dialogClose(false); hideToast();   // offene Rückfrage verfällt (Aufrufer sieht false), Toast samt „Rückgängig“ weg (v3.5)
+    // dlgPrev vorher leeren (v3.12, run-12 d-H2): dialogClose fokussierte sonst beim Sperren das Feld von vor der Rückfrage neu, Chromium stellte dessen
+    // Markierung wieder her — nach clearClip und ungemeldet
     chartState=null;                                     // aus Klartext abgeleitete Zeitreihe nicht im Heap lassen
     ['f-src-btc','f-src-metal','f-date','import-pass','totp-code','totp-verify','cp-cur','cp1','cp2',
      'nl-fassung','price-btc','price-gold','price-silver','price-paste'].forEach(i=>{const el=$(i);if(el)el.value='';});
@@ -1542,7 +1548,7 @@ const App = (function(){
                : d==='sell'?(e.noKyc?'<span class="pill nokyc">'+tr('pill.nokycHold')+'</span>':'<span class="pill kyc">'+tr('pill.kycHold')+'</span>')
                : '';
         pill='<span class="pill btc">BTC</span>';}
-      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(formLabel(e.form)):'')+(e.fineness?' · '+esc(String(e.fineness))+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
+      else{const totU=e.grams/unitFactor(e.unit);menge=sgn+fmtNum(totU,e.unit==='g'?2:4)+' '+esc(e.unit);detail=(e.count?esc(String(e.count))+'× ':'')+fmtNum(e.qty,e.unit==='g'?0:4)+' '+esc(e.unit)+(e.form?' '+esc(formLabel(e.form)):'')+(e.fineness?' · '+fmtNum(e.fineness,1)+'‰':'');pill=`<span class="pill ${e.type==='gold'?'gold':'silver'}">${e.type==='gold'?tr('pill.gold'):tr('pill.silver')}</span>`;}
       const eurCell = d==='withdraw'?'<span class="muted">–</span>'
         :fmtMoney(e.eur,entryCur(e))+((entryCur(e)!=='EUR'&&e.eurRef>0)?' <span class="muted" style="font-size:.85em;white-space:nowrap">≈ '+fmtEur(e.eurRef)+'</span>':'');
       const dupBadge = isDup?' <span class="pill dup" title="'+tr('pill.dupTitle')+'"><svg class="ic" viewBox="0 0 24 24" style="width:.85em;height:.85em"><path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4"/><path d="M12 17h.01"/></svg> '+tr('pill.dupQ')+'</span>':'';
@@ -2244,7 +2250,7 @@ const App = (function(){
       const dek=await unwrapDek(blob, key, f.kdf, false, 'bio');
       if(!blob.k) bioAddK(f.kdf, blob.w);                                   // bio-AAD hat den Kopf bestätigt (v3.12)
       let v; try{ v=await decryptBody(f.body, dek, f.kdf); }catch(_){ throw new Error('body'); }   // Slot hat ausgepackt: Datei verändert, Slot bleibt (v3.12, Notes a-1)
-      if(newerVault(v)) throw new Error('newer');
+      checkVault(v);
       if(gen!==bioGen||DEK||pendingUnlock) return;                        // zwischendurch gesperrt oder anders entsperrt
       pendingUnlock={legacy:false, vault:v, dek, kdf:f.kdf, wrap:f.wrap};
     }catch(e){
@@ -2396,7 +2402,8 @@ const App = (function(){
       if(p&&p.then) p.then(()=>{ if(!clipOwned) armClip(); },()=>{}); };
     /* --- Markierungs-Block (v3.12, Port aus Alien Notes v1.15 — dort run-12 b-1/b2-1/b2-2/b3-1/b3-2/r4-1/r4-2, run-13 a-2/a-4/r2a-1, Pass run-13 a-1/r2a-1/r2a-2/
        na-1/na-2; in der Tresor-Hülle gemessen: verify-desktop [2l]–[2z]). Abweichungen zu Notes: Zahlenfelder (kein selectionStart) zählen beim Vergleich wie die
-       Seite und werden beim Merken über getSelection() gelesen wie in selText; Strg+A meldet deskKey selbst (kein selAllUp). ---
+       Seite (getSelection() bleibt dort beim Ziehen zusammengeklappt → selMoved() falsch, kein reselect und kein peek; Text kurz, run-12 d-H1) und werden beim
+       Merken über getSelection() gelesen wie in selText; Strg+A meldet deskKey selbst (kein selAllUp). ---
        peek (Notes run-12 b3-1/b3-2): die Hülle liest PRIMARY nur bei EIGENEM Ziehen (Maustaste gehalten oder Loslassen nach einem Ziehen) — dann hat Chromium es
        gerade selbst geschrieben, das Lesen ist lokal. Läse sie bei jeder Meldung, hinge sie an einem eingefrorenen fremden Besitzer (eine von Klipper gespiegelte
        Kopie bliebe nach Frist, Sperre und Beenden stehen) und merkte eine fremde Auswahl, die zufällig Anfang/Ende der Markierung ist. Und nur, wenn diese

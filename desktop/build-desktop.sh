@@ -13,6 +13,12 @@ rm -f build/release/bundle.ok
 # sind Klartext, ohne Schlüssel (fremder Klon) geht es genauso. Ohne Git (Selbstbau aus einem Archiv) wird wie bisher im Ordner gebaut, kein Release-Build.
 # Diese Datei bleibt Klartext und sourct das verschlüsselte release-quellen.sh bewusst nicht: Liste und Prüfungen stehen hier selbst.
 REPO="$(cd .. && pwd)"
+# Ohne replace-Refs (v3.12, Release-Audit run-12 c-1, Vorlage Alien Fitness v2.11 r2a-2): ein Eintrag unter .git/refs/replace/ ließ das Abbild beim Checkout
+# einen anderen Inhalt als HEAD tragen (gemessen mit desktop/main.js). Gilt auch im inneren Lauf (exportiert); ein Ref stoppt. Ohne Git (Selbstbau): nichts zu prüfen.
+export GIT_NO_REPLACE_OBJECTS=1
+if git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1; then
+  [ -z "$(git -C "$REPO" for-each-ref --format='%(refname)' refs/replace/)" ] || { echo "FEHLER: replace-Refs im Repo (git for-each-ref refs/replace/) — erst prüfen und entfernen" >&2; exit 1; }
+fi
 # Quellen des Bundles (Pfade relativ zum Projekt; dazu ganz vendor/). Liste wortgleich `feste_quellen desktop` in release-quellen.sh — weicht sie ab, bricht
 # make-release.sh ab. Steht hier oben (Pass run-13 r2c-4): die Prüfung auf nicht versionierte Eingaben unten nimmt genau diese Liste. Zwischen DESK_SRC und
 # desk_summen nur Kommentare (Prüfhelfer schneiden genau diesen Bereich aus). Ganz vendor/ (build-www.sh kopiert es ganz).
@@ -68,6 +74,10 @@ if [ "${TRESOR_IM_ABBILD:-}" != 1 ] && git -C "$REPO" rev-parse --is-inside-work
   echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign desktop/build/release/SHA256SUMS"
   exit 0
 fi
+# Der ganze innere Lauf steht in main() (v3.12, Release-Audit run-12 c-5, wie build-apk.sh/make-release.sh): bash liest ein Skript Befehl für Befehl von der
+# Platte — node pack.mjs oder der Flathub-Builder (sieht ~/) hätten den Rest an Ort und Stelle umschreiben und die Prüfungen samt bundle.ok-Bedingung
+# überspringen können (gemessen am Nachbau). Die Funktion ist vor dem ersten Schritt vollständig gelesen. NICHT einrücken.
+main() {
 if [ "${TRESOR_IM_ABBILD:-}" = 1 ]; then   # nur im Abbild, nie im gemeinsamen Arbeitsbaum (eine von Hand gesetzte Variable gäbe sonst eine gültige bundle.ok)
   case "$(pwd -P)/" in "$(realpath -m "$HOME/.cache/sachwert-tresor-abbild")"/*) ;; *) echo "FEHLER: TRESOR_IM_ABBILD=1 nur im Abbild unter ~/.cache/sachwert-tresor-abbild/" >&2; exit 1;; esac
 fi
@@ -84,7 +94,10 @@ if [ ! -f "$ZIP" ]; then
   curl -fL --proto '=https' --tlsv1.2 -o "$ZIP.part" "https://github.com/electron/electron/releases/download/v$EL_VER/electron-v$EL_VER-linux-x64.zip"
   mv "$ZIP.part" "$ZIP"
 fi
-echo "$EL_SHA  $ZIP" | sha256sum -c --quiet - || { echo "FEHLER: Hash des Electron-Archivs weicht ab — Build abgebrochen!"; exit 1; }
+# Gehasht und entpackt wird DIESELBE private Kopie (v3.12, Release-Audit run-12 c-6): bis dahin galt der Hash dem Cache-Archiv, entpackt wurde es Minuten
+# später (nach npm ci und build-www.sh) erneut vom selben Pfad — ein Tausch dazwischen kam ungeprüft nach /app/main.
+ELTMP="$(mktemp -d)"; trap 'rm -rf "$ELTMP"' EXIT; ELZ="$ELTMP/electron.zip"; cp "$ZIP" "$ELZ"
+echo "$EL_SHA  $ELZ" | sha256sum -c --quiet - || { echo "FEHLER: Hash des Electron-Archivs weicht ab — Build abgebrochen!"; exit 1; }
 echo "Electron $EL_VER: Hash OK."
 
 # Prüfsummen der Quellen, aus denen das Bundle entsteht, VOR dem Bau (v3.12, wie Notes v1.14 run-12 c-2): make-release.sh vergleicht sie mit dem Tag — ein veraltetes oder
@@ -137,7 +150,7 @@ TAG="$VNAME"; [ "$DREV" = 1 ] || TAG="$VNAME-r$DREV"
 rm -rf build   # eigener Befehl: links von && griffe set -e nicht (Steuertool R2-1 #5)
 [ ! -e build ] || { echo "FEHLER: desktop/build ließ sich nicht entfernen" >&2; exit 1; }
 mkdir -p build/app build/electron
-unzip -q "$ZIP" -d build/electron
+unzip -q "$ELZ" -d build/electron
 rm -f build/electron/chrome-sandbox build/electron/resources/default_app.asar   # Sandbox kommt im Flatpak über zypak
 cp main.js preload.js atomic.js build/app/
 cp ../assets/icon-only.png build/app/icon.png   # Fenster-Icon (_NET_WM_ICON) für Taskleiste/Alt+Tab — Electron rendert kein SVG
@@ -166,6 +179,13 @@ WANT=$(printf '[Context]\nshared=ipc;\nsockets=wayland;fallback-x11;\ndevices=dr
 # Erst bauen, dann die Rechte am gebauten Stand prüfen, erst danach installieren — eine App mit falschen Rechten
 # soll gar nicht erst installiert werden (Audit run-7, Härtung)
 flatpak run org.flatpak.Builder --force-clean --state-dir=build/.flatpak-builder build/fp flatpak/$APP_ID.yml
+# Ab hier (Builder-Ausgabe, Rechte, Installation, Bundle, bundle.ok) nur Systemwerkzeuge (v3.12, Release-Audit run-12 c-5, wie build-apk.sh nach Gradle): der
+# PATH der Sitzung hat vom Nutzer beschreibbare Ordner vor /usr/bin — eine dort während des Baus abgelegte sha256sum/diff-Attrappe machte die Prüfungen grün.
+PATH=/usr/bin:/bin; export PATH; hash -r; unset LD_PRELOAD LD_LIBRARY_PATH
+for t in awk cat cut diff flatpak grep head mkdir sed sha256sum sort jq; do
+  case "$(type -P "$t")" in "/usr/bin/$t"|"/bin/$t") ;; *) echo "FEHLER: Werkzeug $t nicht aus /usr/bin oder /bin — nicht installiert!" >&2; exit 1 ;; esac
+  [ "$(type -t "$t")" = "$([ "$t" = jq ] && echo function || echo file)" ] || { echo "FEHLER: $t ist durch eine Funktion/einen Alias überdeckt — nicht installiert!" >&2; exit 1; }
+done
 # Ausgabe des Builders gegen die Quellen vor dem Bau (v3.12, wie Notes v1.15 / Pass v1.23 / Steuertool R2-2-2): Starter, .desktop, Icon byte-gleich, main/ = geprüftes build/electron
 for paar in "bin/sachwert-tresor:desktop/flatpak/sachwert-tresor.sh" "share/applications/$APP_ID.desktop:desktop/flatpak/$APP_ID.desktop" \
             "share/icons/hicolor/scalable/apps/$APP_ID.svg:icon.svg"; do
@@ -202,3 +222,5 @@ else
 fi
 echo "Bundle: desktop/build/release/$BUNDLE"; cat build/release/SHA256SUMS
 echo "Signieren (Nutzer): gpg --local-user 100F9E25BFAEA807DBC357D750C0D78583BFCB81 --armor --detach-sign desktop/build/release/SHA256SUMS"
+}
+main "$@"; exit
