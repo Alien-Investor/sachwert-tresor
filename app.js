@@ -202,6 +202,7 @@ const T = {
   "exp.fxSkipped":{de:"{n} USD/CHF-Buchung(en) ohne EUR-Gegenwert nicht im Export enthalten — Eintrag bearbeiten und EUR-Gegenwert ergänzen.",en:"{n} USD/CHF entries without an EUR equivalent were left out — edit the entry and add the EUR value."},
   "err.btcMissing":{de:"BTC-Menge fehlt.",en:"BTC amount is missing."},
   "err.countMissing":{de:"Stückzahl fehlt (mind. 1).",en:"Count is missing (min. 1)."},
+  "err.fineRange":{de:"Feinheit bitte größer als 0 und höchstens 1000 ‰ (z. B. 999,9) — oder leer lassen.",en:"Fineness must be above 0 and at most 1000 ‰ (e.g. 999.9) — or leave it empty."},
   "err.weightMissing":{de:"Gewicht je Stück fehlt.",en:"Weight per piece is missing."},
   "confirm.delete":{de:"Diesen Eintrag wirklich löschen?",en:"Really delete this entry?"},
   "confirm.wipe":{de:"Lokalen Tresor auf DIESEM Gerät löschen? Exportierte .vault-Dateien bleiben.",en:"Delete the local vault on THIS device? Exported .vault files remain."},
@@ -1234,7 +1235,11 @@ const App = (function(){
       if(!(qty>0)) return err('add-err',tr('err.weightMissing'));
       e.count=count; e.qty=qty; e.unit=unit;
       e.grams=toGrams(qty,unit)*count;               // Gesamt-Bruttogewicht = Stückzahl × Gewicht je Stück
-      e.form=$('f-form').value; e.fineness=parseFloat($('f-fine').value)||null;
+      // Feinheit wie beim Import (sanitizeEntry: > 0 und ≤ 1000, run-12 n-7): 9999 bzw. −999,9 wurden gespeichert und verfälschten den Bestand (×10 bzw.
+      // negativ), eine Backup-Rundreise ließ sie dann still fallen. Leer = keine Angabe.
+      const fine=$('f-fine').value.trim()===''?null:parseFloat($('f-fine').value);
+      if(fine!==null&&!(fine>0&&fine<=1000)) return err('add-err',tr('err.fineRange'));
+      e.form=$('f-form').value; e.fineness=fine;
       e.source=$('f-src-metal').value.trim();
     }
     // Dubletten-Warnung (kein hartes Blockieren — echte Doppel-DCA am selben Tag soll möglich bleiben; sich selbst beim Bearbeiten ausnehmen)
